@@ -40,7 +40,8 @@ This is the current repo state after the first 10-hour execution block began at
   violations.
 - Fixture swarm mission suite runs the mission binding path for every reviewed
   scenario-registry name, with persisted mission and agent traces replayed from
-  disk.
+  disk. Child mission-gate or artifact failures now emit a suite
+  `NARROW_CLAIM` report instead of raw stderr/stdout excerpts.
 - Deterministic swarm suite runs six scoped cases, including an expected
   `NARROW_CLAIM` canary, and verifies persisted agent traces from disk.
 - Fixed swarm scenario registry centralizes current scenario names, obstacle
@@ -79,7 +80,7 @@ Latest local gates during this block:
 
 ```text
 ./scripts/local_gate.sh
-Ran 76 tests
+Ran 78 tests
 OK
 local gate passed
 ```

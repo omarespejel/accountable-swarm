@@ -1,15 +1,20 @@
+import contextlib
+import io
 import json
+import importlib.util
 from pathlib import Path
 import subprocess
 import sys
 from tempfile import TemporaryDirectory
 from unittest import TestCase
+from unittest.mock import patch
 
 from accountable_swarm.swarm import SUPPORTED_MISSION_SCENARIOS
 from accountable_swarm.trace.models import trace_from_dict, verify_trace
 
 
 ROOT = Path(__file__).resolve().parents[1]
+MISSION_SUITE_SCRIPT = ROOT / "scripts/run_swarm_mission_suite.py"
 
 
 class SwarmMissionSuiteCliTests(TestCase):
@@ -70,3 +75,140 @@ class SwarmMissionSuiteCliTests(TestCase):
                 self.assertEqual(replay["same_cell_collision_count"], 0)
                 self.assertEqual(replay["swap_collision_count"], 0)
                 self.assertEqual(replay["obstacle_occupancy_violation_count"], 0)
+
+    def test_mission_suite_writes_narrow_report_when_child_gate_fails(self) -> None:
+        module = _load_mission_suite_module()
+        one_case = (
+            {
+                "case_id": "mission-corridor-fixture-n4-go",
+                "mode": "fixture",
+                "mission_scenario": "corridor",
+                "expected_outcome": "GO",
+                "purpose": "fixture mission binding for reviewed scenario corridor",
+            },
+        )
+        failed_result = subprocess.CompletedProcess(
+            args=[],
+            returncode=7,
+            stdout="child stdout with /tmp/private/path\n",
+            stderr="Traceback with /Users/private/path\n",
+        )
+
+        with TemporaryDirectory() as tmpdir:
+            trace_root = Path(tmpdir) / "mission-suite"
+            report_path = Path(tmpdir) / "mission_suite_report.json"
+            argv = [
+                "run_swarm_mission_suite.py",
+                "--trace-root",
+                str(trace_root),
+                "--report-out",
+                str(report_path),
+            ]
+            with (
+                patch.object(module, "DEFAULT_CASES", one_case),
+                patch.object(module.subprocess, "run", return_value=failed_result),
+                patch.object(sys, "argv", argv),
+                contextlib.redirect_stdout(io.StringIO()),
+            ):
+                returncode = module.main()
+
+            self.assertEqual(returncode, 4)
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+            self.assertEqual(report["outcome"], "NARROW_CLAIM")
+            self.assertFalse(report["pass_conditions"]["all_mission_gate_commands_succeeded"])
+            case = report["cases"][0]
+            self.assertEqual(case["actual_outcome"], "NARROW_CLAIM")
+            self.assertEqual(case["error_type"], "mission_gate_failed")
+            self.assertEqual(case["error_message"], "child mission gate command failed")
+            self.assertNotIn("stdout_excerpt", case)
+            self.assertNotIn("stderr_excerpt", case)
+            self.assertNotIn("/Users/private/path", json.dumps(report, sort_keys=True))
+            self.assertFalse(case["pass_conditions"]["mission_gate_command_succeeded"])
+            self.assertFalse(case["pass_conditions"]["mission_trace_replay_deterministic"])
+
+    def test_mission_suite_writes_narrow_report_when_trace_artifact_is_invalid(self) -> None:
+        module = _load_mission_suite_module()
+        one_case = (
+            {
+                "case_id": "mission-corridor-fixture-n4-go",
+                "mode": "fixture",
+                "mission_scenario": "corridor",
+                "expected_outcome": "GO",
+                "purpose": "fixture mission binding for reviewed scenario corridor",
+            },
+        )
+
+        def fake_run(args, **kwargs):
+            report_path = Path(args[args.index("--report-out") + 1])
+            report_path.parent.mkdir(parents=True, exist_ok=True)
+            report_path.write_text(
+                json.dumps(
+                    {
+                        "outcome": "GO",
+                        "mission": {
+                            "mission_id": "corridor-n4",
+                            "scenario": "corridor",
+                        },
+                        "mission_trace_summary_sha": "0" * 64,
+                        "trace_summary_shas": {"sim-agent-0": "1" * 64},
+                        "pass_conditions": {
+                            "mission_json_validated": True,
+                            "mission_trace_replay_deterministic": True,
+                            "agent_traces_replay_deterministic": True,
+                            "sim_report_go": True,
+                            "agent_trace_replay_counts_zero": True,
+                        },
+                        "sim_report": {
+                            "outcome": "GO",
+                            "replay": {
+                                "same_cell_collision_count": 0,
+                                "swap_collision_count": 0,
+                                "obstacle_occupancy_violation_count": 0,
+                            },
+                        },
+                    },
+                    sort_keys=True,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout="", stderr="")
+
+        with TemporaryDirectory() as tmpdir:
+            trace_root = Path(tmpdir) / "mission-suite"
+            report_path = Path(tmpdir) / "mission_suite_report.json"
+            argv = [
+                "run_swarm_mission_suite.py",
+                "--trace-root",
+                str(trace_root),
+                "--report-out",
+                str(report_path),
+            ]
+            with (
+                patch.object(module, "DEFAULT_CASES", one_case),
+                patch.object(module.subprocess, "run", side_effect=fake_run),
+                patch.object(sys, "argv", argv),
+                contextlib.redirect_stdout(io.StringIO()),
+            ):
+                returncode = module.main()
+
+            self.assertEqual(returncode, 4)
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+            self.assertEqual(report["outcome"], "NARROW_CLAIM")
+            self.assertFalse(report["pass_conditions"]["all_mission_traces_replay_deterministic"])
+            case = report["cases"][0]
+            self.assertEqual(case["error_type"], "case_artifact_invalid")
+            self.assertEqual(case["error_message"], "child mission gate artifact could not be verified")
+            self.assertEqual(case["error_class"], "FileNotFoundError")
+            self.assertNotIn("stdout_excerpt", case)
+            self.assertNotIn("stderr_excerpt", case)
+            self.assertFalse(case["pass_conditions"]["mission_trace_replay_deterministic"])
+
+
+def _load_mission_suite_module():
+    spec = importlib.util.spec_from_file_location("mission_suite_for_test", MISSION_SUITE_SCRIPT)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("could not load mission suite script")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
