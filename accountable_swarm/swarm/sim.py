@@ -226,12 +226,15 @@ def run_swarm_sim(
     grid_width: int = 7,
     grid_height: int = 5,
     scenario: str = "corridor",
+    planner_max_expansions: int = RESERVATION_PLANNER_MAX_EXPANSIONS,
     run_id: str | None = None,
 ) -> SwarmSimulationResult:
     """Run the deterministic simulated swarm."""
 
     if ticks <= 0:
         raise ValueError("ticks must be positive")
+    if planner_max_expansions < 0:
+        raise ValueError("planner_max_expansions must be non-negative")
     if scenario not in SUPPORTED_SCENARIOS:
         raise ValueError(f"scenario must be one of: {', '.join(SUPPORTED_SCENARIOS)}")
     obstacles = _default_obstacles(scenario, grid_width=grid_width, grid_height=grid_height)
@@ -248,6 +251,8 @@ def run_swarm_sim(
             grid_width=grid_width,
             grid_height=grid_height,
             obstacles=obstacles,
+            use_reservation_planner=scenario == "center-block",
+            reservation_planner_max_expansions=planner_max_expansions,
         )
         positions = {step.agent_id: step.accepted for step in steps}
         same_cell, swap = _collision_counts(before, positions)
@@ -369,8 +374,10 @@ def _choose_tick_steps(
     grid_width: int,
     grid_height: int,
     obstacles: frozenset[GridPoint],
+    use_reservation_planner: bool = False,
+    reservation_planner_max_expansions: int = RESERVATION_PLANNER_MAX_EXPANSIONS,
 ) -> list[AgentStep]:
-    if len(configs) == 4 and obstacles:
+    if use_reservation_planner and len(configs) == 4 and obstacles:
         planned_steps = _choose_reservation_planned_steps(
             tick=tick,
             configs=configs,
@@ -378,6 +385,7 @@ def _choose_tick_steps(
             grid_width=grid_width,
             grid_height=grid_height,
             obstacles=obstacles,
+            max_expansions=reservation_planner_max_expansions,
         )
         if planned_steps is not None:
             return planned_steps
@@ -433,6 +441,7 @@ def _choose_reservation_planned_steps(
     grid_width: int,
     grid_height: int,
     obstacles: frozenset[GridPoint],
+    max_expansions: int,
 ) -> list[AgentStep] | None:
     sorted_configs = tuple(sorted(configs, key=lambda item: item.agent_id))
     start_state = tuple(positions[config.agent_id] for config in sorted_configs)
@@ -445,6 +454,7 @@ def _choose_reservation_planned_steps(
         grid_height=grid_height,
         obstacles=obstacles,
         max_depth=RESERVATION_PLANNER_MAX_DEPTH,
+        max_expansions=max_expansions,
     )
     if planned_path is None or len(planned_path) < 2:
         return None
@@ -482,6 +492,7 @@ def _bounded_joint_path(
     grid_height: int,
     obstacles: frozenset[GridPoint],
     max_depth: int,
+    max_expansions: int,
 ) -> tuple[tuple[GridPoint, ...], ...] | None:
     """Find a bounded joint path with same-cell, swap, and obstacle reservations."""
 
@@ -500,7 +511,7 @@ def _bounded_joint_path(
         if depth != best_depth[state]:
             continue
         expansions += 1
-        if expansions > RESERVATION_PLANNER_MAX_EXPANSIONS:
+        if expansions > max_expansions:
             return None
         if state == goal_state:
             return _reconstruct_joint_path(parent, state)
