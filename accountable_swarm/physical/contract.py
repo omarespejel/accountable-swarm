@@ -7,6 +7,7 @@ device-specific commands.
 
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any
 
@@ -53,5 +54,6 @@ class TraceOnlyActionSink:
     def apply(self, action: PhysicalAction) -> PhysicalAction:
         if action.action_type != "hold":
             self.safety.assert_safe_for_motion()
-        self.actions.append(action)
-        return action
+        recorded = PhysicalAction(action_type=action.action_type, payload=deepcopy(action.payload))
+        self.actions.append(recorded)
+        return recorded
