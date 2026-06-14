@@ -22,10 +22,23 @@ This repo is configured for PR review by CodeRabbit and Qodo:
 - CodeRabbit: `.coderabbit.yaml`
 - Qodo: `.pr_agent.toml`
 - Repo review rules: `AGENTS.md`
+- Fresh-agent entrypoint: `.codex/START_HERE.md`
+- Research operating model: `.codex/research/operating_model.yml`
 - Bot triage policy: `docs/engineering/review-bot-policy.md`
 
 The GitHub apps still need to be installed/enabled in their dashboards for the
 repository. Repo-side config alone does not grant either bot access.
+
+## Research Lab Setup
+
+Start every non-trivial task from:
+
+```bash
+./scripts/local_gate.sh
+```
+
+Use GitHub issues as hypotheses with explicit GO/NO-GO gates. Public claims need
+checked artifacts, exact commands, and explicit non-claims before promotion.
 
 ## Current Build Gate
 

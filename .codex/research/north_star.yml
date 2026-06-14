@@ -1,0 +1,60 @@
+schema_version: 1
+program_id: accountable_swarm_edgeagent_lab
+last_reviewed: "2026-06-14"
+
+north_star: "Accountable edge-cloud robotics with replayable DecisionTrace evidence."
+
+primary_thesis: >
+  A useful EdgeAgent robotics demo can keep real-time action local and
+  deterministic while using Qwen Cloud for low-rate mission reasoning and
+  keyframe semantic perception. The differentiator is not raw autonomy scale;
+  it is an auditable loop where sensor evidence, model output, local policy,
+  and action choice are captured in a deterministic, replayable DecisionTrace.
+
+target_narrative:
+  - "Start with accountable traces before swarm scale."
+  - "Keep Qwen outside hard real-time motion control."
+  - "Use Qwen for semantic/keyframe evidence, not hidden actuator authority."
+  - "Promote only results with checked artifacts, exact commands, and non-claims."
+  - "Treat physical-device paths as safety-sensitive from the first commit."
+
+forbidden_claims:
+  - "Qwen runs onboard."
+  - "Qwen is in the real-time control loop."
+  - "The system performs validated 3D grounding."
+  - "The system is safe."
+  - "SO-101 runs an ACT policy."
+  - "Any physical-device task succeeds."
+  - "Any swarm size succeeds."
+  - "Any latency or reliability number."
+  - "Alibaba Cloud deployment is complete."
+  - "DimOS integration is complete."
+  - "This is state of the art."
+  - "This is a competition-winning robotics system."
+
+promotion_requirements:
+  public_claim:
+    - "checked artifact paths"
+    - "machine-readable trace or evidence where applicable"
+    - "exact reproduction commands"
+    - "negative-path tests for trusted-core behavior"
+    - "explicit non-claims"
+    - "disclosure ledger entry for copied code, model usage, and generated assets"
+  physical_demo_claim:
+    - "operator arming path"
+    - "emergency stop path"
+    - "workspace bounds"
+    - "low-speed default"
+    - "trace artifact from the run"
+    - "human-reviewed safety note"
+  qwen_claim:
+    - "model ID"
+    - "prompt or prompt template"
+    - "raw or redacted response fixture"
+    - "parser validation"
+    - "coordinate-frame boundary"
+    - "fallback behavior when API is unavailable"
+
+default_question_for_agents: >
+  Does this work strengthen, falsify, narrow, or harden the accountable
+  edge-cloud robotics thesis?

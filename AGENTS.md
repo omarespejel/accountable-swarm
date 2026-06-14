@@ -15,6 +15,8 @@ a replayable, deterministic DecisionTrace.
 
 ## Boundaries
 
+- Fresh agents must read `.codex/START_HERE.md` before relying on memory or old
+  thread context.
 - Keep Qwen, LLMs, and VLMs out of real-time control loops.
 - Qwen may produce mission intent, semantic labels, and keyframe bbox evidence.
 - Local controllers, safety guards, fallback behavior, and collision checks must
@@ -97,3 +99,12 @@ Run this before opening a PR and before merging:
 ```
 
 Add targeted tests for the surface touched by the PR.
+
+## Handoff Discipline
+
+- `.codex/research/north_star.yml` is the thesis and forbidden-claims source of
+  truth.
+- `.codex/research/operating_model.yml` is the workflow source of truth.
+- `.codex/HANDOFF.md` records active evidence, blockers, and open work.
+- Failed experiments must land as `NO_GO`, `NARROW_CLAIM`,
+  `FOLLOWUP_ISSUE`, or `KILL`; do not rewrite them as vague progress.
