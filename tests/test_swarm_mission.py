@@ -22,6 +22,7 @@ class SwarmMissionTests(TestCase):
         self.assertEqual(spec.scenario, "center-block")
         self.assertEqual(spec.agent_count, 4)
         self.assertEqual(spec.ticks, 16)
+        self.assertEqual(trace.events[0].perception.event_id, "swarm-mission-center-block-n4")
         self.assertEqual(len(verify_trace(trace)), 64)
 
     def test_mission_trace_rejects_unsupported_mode(self) -> None:
