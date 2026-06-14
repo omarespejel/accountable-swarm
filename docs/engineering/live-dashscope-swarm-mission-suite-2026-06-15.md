@@ -4,14 +4,14 @@ Issue: #37
 
 ## Thesis
 
-The low-rate live DashScope mission path can run across every reviewed swarm
-scenario while local deterministic code keeps scenario selection, mission id,
-agent count, tick budget, planning, and collision checks bounded.
+The low-rate live DashScope mission path can run across the then-reviewed swarm
+scenario registry while local deterministic code keeps scenario selection,
+mission id, agent count, tick budget, planning, and collision checks bounded.
 
 ## Scope
 
 This is a live model evidence gate for `qwen-plus` mission intent across the
-current reviewed scenario registry:
+scenario registry reviewed at the time this evidence was recorded:
 
 - `corridor`
 - `center-block`
@@ -20,6 +20,9 @@ current reviewed scenario registry:
 
 For each case Qwen returns only an `objective` string. Local code binds the
 reviewed scenario and runs the deterministic integer-grid simulator.
+
+The current registry also includes `double-chicane`; rerun this live suite
+before making a five-scenario live-Qwen claim.
 
 ## Commands
 
@@ -64,7 +67,7 @@ wrote runs/swarm/live_mission_suite_verify_report.json
 
 ## Pass Conditions
 
-- every reviewed scenario was covered;
+- every then-reviewed scenario was covered;
 - every child live mission-gate command exited successfully;
 - every child mission-gate report was `GO`;
 - every persisted mission trace replayed to the recorded summary SHA;

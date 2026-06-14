@@ -153,6 +153,29 @@ four agents reaching goals, zero same-cell collisions, zero swap collisions,
 zero obstacle occupancy violations, and matching zero counts in the
 trace-derived replay section.
 
+Deterministic N=4 double-chicane obstacle gate:
+
+```bash
+python3 scripts/run_swarm_sim.py \
+  --agents 4 \
+  --ticks 17 \
+  --scenario double-chicane \
+  --trace-dir runs/swarm/double-chicane-n4 \
+  --report-out runs/swarm/double_chicane_n4_report.json
+python3 scripts/run_swarm_sim.py \
+  --agents 4 \
+  --ticks 16 \
+  --scenario double-chicane \
+  --trace-dir runs/swarm/double-chicane-n4-short \
+  --report-out runs/swarm/double_chicane_n4_short_report.json
+```
+
+The 17-tick report must show `outcome GO`, obstacles at `(2, 1)`, `(3, 1)`,
+`(4, 2)`, `(3, 3)`, and `(2, 3)`, all four agents reaching goals, zero
+same-cell collisions, zero swap collisions, zero obstacle occupancy violations,
+and matching zero counts in the trace-derived replay section. The 16-tick
+report must remain `NARROW_CLAIM`, documenting the scenario boundary.
+
 Low-rate fixture mission gate:
 
 ```bash
@@ -280,7 +303,9 @@ python3 scripts/build_swarm_demo_bundle.py
 This report must show bundle `outcome GO`, all reviewed deterministic scenarios
 included, every child simulation report `GO`, every child render summary `GO`,
 zero trace-derived replay violations, relative artifact paths, and deterministic
-index HTML.
+index HTML. The default bundle tick budget is the maximum reviewed scenario
+default, currently 17 because `double-chicane` needs one more tick than the
+other reviewed N=4 obstacle scenarios.
 
 Serving the deterministic swarm demo bundle locally:
 

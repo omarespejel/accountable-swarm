@@ -16,10 +16,13 @@ The bundle covers the reviewed deterministic scenario registry:
 - `center-block`
 - `vertical-slalom`
 - `horizontal-slalom`
+- `double-chicane`
 
-It runs four local integer-grid agents for 16 ticks per scenario, persists
+It runs four local integer-grid agents for 17 ticks per scenario, persists
 agent `DecisionTrace` files, renders each scenario from those persisted traces,
-and writes an index page plus canonical JSON summary.
+and writes an index page plus canonical JSON summary. The default is 17 because
+`double-chicane` needs one more tick than the earlier reviewed obstacle
+scenarios.
 
 ## Command
 
@@ -31,8 +34,8 @@ python3 scripts/build_swarm_demo_bundle.py
 
 ```text
 outcome GO
-scenario_count 4
-index_sha256 8ed23bca34358627a9948b49d265c28cd7433997e39578c62b911e5ee333f688
+scenario_count 5
+index_sha256 b929f77827e69b9100e9883f78e7b882e7b161d67350a31a129d452f99c63368
 wrote runs/demo/swarm/index.html
 wrote runs/demo/swarm/summary.json
 ```
@@ -55,10 +58,11 @@ PY
 ```
 
 ```text
-corridor GO 69321792e399a9313e7062655b93c408ee9ea8d379f3810149f3ce291f79ad35
-center-block GO 0a6b66dca4e478628b9c91880b40f1b0097391c534c3d7407736ff7c67815f66
-vertical-slalom GO 83d6fd2c622a61f6fd65b23c9a70375321ffb856a55c6b76190c5149dd11e04b
-horizontal-slalom GO 20587a02144999f625062b2fc8f359aacf6cfc288aff63fbacf7f06ea72e01a6
+corridor GO b254699d286bf0edf94c2f522f88c2a30fb242b82e31077b800f2d27e8206bd4
+center-block GO 737be22729f58b9d2ec9a5ba82398b20b1859f1f184e5a7bea06d9933129af90
+vertical-slalom GO ad881d0b9f0771c0798aa5e7a4f9004c53b7d8fb71d684a08cae8a6b8783ab6f
+horizontal-slalom GO 88d2393344cdf159acd18a9588dd779b7a914370e35b9b3b610e901e6e661639
+double-chicane GO 06840a1c1c031147d86b9d2c35cf2220425dc905a8fcbeecc845377299098145
 ```
 
 Every scenario report returned `GO` with zero same-cell, swap, and

@@ -15,13 +15,19 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from accountable_swarm.swarm import build_agent_traces, replay_swarm_traces, run_swarm_sim, scenario_names
+from accountable_swarm.swarm import (
+    build_agent_traces,
+    replay_swarm_traces,
+    run_swarm_sim,
+    scenario_default_ticks,
+    scenario_names,
+)
 from accountable_swarm.trace.models import canonical_json, verify_trace
 
 
 BUNDLE_SCHEMA_VERSION = "swarm-demo-bundle-report.v1"
 DEFAULT_AGENT_COUNT = 4
-DEFAULT_TICKS = 16
+DEFAULT_TICKS = max(scenario_default_ticks(scenario) for scenario in scenario_names())
 DEFAULT_OUT_DIR = Path("runs/demo/swarm")
 RENDER_TIMEOUT_SECONDS = 60
 

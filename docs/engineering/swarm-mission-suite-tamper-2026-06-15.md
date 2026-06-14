@@ -29,11 +29,12 @@ Result:
 
 ```text
 outcome GO
-case_count 4
+case_count 5
 case mission-corridor-fixture-n4-go actual GO verified True
 case mission-center-block-fixture-n4-go actual GO verified True
 case mission-vertical-slalom-fixture-n4-go actual GO verified True
 case mission-horizontal-slalom-fixture-n4-go actual GO verified True
+case mission-double-chicane-fixture-n4-go actual GO verified True
 ```
 
 ## Tamper Verification
@@ -63,11 +64,12 @@ Result:
 
 ```text
 outcome NARROW_CLAIM
-case_count 4
+case_count 5
 case mission-corridor-fixture-n4-go actual GO verified False
 case mission-center-block-fixture-n4-go actual GO verified True
 case mission-vertical-slalom-fixture-n4-go actual GO verified True
 case mission-horizontal-slalom-fixture-n4-go actual GO verified True
+case mission-double-chicane-fixture-n4-go actual GO verified True
 ```
 
 The failed case reports:
