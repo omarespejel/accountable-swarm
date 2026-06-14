@@ -180,6 +180,26 @@ This report must show scenario `horizontal-slalom`, mission trace replay,
 simulator `GO`, obstacles at `(2, 2)` and `(4, 2)`, and zero same-cell, swap,
 and obstacle-occupancy counts in the agent trace-derived replay section.
 
+Live DashScope mission gate:
+
+```bash
+set -a; . ./.env; set +a
+python3 scripts/run_swarm_mission_gate.py \
+  --mode dashscope \
+  --model qwen-plus \
+  --mission-scenario center-block \
+  --trace-dir runs/swarm/live-mission-center-block \
+  --report-out runs/swarm/live_mission_center_block_report.json
+python3 scripts/verify_trace.py runs/swarm/live-mission-center-block/mission.json
+python3 scripts/verify_trace.py runs/swarm/live-mission-center-block/agents/sim-agent-0.json
+```
+
+This report must show mode `dashscope`, model `qwen-plus`, scenario
+`center-block`, simulator `GO`, deterministic mission trace replay, and zero
+same-cell, swap, and obstacle-occupancy counts in the agent trace-derived
+replay section. This keeps all scenario selection, control parameters, and
+motion authority local.
+
 Fixture mission suite:
 
 ```bash
@@ -231,7 +251,8 @@ integer-grid scenarios emit replayable traces with zero reported same-cell,
 swap, and, where applicable, obstacle-occupancy violations. These gates do not
 prove live Qwen behavior, SO-101 operation, physical safety, physics-backed
 swarm behavior, Alibaba deployment, latency, reliability, live Qwen mission
-assignment, or a general-purpose multi-agent planner.
+assignment beyond the scoped checked evidence, or a general-purpose
+multi-agent planner.
 
 Any public-facing claim needs a `Public claim` issue and the promotion gate in
 `.codex/research/north_star.yml`.

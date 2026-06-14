@@ -1,6 +1,8 @@
 import json
+import os
 from threading import Thread
 from unittest import TestCase
+from unittest.mock import patch
 from urllib import request
 from urllib.error import HTTPError
 
@@ -24,7 +26,7 @@ class ServerTests(TestCase):
             self.assertEqual(len(fixture["trace_summary_sha"]), 64)
 
     def test_qwen_ping_without_key_returns_503(self) -> None:
-        with _test_server() as base_url:
+        with patch.dict(os.environ, {"ALIBABA_API_KEY": ""}), _test_server() as base_url:
             with self.assertRaises(HTTPError) as ctx:
                 _get_json(f"{base_url}/qwen-ping?model=qwen-plus")
             self.assertEqual(ctx.exception.code, 503)

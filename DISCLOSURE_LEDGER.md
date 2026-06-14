@@ -23,6 +23,7 @@ data sources, and external assets from day one.
 | 2026-06-15 | Registry-bound swarm mission scenario selection | Authored for `accountable-swarm` | Apache-2.0 | Fixture/DashScope mission prompt selection from reviewed scenario names | No live Qwen mission claim without separate DashScope evidence; no arbitrary-map or hardware claim. |
 | 2026-06-15 | Fixture swarm mission suite | Authored for `accountable-swarm` | Apache-2.0 | Multi-scenario fixture mission regression through the reviewed scenario registry | Runs local fixture mission gates only; no live Qwen, hardware, physics, latency, reliability, or arbitrary-map claim. |
 | 2026-06-15 | Swarm mission-suite tamper verifier | Authored for `accountable-swarm` | Apache-2.0 | Local verification of persisted mission-suite trace artifacts and negative tamper gate | No cryptographic authenticity claim beyond local hash-chain verification; no hardware, cloud, latency, or reliability claim. |
+| 2026-06-15 | Live DashScope swarm mission assignment | Alibaba Cloud Model Studio / DashScope `qwen-plus` | Service terms apply | Low-rate live mission-intent evidence for reviewed `center-block` deterministic swarm scenario | API key loaded from local environment only; no key committed; no Qwen real-time control, hardware, physics, latency, reliability, arbitrary-map, or ECS deployment claim. |
 
 ## Pending Before Demo
 

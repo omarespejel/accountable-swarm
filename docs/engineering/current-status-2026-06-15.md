@@ -38,6 +38,10 @@ This is the current repo state after the first 10-hour execution block began at
   emits a mission `DecisionTrace`, then runs deterministic N=4 center-block and
   horizontal-slalom swarm gates with zero same-cell, swap, or obstacle occupancy
   violations.
+- Live `qwen-plus` DashScope mission assignment validates an intent-only
+  objective for the reviewed `center-block` scenario, emits a mission
+  `DecisionTrace`, then runs the deterministic N=4 center-block swarm gate with
+  zero same-cell, swap, or obstacle occupancy violations.
 - Fixture swarm mission suite runs the mission binding path for every reviewed
   scenario-registry name, with persisted mission and agent traces replayed from
   disk. Child mission-gate or artifact failures now emit a suite
@@ -63,8 +67,9 @@ This is the current repo state after the first 10-hour execution block began at
 - The reservation planner result is scoped to the listed fixed integer-grid
   scenarios; it is not evidence for arbitrary maps, larger swarms,
   physics-backed behavior, latency, or reliability.
-- The mission assignment gate is fixture-mode GO only. It is not a live Qwen
-  mission-assignment claim unless `--mode dashscope` is separately recorded.
+- The live mission assignment gate is scoped to `qwen-plus` and the reviewed
+  `center-block` scenario. It is not an arbitrary mission, arbitrary-map, or
+  real-time-control claim.
 - The tamper gate is local hash-chain verification only. It is not a
   cryptographic authenticity, remote attestation, or compromised-filesystem
   claim.
@@ -263,6 +268,27 @@ case mission-horizontal-slalom-fixture-n4-go actual GO verified True
 failed_trace_kinds agent:sim-agent-0
 ```
 
+Live DashScope mission gate:
+
+```text
+python3 scripts/qwen_model_ping.py --models qwen-plus
+qwen-plus: OK
+
+python3 scripts/run_swarm_mission_gate.py --mode dashscope --model qwen-plus --mission-scenario center-block --trace-dir runs/swarm/live-mission-center-block --report-out runs/swarm/live_mission_center_block_report.json
+outcome GO
+mode dashscope
+scenario center-block
+agent_count 4
+mission_trace_summary_sha 5fb552f8dd758c71085cc1a1dfcc9db6f62ab35d39551d97211e306a600ebdb1
+sim_report_outcome GO
+same_cell_collision_count 0
+swap_collision_count 0
+obstacle_occupancy_violation_count 0
+
+python3 scripts/verify_trace.py runs/swarm/live-mission-center-block/mission.json
+summary_sha 5fb552f8dd758c71085cc1a1dfcc9db6f62ab35d39551d97211e306a600ebdb1
+```
+
 Deterministic swarm suite:
 
 ```text
@@ -280,8 +306,8 @@ case n4-center-block-short-narrow expected NARROW_CLAIM actual NARROW_CLAIM
 ## Next Work
 
 1. Run the ECS manual deployment path on Alibaba Cloud and record proof.
-2. Continue swarm-first work before physical hardware: either live DashScope
-   mission assignment or richer simulated scenario fixtures.
+2. Continue swarm-first work before physical hardware with richer simulated
+   scenario fixtures, suite-level live mission coverage, or visualization.
 3. Keep SO-101 and physical-node work pending until the simulated-swarm GO/NO-GO
    gates are stronger.
 4. Convert webcam evidence into a redacted/fixture-safe artifact only if it is
@@ -296,6 +322,7 @@ Do not claim:
 - physical safety;
 - latency or reliability;
 - physics-backed or physical swarm behavior;
-- live Qwen mission assignment;
+- live Qwen mission assignment beyond the scoped `qwen-plus` / `center-block`
+  evidence;
 - Alibaba ECS deployment complete;
 - Qwen onboard execution.
