@@ -50,6 +50,14 @@ DEFAULT_CASES = (
         "purpose": "four-agent two-obstacle vertical slalom success case",
     },
     {
+        "case_id": "n4-horizontal-slalom-go",
+        "agent_count": 4,
+        "ticks": 16,
+        "scenario": "horizontal-slalom",
+        "expected_outcome": "GO",
+        "purpose": "four-agent two-obstacle horizontal slalom success case",
+    },
+    {
         "case_id": "n4-center-block-short-narrow",
         "agent_count": 4,
         "ticks": 2,

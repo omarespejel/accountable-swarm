@@ -26,6 +26,8 @@ RESERVATION_PLANNER_MAX_DEPTH = 16
 RESERVATION_PLANNER_MAX_EXPANSIONS = 5_000
 VERTICAL_SLALOM_GRID_WIDTH = 7
 VERTICAL_SLALOM_GRID_HEIGHT = 5
+HORIZONTAL_SLALOM_GRID_WIDTH = 7
+HORIZONTAL_SLALOM_GRID_HEIGHT = 5
 SCENARIO_OBSTACLE_NONE = "none"
 SCENARIO_OBSTACLE_CENTER = "center"
 SCENARIO_OBSTACLE_FIXED = "fixed"
@@ -56,6 +58,7 @@ class GridPoint:
 
 
 VERTICAL_SLALOM_OBSTACLES = (GridPoint(3, 1), GridPoint(3, 3))
+HORIZONTAL_SLALOM_OBSTACLES = (GridPoint(2, 2), GridPoint(4, 2))
 
 
 @dataclass(frozen=True)
@@ -103,6 +106,13 @@ SCENARIO_REGISTRY = {
         use_reservation_planner=True,
         fixed_grid=(VERTICAL_SLALOM_GRID_WIDTH, VERTICAL_SLALOM_GRID_HEIGHT),
         fixed_obstacles=VERTICAL_SLALOM_OBSTACLES,
+    ),
+    "horizontal-slalom": ScenarioSpec(
+        name="horizontal-slalom",
+        obstacle_policy=SCENARIO_OBSTACLE_FIXED,
+        use_reservation_planner=True,
+        fixed_grid=(HORIZONTAL_SLALOM_GRID_WIDTH, HORIZONTAL_SLALOM_GRID_HEIGHT),
+        fixed_obstacles=HORIZONTAL_SLALOM_OBSTACLES,
     ),
 }
 SUPPORTED_SCENARIOS = tuple(SCENARIO_REGISTRY)

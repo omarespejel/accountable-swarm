@@ -14,19 +14,29 @@ from accountable_swarm.swarm.sim import AgentConfig, _choose_tick_steps
 
 class SwarmSimTests(TestCase):
     def test_scenario_registry_centralizes_current_layouts(self) -> None:
-        self.assertEqual(scenario_names(), ("corridor", "center-block", "vertical-slalom"))
+        self.assertEqual(scenario_names(), ("corridor", "center-block", "vertical-slalom", "horizontal-slalom"))
         self.assertFalse(scenario_spec("corridor").use_reservation_planner)
         self.assertTrue(scenario_spec("center-block").use_reservation_planner)
         self.assertTrue(scenario_spec("vertical-slalom").use_reservation_planner)
+        self.assertTrue(scenario_spec("horizontal-slalom").use_reservation_planner)
         self.assertEqual(scenario_spec("vertical-slalom").fixed_grid, (7, 5))
+        self.assertEqual(scenario_spec("horizontal-slalom").fixed_grid, (7, 5))
         self.assertEqual(
             tuple((point.x, point.y) for point in scenario_spec("vertical-slalom").fixed_obstacles),
             ((3, 1), (3, 3)),
+        )
+        self.assertEqual(
+            tuple((point.x, point.y) for point in scenario_spec("horizontal-slalom").fixed_obstacles),
+            ((2, 2), (4, 2)),
         )
         self.assertEqual(scenario_spec("corridor").obstacles(grid_width=7, grid_height=5), frozenset())
         self.assertEqual(
             scenario_spec("center-block").obstacles(grid_width=7, grid_height=5),
             frozenset({GridPoint(3, 2)}),
+        )
+        self.assertEqual(
+            scenario_spec("horizontal-slalom").obstacles(grid_width=7, grid_height=5),
+            frozenset({GridPoint(2, 2), GridPoint(4, 2)}),
         )
 
     def test_n2_corridor_reaches_goals_without_collisions(self) -> None:
@@ -145,6 +155,25 @@ class SwarmSimTests(TestCase):
         self.assertEqual(replay.obstacle_occupancy_violation_count, 0)
         self.assertEqual(report["final_positions"], replay.to_dict()["final_positions"])
 
+    def test_horizontal_slalom_n4_reservation_planner_reaches_goals(self) -> None:
+        result = run_swarm_sim(agent_count=4, ticks=16, scenario="horizontal-slalom")
+        traces = build_agent_traces(result)
+        report = result.report_dict({agent_id: verify_trace(trace) for agent_id, trace in traces.items()})
+        replay = replay_swarm_traces(traces, obstacles=result.obstacles)
+
+        self.assertEqual(report["outcome"], "GO")
+        self.assertTrue(report["all_goals_reached"])
+        self.assertEqual(report["agent_count"], 4)
+        self.assertEqual(report["scenario"], "horizontal-slalom")
+        self.assertEqual(report["obstacles"], [{"x": 2, "y": 2}, {"x": 4, "y": 2}])
+        self.assertEqual(report["same_cell_collision_count"], 0)
+        self.assertEqual(report["swap_collision_count"], 0)
+        self.assertEqual(report["obstacle_occupancy_violation_count"], 0)
+        self.assertEqual(replay.same_cell_collision_count, 0)
+        self.assertEqual(replay.swap_collision_count, 0)
+        self.assertEqual(replay.obstacle_occupancy_violation_count, 0)
+        self.assertEqual(report["final_positions"], replay.to_dict()["final_positions"])
+
     def test_vertical_slalom_rejects_non_fixed_grid(self) -> None:
         with self.assertRaisesRegex(ValueError, "fixed 7x5 grid"):
             run_swarm_sim(agent_count=4, ticks=16, scenario="vertical-slalom", grid_width=9)
@@ -152,6 +181,14 @@ class SwarmSimTests(TestCase):
     def test_vertical_slalom_obstacles_reject_non_fixed_grid(self) -> None:
         with self.assertRaisesRegex(ValueError, "fixed 7x5 grid"):
             scenario_spec("vertical-slalom").obstacles(grid_width=9, grid_height=5)
+
+    def test_horizontal_slalom_rejects_non_fixed_grid(self) -> None:
+        with self.assertRaisesRegex(ValueError, "fixed 7x5 grid"):
+            run_swarm_sim(agent_count=4, ticks=16, scenario="horizontal-slalom", grid_width=9)
+
+    def test_horizontal_slalom_obstacles_reject_non_fixed_grid(self) -> None:
+        with self.assertRaisesRegex(ValueError, "fixed 7x5 grid"):
+            scenario_spec("horizontal-slalom").obstacles(grid_width=9, grid_height=5)
 
     def test_center_block_n4_short_run_stays_narrow_claim(self) -> None:
         result = run_swarm_sim(agent_count=4, ticks=2, scenario="center-block")
