@@ -213,6 +213,27 @@ covered, every child mission gate `GO`, deterministic mission and agent trace
 replay from disk, and zero same-cell, swap, and obstacle-occupancy counts in
 each trace-derived replay section.
 
+Live DashScope mission suite:
+
+```bash
+set -a; . ./.env; set +a
+python3 scripts/run_swarm_mission_suite.py \
+  --mode dashscope \
+  --model qwen-plus \
+  --trace-root runs/swarm/live-mission-suite \
+  --report-out runs/swarm/live_mission_suite_report.json
+python3 scripts/verify_swarm_mission_suite.py \
+  --trace-root runs/swarm/live-mission-suite \
+  --report runs/swarm/live_mission_suite_report.json \
+  --report-out runs/swarm/live_mission_suite_verify_report.json
+```
+
+This report must show mode `dashscope`, model `qwen-plus`, every reviewed
+mission scenario covered, every child mission gate `GO`, deterministic mission
+and agent trace replay from disk, and zero same-cell, swap, and
+obstacle-occupancy counts in each trace-derived replay section. The verifier
+must return `outcome GO` for the persisted live-suite traces.
+
 Mission-suite trace verification:
 
 ```bash
@@ -251,7 +272,7 @@ integer-grid scenarios emit replayable traces with zero reported same-cell,
 swap, and, where applicable, obstacle-occupancy violations. These gates do not
 prove live Qwen behavior, SO-101 operation, physical safety, physics-backed
 swarm behavior, Alibaba deployment, latency, reliability, live Qwen mission
-assignment beyond the scoped checked evidence, or a general-purpose
+assignment beyond the scoped checked scenario-suite evidence, or a general-purpose
 multi-agent planner.
 
 Any public-facing claim needs a `Public claim` issue and the promotion gate in

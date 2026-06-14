@@ -54,6 +54,10 @@ What is checked locally:
   objective for the reviewed `center-block` scenario, emits a mission
   `DecisionTrace`, then runs the deterministic N=4 center-block swarm gate with
   trace-replayed zero same-cell, swap, and obstacle occupancy counts.
+- live `qwen-plus` DashScope mission suite validates intent-only objectives
+  for every reviewed scenario-registry name, emits mission `DecisionTrace`
+  artifacts, then verifies persisted mission and agent traces from disk with
+  trace-replayed zero same-cell, swap, and obstacle occupancy counts.
 - mission scenario selection is bounded to reviewed simulator scenario-registry
   names; this is not an arbitrary-map interface.
 - fixture swarm mission suite runs the mission binding path for every reviewed
@@ -80,18 +84,19 @@ What is not checked yet:
 - DimOS integration;
 - physics-backed multi-agent swarm behavior;
 - latency, reliability, or safety claims.
-- live Qwen mission assignment beyond the scoped `qwen-plus` / `center-block`
-  evidence.
+- live Qwen mission assignment beyond the scoped `qwen-plus` reviewed-scenario
+  suite evidence.
 
 ## Active GitHub Work
 
 - Issue #1: research ground truth and build hierarchy.
 - Issue #3: physical-node safety contract.
 - Issue #4: Alibaba/Qwen proof path.
-- Issue #35: live DashScope mission assignment for simulated swarm.
-- Issue #2, #6, #11, #13, #15, #17, #19, #21, #23, #25, #27, and #29 are closed
-  as GO.
-- PR #5, #7, #8, #9, #10, #12, #14, #16, #18, #20, #22, and #24 are merged.
+- Issue #37: live DashScope mission suite across reviewed swarm scenarios.
+- Issue #2, #6, #11, #13, #15, #17, #19, #21, #23, #25, #27, #29, #33, and
+  #35 are closed as GO.
+- PR #5, #7, #8, #9, #10, #12, #14, #16, #18, #20, #22, #24, #34, and #36 are
+  merged.
 
 Before creating new work, inspect the current PR and issues:
 

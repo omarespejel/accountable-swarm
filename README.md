@@ -214,12 +214,31 @@ python3 scripts/run_swarm_mission_suite.py \
   --report-out runs/swarm/mission_suite_report.json
 ```
 
-The suite currently runs fixture mission binding for every reviewed scenario in
+The suite defaults to fixture mission binding for every reviewed scenario in
 the deterministic registry: `corridor`, `center-block`, `vertical-slalom`, and
 `horizontal-slalom`. Suite `GO` means each child mission gate was `GO`, every
 mission and agent trace reloaded from disk to the recorded summary SHA, and
 trace-derived replay counters stayed at zero for same-cell, swap, and obstacle
 occupancy violations.
+
+Live DashScope mission suite:
+
+```bash
+python3 scripts/run_swarm_mission_suite.py \
+  --mode dashscope \
+  --model qwen-plus \
+  --trace-root runs/swarm/live-mission-suite \
+  --report-out runs/swarm/live_mission_suite_report.json
+python3 scripts/verify_swarm_mission_suite.py \
+  --trace-root runs/swarm/live-mission-suite \
+  --report runs/swarm/live_mission_suite_report.json \
+  --report-out runs/swarm/live_mission_suite_verify_report.json
+```
+
+The checked 2026-06-15 evidence shows `GO` for live `qwen-plus` mission intent
+across all four reviewed scenario-registry names. This is still not a
+real-time Qwen control claim, arbitrary-map claim, larger-swarm claim, or
+physical robot claim.
 
 Mission-suite trace verification:
 

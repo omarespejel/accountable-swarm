@@ -10,9 +10,10 @@ real-time control loop.
 
 ## Scope
 
-This is a fixture-only mission assignment gate. It calls
-`scripts/run_swarm_mission_gate.py` once per reviewed mission scenario and then
-reloads the generated mission and agent traces from disk.
+This mission assignment gate defaults to fixture mode. It can also run
+DashScope mode when explicitly passed `--mode dashscope --model qwen-plus`.
+It calls `scripts/run_swarm_mission_gate.py` once per reviewed mission scenario
+and then reloads the generated mission and agent traces from disk.
 
 Current covered mission scenarios:
 

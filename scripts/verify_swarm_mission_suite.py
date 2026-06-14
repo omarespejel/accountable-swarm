@@ -15,7 +15,7 @@ from accountable_swarm.trace.models import canonical_json, trace_from_dict, veri
 
 
 MISSION_SUITE_VERIFY_SCHEMA_VERSION = "swarm-mission-suite-verify-report.v1"
-EXPECTED_MISSION_SUITE_SCHEMA_VERSION = "swarm-mission-suite-report.v1"
+EXPECTED_MISSION_SUITE_SCHEMA_VERSION = "swarm-mission-suite-report.v2"
 
 
 def main() -> int:
@@ -103,7 +103,7 @@ def main() -> int:
         "pass_conditions": pass_conditions,
         "cases": case_results,
         "non_claims": [
-            "no live Qwen mission assignment",
+            _live_qwen_non_claim(suite_report.get("mode")),
             "no physical robot behavior",
             "no SO-101 operation",
             "no 3D physics simulation",
@@ -133,6 +133,12 @@ def main() -> int:
         )
     print(f"wrote {args.report_out}")
     return 0 if outcome == "GO" else 4
+
+
+def _live_qwen_non_claim(mode: Any) -> str:
+    if mode == "dashscope":
+        return "no live Qwen mission assignment beyond the verified suite report"
+    return "no live Qwen mission assignment"
 
 
 def _verify_case(*, case: dict[str, Any], trace_root: Path) -> dict[str, Any]:
