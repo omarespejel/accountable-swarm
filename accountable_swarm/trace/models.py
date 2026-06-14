@@ -83,8 +83,10 @@ class DecisionEvent:
             raise ValueError(f"unsupported mode: {self.mode}")
         if self.decision not in {"MOVE", "VETO", "HOLD", "REROUTE"}:
             raise ValueError(f"unsupported decision: {self.decision}")
-        if len(self.prev_sha) != 64:
+        if not _is_hex_64(self.prev_sha):
             raise ValueError("prev_sha must be a 64-character hex string")
+        if self.sha256 and not _is_hex_64(self.sha256):
+            raise ValueError("sha256 must be a 64-character hex string")
 
     def body_for_hash(self) -> dict[str, Any]:
         body = self.to_dict()
@@ -258,6 +260,12 @@ def _validate_bbox(bbox: tuple[int, int, int, int], lower: int, upper: int, name
         raise ValueError(f"{name} must have positive area")
     if x2 > upper or y2 > upper:
         raise ValueError(f"{name} values must be <= {upper}")
+
+
+def _is_hex_64(value: str) -> bool:
+    if len(value) != 64:
+        return False
+    return all(char in "0123456789abcdef" for char in value)
 
 
 def _freeze_tuples(value: Any) -> Any:

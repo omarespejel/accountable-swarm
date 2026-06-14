@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 from typing import Any
 from urllib import request
+from urllib.error import HTTPError, URLError
 
 from accountable_swarm.images import image_data_url
 
@@ -14,6 +15,10 @@ DASHSCOPE_BASE_URL = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
 
 
 class MissingAlibabaApiKey(RuntimeError):
+    pass
+
+
+class DashScopeResponseError(RuntimeError):
     pass
 
 
@@ -54,6 +59,26 @@ class DashScopeQwenClient:
             },
             method="POST",
         )
-        with request.urlopen(req, timeout=60) as resp:
-            data: dict[str, Any] = json.loads(resp.read().decode("utf-8"))
-        return str(data["choices"][0]["message"]["content"])
+        try:
+            with request.urlopen(req, timeout=60) as resp:
+                data: dict[str, Any] = json.loads(resp.read().decode("utf-8"))
+        except HTTPError as exc:
+            raise DashScopeResponseError(f"DashScope HTTP error: {exc.code}") from exc
+        except URLError as exc:
+            raise DashScopeResponseError(f"DashScope connection error: {exc.reason}") from exc
+        except json.JSONDecodeError as exc:
+            raise DashScopeResponseError("DashScope returned invalid JSON") from exc
+
+        choices = data.get("choices")
+        if not isinstance(choices, list) or not choices:
+            raise DashScopeResponseError("DashScope response missing choices")
+        first = choices[0]
+        if not isinstance(first, dict):
+            raise DashScopeResponseError("DashScope choice has invalid shape")
+        message = first.get("message")
+        if not isinstance(message, dict):
+            raise DashScopeResponseError("DashScope response missing message")
+        content = message.get("content")
+        if not isinstance(content, str) or not content.strip():
+            raise DashScopeResponseError("DashScope response missing text content")
+        return content

@@ -60,11 +60,17 @@ def _jpeg_size(f: BinaryIO) -> tuple[int, int]:
     f.read(2)
     while True:
         marker_start = f.read(1)
+        if not marker_start:
+            raise ValueError("invalid JPEG: missing marker")
         if marker_start != b"\xff":
             raise ValueError("invalid JPEG marker")
         marker = f.read(1)
+        if not marker:
+            raise ValueError("invalid JPEG: truncated marker")
         while marker == b"\xff":
             marker = f.read(1)
+            if not marker:
+                raise ValueError("invalid JPEG: truncated marker")
         if marker in {b"\xc0", b"\xc1", b"\xc2", b"\xc3"}:
             f.read(3)
             height, width = struct.unpack(">HH", f.read(4))
@@ -73,4 +79,6 @@ def _jpeg_size(f: BinaryIO) -> tuple[int, int]:
         if len(segment_len_raw) != 2:
             raise ValueError("invalid JPEG segment")
         segment_len = struct.unpack(">H", segment_len_raw)[0]
+        if segment_len < 2:
+            raise ValueError("invalid JPEG segment length")
         f.seek(segment_len - 2, 1)
