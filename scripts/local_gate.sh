@@ -43,6 +43,7 @@ required = [
     "docs/engineering/swarm-mission-gate-2026-06-15.md",
     "docs/engineering/swarm-mission-suite-2026-06-15.md",
     "docs/engineering/swarm-mission-suite-tamper-2026-06-15.md",
+    "docs/engineering/live-dashscope-swarm-mission-2026-06-15.md",
     "docs/engineering/swarm-suite-2026-06-15.md",
     "docs/engineering/swarm-vertical-slalom-2026-06-15.md",
     "docs/engineering/swarm-horizontal-slalom-2026-06-15.md",

@@ -189,6 +189,23 @@ python3 scripts/run_swarm_mission_gate.py \
 
 This currently produces `GO` for the scoped horizontal-slalom mission fixture.
 
+Live DashScope mission intent can be recorded for a reviewed scenario while
+keeping the scenario, mission id, agent count, tick budget, and motion authority
+local:
+
+```bash
+python3 scripts/run_swarm_mission_gate.py \
+  --mode dashscope \
+  --model qwen-plus \
+  --mission-scenario center-block \
+  --trace-dir runs/swarm/live-mission-center-block \
+  --report-out runs/swarm/live_mission_center_block_report.json
+```
+
+The checked 2026-06-15 evidence shows `GO` for `qwen-plus` intent into the
+reviewed `center-block` N=4 deterministic swarm gate. This is not a real-time
+Qwen control claim, arbitrary mission claim, or physical robot claim.
+
 Mission suite:
 
 ```bash
@@ -271,5 +288,7 @@ NARROW_CLAIM matrix. The short version:
   integer-grid reservation-planner gate.
 - Low-rate fixture mission assignment into N=4 center-block and
   horizontal-slalom swarm gates: GO.
+- Live `qwen-plus` mission intent into the reviewed N=4 center-block swarm
+  gate: GO.
 - Deterministic swarm scenario suite with expected-NARROW canary: GO.
 - SO-101, physics/DimOS swarm, and Alibaba ECS deployment: not yet proven.

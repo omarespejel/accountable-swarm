@@ -9,7 +9,7 @@ Do not claim any of the following without checked artifacts:
 - SO-101 runs an ACT policy.
 - Any physical-device task succeeds.
 - Any physical, physics-backed, or unproven swarm size succeeds.
-- Live Qwen mission assignment succeeds.
+- Live Qwen mission assignment succeeds beyond a checked scoped artifact.
 - Any latency or reliability number.
 - Alibaba Cloud deployment is complete.
 - DimOS integration is complete.
@@ -19,5 +19,6 @@ Do not claim any of the following without checked artifacts:
 Allowed early language:
 
 > This repository is building an accountable edge-cloud robotics demo. The first
-> gate is a deterministic Qwen keyframe perception result converted into a
-> replayable, hash-chained DecisionTrace.
+> gates are deterministic Qwen keyframe or mission-intent results converted into
+> replayable, hash-chained DecisionTrace evidence while local code keeps motion
+> authority.
