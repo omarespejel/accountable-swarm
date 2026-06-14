@@ -86,7 +86,7 @@ Latest local gates during this block:
 
 ```text
 ./scripts/local_gate.sh
-Ran 81 tests
+Ran 85 tests
 OK
 local gate passed
 ```
