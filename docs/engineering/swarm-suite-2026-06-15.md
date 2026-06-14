@@ -47,7 +47,7 @@ Pass conditions:
 ```text
 all_agent_traces_replay_deterministic true
 all_case_expectations_matched true
-all_replay_counts_match_reports true
+all_replay_matches_sim_reports true
 all_replay_violation_counts_zero true
 narrow_canary_present true
 ```
