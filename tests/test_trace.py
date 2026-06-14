@@ -5,6 +5,7 @@ from accountable_swarm.trace.models import (
     PerceptionEvent,
     build_single_event_trace,
     canonical_json,
+    reject_raw_floats,
     trace_from_dict,
     verify_trace,
 )
@@ -103,6 +104,13 @@ class DecisionTraceTests(TestCase):
                 perception=_perception(),
                 prev_sha="z" * 64,
             )
+
+    def test_canonical_json_rejects_raw_float(self) -> None:
+        with self.assertRaises(TypeError):
+            canonical_json({"latency_seconds": 0.1})
+
+    def test_reject_raw_floats_allows_integer_units(self) -> None:
+        reject_raw_floats({"latency_ms": 100, "confidence_ppm": 950000})
 
 
 def _perception() -> PerceptionEvent:

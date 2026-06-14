@@ -19,11 +19,26 @@ TRACE_SCHEMA_VERSION = "decisiontrace.v1"
 def canonical_json(value: Any) -> str:
     """Return byte-stable JSON for trace hashing."""
 
+    reject_raw_floats(value)
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
 
 
 def sha256_canonical(value: Any) -> str:
     return hashlib.sha256(canonical_json(value).encode("utf-8")).hexdigest()
+
+
+def reject_raw_floats(value: Any, path: str = "$") -> None:
+    """Reject float values before canonical trace hashing."""
+
+    if isinstance(value, float):
+        raise TypeError(f"raw float not allowed in trace canonical JSON at {path}")
+    if isinstance(value, dict):
+        for key, item in value.items():
+            reject_raw_floats(item, f"{path}.{key}")
+        return
+    if isinstance(value, (list, tuple)):
+        for index, item in enumerate(value):
+            reject_raw_floats(item, f"{path}[{index}]")
 
 
 @dataclass(frozen=True)

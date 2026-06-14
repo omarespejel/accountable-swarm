@@ -23,6 +23,8 @@ What is checked locally:
 - no-key DashScope failure path.
 - live `qwen3-vl-flash` DashScope trace from generated PNG fixture;
 - minimal `qwen-plus` and `qwen3.5-plus` Commander/text pings.
+- trace canonical JSON rejects raw floats; future measurements must use integer
+  units or decimal strings.
 
 What is not checked yet:
 

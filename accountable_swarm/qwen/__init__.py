@@ -5,5 +5,13 @@ from accountable_swarm.qwen.bbox import (
     parse_qwen_bbox_response,
     rescale_norm_1000_bbox,
 )
+from accountable_swarm.qwen.client import DashScopeQwenClient, DashScopeResponseError, MissingAlibabaApiKey
 
-__all__ = ["QwenGrounding", "parse_qwen_bbox_response", "rescale_norm_1000_bbox"]
+__all__ = [
+    "DashScopeQwenClient",
+    "DashScopeResponseError",
+    "MissingAlibabaApiKey",
+    "QwenGrounding",
+    "parse_qwen_bbox_response",
+    "rescale_norm_1000_bbox",
+]

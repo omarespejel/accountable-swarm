@@ -50,6 +50,19 @@ class DashScopeQwenClient:
             ],
             "max_tokens": 256,
         }
+        return _extract_text_content(self._post_chat_completion(payload))
+
+    def chat_text(self, *, prompt: str, max_tokens: int = 16) -> str:
+        if not prompt.strip():
+            raise ValueError("prompt must be non-empty")
+        payload = {
+            "model": self.model,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": max_tokens,
+        }
+        return _extract_text_content(self._post_chat_completion(payload))
+
+    def _post_chat_completion(self, payload: dict[str, Any]) -> dict[str, Any]:
         req = request.Request(
             f"{DASHSCOPE_BASE_URL}/chat/completions",
             data=json.dumps(payload).encode("utf-8"),
@@ -61,24 +74,29 @@ class DashScopeQwenClient:
         )
         try:
             with request.urlopen(req, timeout=60) as resp:
-                data: dict[str, Any] = json.loads(resp.read().decode("utf-8"))
+                data = json.loads(resp.read().decode("utf-8"))
         except HTTPError as exc:
             raise DashScopeResponseError(f"DashScope HTTP error: {exc.code}") from exc
         except URLError as exc:
             raise DashScopeResponseError(f"DashScope connection error: {exc.reason}") from exc
         except json.JSONDecodeError as exc:
             raise DashScopeResponseError("DashScope returned invalid JSON") from exc
+        if not isinstance(data, dict):
+            raise DashScopeResponseError("DashScope response must be a JSON object")
+        return data
 
-        choices = data.get("choices")
-        if not isinstance(choices, list) or not choices:
-            raise DashScopeResponseError("DashScope response missing choices")
-        first = choices[0]
-        if not isinstance(first, dict):
-            raise DashScopeResponseError("DashScope choice has invalid shape")
-        message = first.get("message")
-        if not isinstance(message, dict):
-            raise DashScopeResponseError("DashScope response missing message")
-        content = message.get("content")
-        if not isinstance(content, str) or not content.strip():
-            raise DashScopeResponseError("DashScope response missing text content")
-        return content
+
+def _extract_text_content(data: dict[str, Any]) -> str:
+    choices = data.get("choices")
+    if not isinstance(choices, list) or not choices:
+        raise DashScopeResponseError("DashScope response missing choices")
+    first = choices[0]
+    if not isinstance(first, dict):
+        raise DashScopeResponseError("DashScope choice has invalid shape")
+    message = first.get("message")
+    if not isinstance(message, dict):
+        raise DashScopeResponseError("DashScope response missing message")
+    content = message.get("content")
+    if not isinstance(content, str) or not content.strip():
+        raise DashScopeResponseError("DashScope response missing text content")
+    return content
