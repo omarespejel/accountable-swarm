@@ -274,7 +274,7 @@ hash chain, the renderer must return non-zero and write no HTML or summary.
 One-command deterministic swarm demo bundle:
 
 ```bash
-python3 scripts/build_swarm_demo_bundle.py --out-dir runs/demo/swarm
+python3 scripts/build_swarm_demo_bundle.py
 ```
 
 This report must show bundle `outcome GO`, all reviewed deterministic scenarios

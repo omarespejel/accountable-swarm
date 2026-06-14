@@ -62,6 +62,53 @@ class SwarmDemoBundleCliTests(TestCase):
                 for trace_path in case["files"]["traces"].values():
                     self.assertTrue((first_dir / trace_path).exists())
 
+            stale_trace = first_dir / "scenarios" / "center-block" / "traces" / "stale.json"
+            stale_trace.write_text("{}", encoding="utf-8")
+            rerun = _run_bundle(first_dir)
+            self.assertEqual(rerun.returncode, 0, rerun.stderr)
+            self.assertFalse(stale_trace.exists())
+            self.assertEqual(
+                first_summary,
+                json.loads((first_dir / "summary.json").read_text(encoding="utf-8")),
+            )
+
+    def test_bundle_defaults_to_runs_demo_swarm(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts/build_swarm_demo_bundle.py"),
+                ],
+                cwd=tmpdir,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            out_dir = Path(tmpdir) / "runs/demo/swarm"
+            self.assertTrue((out_dir / "index.html").exists())
+            self.assertTrue((out_dir / "summary.json").exists())
+            self.assertIn("wrote runs/demo/swarm/index.html", result.stdout)
+
+    def test_bundle_canonicalizes_reversed_reviewed_scenarios(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            out_dir = Path(tmpdir) / "bundle"
+            args = []
+            for scenario in reversed(scenario_names()):
+                args.extend(["--scenario", scenario])
+
+            result = _run_bundle(out_dir, *args)
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            summary = json.loads((out_dir / "summary.json").read_text(encoding="utf-8"))
+            self.assertEqual(summary["outcome"], "GO")
+            self.assertTrue(summary["pass_conditions"]["all_reviewed_scenarios_included"])
+            self.assertEqual(
+                [case["scenario"] for case in summary["scenarios"]],
+                list(scenario_names()),
+            )
+
     def test_bundle_surfaces_short_run_as_narrow_claim(self) -> None:
         with TemporaryDirectory() as tmpdir:
             out_dir = Path(tmpdir) / "bundle"
