@@ -35,6 +35,8 @@ This is the current repo state after the first 10-hour execution block began at
   swarm gate with zero same-cell, swap, or obstacle occupancy violations.
 - Deterministic swarm suite runs five scoped cases, including an expected
   `NARROW_CLAIM` canary, and verifies persisted agent traces from disk.
+- Fixed swarm scenario registry centralizes current scenario names, obstacle
+  policies, fixed-grid requirements, and reservation-planner use.
 
 ## NARROW_CLAIM
 
@@ -69,7 +71,7 @@ Latest local gates during this block:
 
 ```text
 ./scripts/local_gate.sh
-Ran 58 tests
+Ran 60 tests
 OK
 local gate passed
 ```
@@ -199,8 +201,7 @@ case n4-center-block-short-narrow expected NARROW_CLAIM actual NARROW_CLAIM
 
 1. Run the ECS manual deployment path on Alibaba Cloud and record proof.
 2. Continue swarm-first work before physical hardware: either live DashScope
-   mission assignment, richer simulated scenario fixtures, or a small scenario
-   registry if fixed layouts keep growing.
+   mission assignment or richer simulated scenario fixtures.
 3. Keep SO-101 and physical-node work pending until the simulated-swarm GO/NO-GO
    gates are stronger.
 4. Convert webcam evidence into a redacted/fixture-safe artifact only if it is

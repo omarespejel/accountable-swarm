@@ -9,7 +9,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from accountable_swarm.swarm import build_agent_traces, replay_swarm_traces, run_swarm_sim
+from accountable_swarm.swarm import build_agent_traces, replay_swarm_traces, run_swarm_sim, scenario_names
 from accountable_swarm.trace.models import canonical_json, verify_trace
 
 
@@ -21,7 +21,7 @@ def main() -> int:
     parser.add_argument("--grid-height", type=int, default=5)
     parser.add_argument(
         "--scenario",
-        choices=["corridor", "center-block", "vertical-slalom"],
+        choices=scenario_names(),
         default="corridor",
     )
     parser.add_argument("--trace-dir", type=Path, required=True)

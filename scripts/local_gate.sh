@@ -41,6 +41,7 @@ required = [
     "docs/engineering/swarm-mission-gate-2026-06-15.md",
     "docs/engineering/swarm-suite-2026-06-15.md",
     "docs/engineering/swarm-vertical-slalom-2026-06-15.md",
+    "docs/engineering/swarm-scenario-registry-2026-06-15.md",
     "docs/engineering/camera-go-gate-2026-06-15.md",
     "docs/engineering/alibaba-ecs-manual-deploy-2026-06-15.md",
     "docs/engineering/current-status-2026-06-15.md",
