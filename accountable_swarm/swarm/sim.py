@@ -25,6 +25,8 @@ SWARM_MODEL_ID = "deterministic-grid-swarm-v1"
 SUPPORTED_SCENARIOS = ("corridor", "center-block", "vertical-slalom")
 RESERVATION_PLANNER_MAX_DEPTH = 16
 RESERVATION_PLANNER_MAX_EXPANSIONS = 5_000
+VERTICAL_SLALOM_GRID_WIDTH = 7
+VERTICAL_SLALOM_GRID_HEIGHT = 5
 
 
 @dataclass(frozen=True, order=True)
@@ -49,6 +51,9 @@ class GridPoint:
         except KeyError as exc:
             raise ValueError("grid point dict must contain x and y") from exc
         return cls(x=x, y=y)
+
+
+VERTICAL_SLALOM_OBSTACLES = (GridPoint(3, 1), GridPoint(3, 3))
 
 
 @dataclass(frozen=True)
@@ -237,6 +242,10 @@ def run_swarm_sim(
         raise ValueError("planner_max_expansions must be non-negative")
     if scenario not in SUPPORTED_SCENARIOS:
         raise ValueError(f"scenario must be one of: {', '.join(SUPPORTED_SCENARIOS)}")
+    if scenario == "vertical-slalom" and (
+        grid_width != VERTICAL_SLALOM_GRID_WIDTH or grid_height != VERTICAL_SLALOM_GRID_HEIGHT
+    ):
+        raise ValueError("vertical-slalom requires the fixed 7x5 grid")
     obstacles = _default_obstacles(scenario, grid_width=grid_width, grid_height=grid_height)
     configs = _default_configs(agent_count, grid_width=grid_width, grid_height=grid_height)
     _validate_configs_against_obstacles(configs, obstacles)
@@ -758,12 +767,7 @@ def _default_obstacles(scenario: str, *, grid_width: int, grid_height: int) -> f
     if scenario == "center-block":
         return frozenset({GridPoint(grid_width // 2, grid_height // 2)})
     if scenario == "vertical-slalom":
-        return frozenset(
-            {
-                GridPoint(grid_width // 2, max(1, grid_height // 2 - 1)),
-                GridPoint(grid_width // 2, min(grid_height - 2, grid_height // 2 + 1)),
-            }
-        )
+        return frozenset(VERTICAL_SLALOM_OBSTACLES)
     raise ValueError(f"unsupported scenario: {scenario}")
 
 

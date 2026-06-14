@@ -122,6 +122,10 @@ class SwarmSimTests(TestCase):
         self.assertEqual(replay.obstacle_occupancy_violation_count, 0)
         self.assertEqual(report["final_positions"], replay.to_dict()["final_positions"])
 
+    def test_vertical_slalom_rejects_non_fixed_grid(self) -> None:
+        with self.assertRaisesRegex(ValueError, "fixed 7x5 grid"):
+            run_swarm_sim(agent_count=4, ticks=16, scenario="vertical-slalom", grid_width=9)
+
     def test_center_block_n4_short_run_stays_narrow_claim(self) -> None:
         result = run_swarm_sim(agent_count=4, ticks=2, scenario="center-block")
         traces = build_agent_traces(result)
