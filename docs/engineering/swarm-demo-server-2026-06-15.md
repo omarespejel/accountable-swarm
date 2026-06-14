@@ -10,8 +10,9 @@ reviewer a simple local path: build the bundle, start the server, open
 ## Scope
 
 The server is read-only for this gate. It serves an already-generated bundle
-from `SWARM_DEMO_BUNDLE_DIR` or the default `runs/demo/swarm`. It does not
-generate, mutate, or refresh bundle artifacts on request.
+from `SWARM_DEMO_BUNDLE_DIR` or the repo-anchored default
+`runs/demo/swarm`. It does not generate, mutate, or refresh bundle artifacts on
+request.
 
 ## Commands
 
@@ -33,9 +34,13 @@ curl -fsS http://127.0.0.1:8765/swarm-demo/scenarios/corridor/replay.html
 - `GET /swarm-demo` serves bundle `index.html`;
 - `GET /swarm-demo/summary.json` serves the canonical bundle summary;
 - scenario replay HTML is served only from inside the configured bundle root;
+- empty `SWARM_DEMO_BUNDLE_DIR` does not widen serving to the process CWD;
+- roots without `index.html` and `summary.json` fail closed with
+  `status: missing_bundle`;
 - missing bundle files return JSON with `status: missing_bundle` and the exact
   build command;
 - path traversal is rejected with `status: rejected`;
+- files are streamed instead of loaded fully into memory;
 - requests do not run Qwen, SO-101, DimOS, Docker, cloud APIs, or bundle
   generation.
 
@@ -45,7 +50,7 @@ Focused test:
 
 ```text
 python3 -m unittest tests.test_server
-Ran 5 tests
+Ran 7 tests
 OK
 ```
 
