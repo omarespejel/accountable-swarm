@@ -34,11 +34,15 @@ What is checked locally:
   agent, reaches goals, and reports zero same-cell or swap collisions.
 - deterministic N=2 center-block obstacle scenario reaches goals, reports zero
   obstacle occupancy, and replay recomputes obstacle occupancy from traces.
+- deterministic N=4 center-block obstacle scenario reaches goals with the
+  bounded reservation planner, reports zero same-cell collisions, zero swap
+  collisions, zero obstacle occupancy, and replay recomputes those counts from
+  traces.
 - exploratory deterministic N=4 integer-grid probe passes locally, but is not a
   physical, physics, latency, reliability, or larger-swarm claim.
-- exploratory deterministic N=4 center-block obstacle probe is `NARROW_CLAIM`:
-  it avoids collisions and obstacle occupancy but does not reach all goals with
-  the current local guard.
+- local-guard-only deterministic N=4 center-block obstacle probe remains useful
+  as the prior `NARROW_CLAIM`: it avoids collisions and obstacle occupancy but
+  does not reach all goals without the bounded planner.
 
 What is not checked yet:
 
@@ -55,8 +59,9 @@ What is not checked yet:
 - Issue #4: Alibaba/Qwen proof path.
 - Issue #11: deterministic N=2 simulated swarm DecisionTrace GO gate.
 - Issue #13: deterministic obstacle-field swarm replay gate.
+- Issue #15: deterministic reservation-table planner for N=4 obstacle swarm.
 - Issue #2 and #6 are closed as GO.
-- PR #5, #7, #8, #9, #10, and #12 are merged.
+- PR #5, #7, #8, #9, #10, #12, and #14 are merged.
 
 Before creating new work, inspect the current PR and issues:
 

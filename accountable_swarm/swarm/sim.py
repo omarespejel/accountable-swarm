@@ -8,6 +8,8 @@ MOVE/REROUTE/HOLD decisions, and every choice is replayable as a DecisionTrace.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from heapq import heappop, heappush
+from itertools import count, product
 from typing import Any
 
 from accountable_swarm.trace.models import (
@@ -21,6 +23,8 @@ from accountable_swarm.trace.models import (
 SWARM_REPORT_SCHEMA_VERSION = "swarm-sim-report.v1"
 SWARM_MODEL_ID = "deterministic-grid-swarm-v1"
 SUPPORTED_SCENARIOS = ("corridor", "center-block")
+RESERVATION_PLANNER_MAX_DEPTH = 16
+RESERVATION_PLANNER_MAX_EXPANSIONS = 5_000
 
 
 @dataclass(frozen=True, order=True)
@@ -366,6 +370,18 @@ def _choose_tick_steps(
     grid_height: int,
     obstacles: frozenset[GridPoint],
 ) -> list[AgentStep]:
+    if len(configs) == 4 and obstacles:
+        planned_steps = _choose_reservation_planned_steps(
+            tick=tick,
+            configs=configs,
+            positions=positions,
+            grid_width=grid_width,
+            grid_height=grid_height,
+            obstacles=obstacles,
+        )
+        if planned_steps is not None:
+            return planned_steps
+
     accepted: dict[str, GridPoint] = {}
     steps: list[AgentStep] = []
     sorted_configs = tuple(sorted(configs, key=lambda item: item.agent_id))
@@ -407,6 +423,216 @@ def _choose_tick_steps(
         )
         accepted[config.agent_id] = accepted_point
     return steps
+
+
+def _choose_reservation_planned_steps(
+    *,
+    tick: int,
+    configs: tuple[AgentConfig, ...],
+    positions: dict[str, GridPoint],
+    grid_width: int,
+    grid_height: int,
+    obstacles: frozenset[GridPoint],
+) -> list[AgentStep] | None:
+    sorted_configs = tuple(sorted(configs, key=lambda item: item.agent_id))
+    start_state = tuple(positions[config.agent_id] for config in sorted_configs)
+    goal_state = tuple(config.goal for config in sorted_configs)
+    planned_path = _bounded_joint_path(
+        configs=sorted_configs,
+        start_state=start_state,
+        goal_state=goal_state,
+        grid_width=grid_width,
+        grid_height=grid_height,
+        obstacles=obstacles,
+        max_depth=RESERVATION_PLANNER_MAX_DEPTH,
+    )
+    if planned_path is None or len(planned_path) < 2:
+        return None
+
+    next_state = planned_path[1]
+    steps: list[AgentStep] = []
+    for config, before, accepted in zip(sorted_configs, start_state, next_state):
+        proposed = _candidate_positions(config, before)[0]
+        decision, reason = _planned_decision(
+            before=before,
+            proposed=proposed,
+            accepted=accepted,
+        )
+        steps.append(
+            AgentStep(
+                tick=tick,
+                agent_id=config.agent_id,
+                before=before,
+                goal=config.goal,
+                proposed=proposed,
+                accepted=accepted,
+                decision=decision,
+                reason=reason,
+            )
+        )
+    return steps
+
+
+def _bounded_joint_path(
+    *,
+    configs: tuple[AgentConfig, ...],
+    start_state: tuple[GridPoint, ...],
+    goal_state: tuple[GridPoint, ...],
+    grid_width: int,
+    grid_height: int,
+    obstacles: frozenset[GridPoint],
+    max_depth: int,
+) -> tuple[tuple[GridPoint, ...], ...] | None:
+    """Find a bounded joint path with same-cell, swap, and obstacle reservations."""
+
+    if start_state == goal_state:
+        return (start_state, start_state)
+
+    frontier: list[tuple[int, int, int, tuple[GridPoint, ...]]] = []
+    sequence = count()
+    heappush(frontier, (_joint_heuristic(start_state, goal_state), 0, next(sequence), start_state))
+    parent: dict[tuple[GridPoint, ...], tuple[GridPoint, ...] | None] = {start_state: None}
+    best_depth: dict[tuple[GridPoint, ...], int] = {start_state: 0}
+    expansions = 0
+
+    while frontier:
+        _, depth, _, state = heappop(frontier)
+        if depth != best_depth[state]:
+            continue
+        expansions += 1
+        if expansions > RESERVATION_PLANNER_MAX_EXPANSIONS:
+            return None
+        if state == goal_state:
+            return _reconstruct_joint_path(parent, state)
+        if depth >= max_depth:
+            continue
+
+        for next_state in _joint_candidate_states(
+            configs=configs,
+            state=state,
+            goal_state=goal_state,
+            grid_width=grid_width,
+            grid_height=grid_height,
+            obstacles=obstacles,
+        ):
+            next_depth = depth + 1
+            if next_depth >= best_depth.get(next_state, max_depth + 1):
+                continue
+            best_depth[next_state] = next_depth
+            parent[next_state] = state
+            priority = next_depth + _joint_heuristic(next_state, goal_state)
+            heappush(frontier, (priority, next_depth, next(sequence), next_state))
+    return None
+
+
+def _joint_candidate_states(
+    *,
+    configs: tuple[AgentConfig, ...],
+    state: tuple[GridPoint, ...],
+    goal_state: tuple[GridPoint, ...],
+    grid_width: int,
+    grid_height: int,
+    obstacles: frozenset[GridPoint],
+) -> tuple[tuple[GridPoint, ...], ...]:
+    candidate_lists = tuple(
+        _reservation_candidate_positions(
+            config=config,
+            before=before,
+            goal=goal,
+            grid_width=grid_width,
+            grid_height=grid_height,
+            obstacles=obstacles,
+        )
+        for config, before, goal in zip(configs, state, goal_state)
+    )
+    candidates: list[tuple[GridPoint, ...]] = []
+    for next_state in product(*candidate_lists):
+        if len(frozenset(next_state)) != len(next_state):
+            continue
+        if _joint_state_has_swap(state, next_state):
+            continue
+        candidates.append(next_state)
+    return tuple(
+        sorted(
+            candidates,
+            key=lambda item: (
+                _joint_heuristic(item, goal_state),
+                tuple((point.x, point.y) for point in item),
+            ),
+        )
+    )
+
+
+def _reservation_candidate_positions(
+    *,
+    config: AgentConfig,
+    before: GridPoint,
+    goal: GridPoint,
+    grid_width: int,
+    grid_height: int,
+    obstacles: frozenset[GridPoint],
+) -> tuple[GridPoint, ...]:
+    raw_candidates = [*_candidate_positions(config, before)]
+    raw_candidates.extend(
+        (
+            GridPoint(before.x + 1, before.y),
+            GridPoint(before.x - 1, before.y),
+            GridPoint(before.x, before.y + 1),
+            GridPoint(before.x, before.y - 1),
+            before,
+        )
+    )
+    valid = [
+        point
+        for point in _dedupe_points(raw_candidates)
+        if _in_bounds(point, grid_width=grid_width, grid_height=grid_height) and point not in obstacles
+    ]
+    return tuple(
+        sorted(
+            valid,
+            key=lambda point: (
+                abs(point.x - goal.x) + abs(point.y - goal.y),
+                point.x,
+                point.y,
+            ),
+        )
+    )
+
+
+def _planned_decision(*, before: GridPoint, proposed: GridPoint, accepted: GridPoint) -> tuple[str, str]:
+    if accepted == before:
+        return "HOLD", "reservation planner held position to preserve joint reservations"
+    if accepted == proposed:
+        return "MOVE", "reservation planner accepted direct grid step"
+    return "REROUTE", "reservation planner accepted bounded lookahead reroute"
+
+
+def _joint_heuristic(state: tuple[GridPoint, ...], goal_state: tuple[GridPoint, ...]) -> int:
+    return sum(
+        abs(point.x - goal.x) + abs(point.y - goal.y)
+        for point, goal in zip(state, goal_state)
+    )
+
+
+def _joint_state_has_swap(previous: tuple[GridPoint, ...], current: tuple[GridPoint, ...]) -> bool:
+    for left_index, left_after in enumerate(current):
+        for right_index in range(left_index + 1, len(current)):
+            if left_after == previous[right_index] and current[right_index] == previous[left_index]:
+                return True
+    return False
+
+
+def _reconstruct_joint_path(
+    parent: dict[tuple[GridPoint, ...], tuple[GridPoint, ...] | None],
+    state: tuple[GridPoint, ...],
+) -> tuple[tuple[GridPoint, ...], ...]:
+    path: list[tuple[GridPoint, ...]] = []
+    cursor: tuple[GridPoint, ...] | None = state
+    while cursor is not None:
+        path.append(cursor)
+        cursor = parent[cursor]
+    path.reverse()
+    return tuple(path)
 
 
 def _candidate_positions(config: AgentConfig, before: GridPoint) -> list[GridPoint]:

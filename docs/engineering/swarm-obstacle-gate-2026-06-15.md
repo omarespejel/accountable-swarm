@@ -49,8 +49,8 @@ replay.obstacle_occupancy_violation_count 0
 
 ## N4 Exploratory Boundary
 
-The same center-block obstacle scenario with four agents is currently a
-`NARROW_CLAIM`:
+The original local-guard-only center-block obstacle scenario with four agents
+was a `NARROW_CLAIM`:
 
 ```bash
 python3 scripts/run_swarm_sim.py \
@@ -70,9 +70,10 @@ obstacle_occupancy_violation_count 0
 reroute_count 56
 ```
 
-This means the current guard avoids collision and obstacle occupancy but is not
-a complete planner for four agents around a central obstacle. A reservation
-table or explicit waypoint planner is the likely next experiment.
+This means the simple local guard avoids collision and obstacle occupancy but
+is not a complete planner for four agents around a central obstacle. The
+follow-up bounded reservation planner result is recorded in
+`docs/engineering/swarm-reservation-planner-2026-06-15.md`.
 
 ## GO Gate
 

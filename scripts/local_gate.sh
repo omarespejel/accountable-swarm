@@ -35,6 +35,7 @@ required = [
     "docs/engineering/hardening-policy.md",
     "docs/engineering/swarm-sim-n2-2026-06-15.md",
     "docs/engineering/swarm-obstacle-gate-2026-06-15.md",
+    "docs/engineering/swarm-reservation-planner-2026-06-15.md",
     "docs/engineering/camera-go-gate-2026-06-15.md",
     "docs/engineering/alibaba-ecs-manual-deploy-2026-06-15.md",
     "docs/engineering/current-status-2026-06-15.md",
