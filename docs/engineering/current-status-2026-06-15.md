@@ -26,6 +26,10 @@ This is the current repo state after the first 10-hour execution block began at
   bounded reservation planner, reports zero same-cell collisions, zero swap
   collisions, zero obstacle occupancy violations, and replay recomputes those
   counts from traces.
+- Deterministic N=4 vertical-slalom obstacle scenario reaches all goals with
+  the bounded reservation planner, reports zero same-cell collisions, zero swap
+  collisions, zero obstacle occupancy violations, and replay recomputes those
+  counts from traces.
 - Low-rate fixture mission assignment validates a strict mission JSON,
   emits a mission `DecisionTrace`, then runs the deterministic N=4 center-block
   swarm gate with zero same-cell, swap, or obstacle occupancy violations.
@@ -65,7 +69,7 @@ Latest local gates during this block:
 
 ```text
 ./scripts/local_gate.sh
-Ran 56 tests
+Ran 57 tests
 OK
 local gate passed
 ```
@@ -147,6 +151,22 @@ sim-agent-2 summary_sha 7486044106f38dc24c83ed2901c028a4e53a829925849a7af11bb1c0
 sim-agent-3 summary_sha 2dce3509c5028ab0542ef9e3426b70b49b6f189ed8783ead0e68d48898845f32
 ```
 
+Deterministic N=4 vertical-slalom obstacle gate with bounded reservation
+planner:
+
+```text
+python3 scripts/run_swarm_sim.py --agents 4 --ticks 16 --scenario vertical-slalom --trace-dir runs/swarm/vertical-slalom-n4 --report-out runs/swarm/vertical_slalom_n4_report.json
+outcome GO
+same_cell_collision_count 0
+swap_collision_count 0
+obstacle_occupancy_violation_count 0
+reroute_count 12
+sim-agent-0 summary_sha be89e9a4823f005e1dcf9dfa203d5ca3ab56f46e969700565a5ca51dec413a4b
+sim-agent-1 summary_sha 7e7b9a70a5665bf840e53345f1a3c2962ab3312bb5d2632e67c1f497a3802404
+sim-agent-2 summary_sha 877e34acd6cd996c95ce256a6b0c23b28f13083306d19e9098e12c79fdc61eb7
+sim-agent-3 summary_sha e444e2f6fb11a91b0ac39f8cf2e7a47c96374dda3f3e4395d31a08d3b0eac918
+```
+
 Low-rate fixture mission gate:
 
 ```text
@@ -167,10 +187,11 @@ Deterministic swarm suite:
 ```text
 python3 scripts/run_swarm_suite.py --trace-root runs/swarm/suite --report-out runs/swarm/suite_report.json
 outcome GO
-case_count 4
+case_count 5
 case n2-corridor-go expected GO actual GO
 case n2-center-block-go expected GO actual GO
 case n4-center-block-go expected GO actual GO
+case n4-vertical-slalom-go expected GO actual GO
 case n4-center-block-short-narrow expected NARROW_CLAIM actual NARROW_CLAIM
 ```
 

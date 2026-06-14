@@ -42,6 +42,14 @@ DEFAULT_CASES = (
         "purpose": "four-agent reservation-planner success case",
     },
     {
+        "case_id": "n4-vertical-slalom-go",
+        "agent_count": 4,
+        "ticks": 16,
+        "scenario": "vertical-slalom",
+        "expected_outcome": "GO",
+        "purpose": "four-agent two-obstacle vertical slalom success case",
+    },
+    {
         "case_id": "n4-center-block-short-narrow",
         "agent_count": 4,
         "ticks": 2,

@@ -103,6 +103,25 @@ class SwarmSimTests(TestCase):
         for summary_sha in report["trace_summary_shas"].values():
             self.assertEqual(len(summary_sha), 64)
 
+    def test_vertical_slalom_n4_reservation_planner_reaches_goals(self) -> None:
+        result = run_swarm_sim(agent_count=4, ticks=16, scenario="vertical-slalom")
+        traces = build_agent_traces(result)
+        report = result.report_dict({agent_id: verify_trace(trace) for agent_id, trace in traces.items()})
+        replay = replay_swarm_traces(traces, obstacles=result.obstacles)
+
+        self.assertEqual(report["outcome"], "GO")
+        self.assertTrue(report["all_goals_reached"])
+        self.assertEqual(report["agent_count"], 4)
+        self.assertEqual(report["scenario"], "vertical-slalom")
+        self.assertEqual(report["obstacles"], [{"x": 3, "y": 1}, {"x": 3, "y": 3}])
+        self.assertEqual(report["same_cell_collision_count"], 0)
+        self.assertEqual(report["swap_collision_count"], 0)
+        self.assertEqual(report["obstacle_occupancy_violation_count"], 0)
+        self.assertEqual(replay.same_cell_collision_count, 0)
+        self.assertEqual(replay.swap_collision_count, 0)
+        self.assertEqual(replay.obstacle_occupancy_violation_count, 0)
+        self.assertEqual(report["final_positions"], replay.to_dict()["final_positions"])
+
     def test_center_block_n4_short_run_stays_narrow_claim(self) -> None:
         result = run_swarm_sim(agent_count=4, ticks=2, scenario="center-block")
         traces = build_agent_traces(result)
