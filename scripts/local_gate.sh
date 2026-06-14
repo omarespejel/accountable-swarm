@@ -28,6 +28,7 @@ required = [
     "DISCLOSURE_LEDGER.md",
     "docs/engineering/reproducibility.md",
     "docs/engineering/hardening-policy.md",
+    "docs/engineering/trace-scalar-policy.md",
     "docs/engineering/review-bot-policy.md",
     "docs/engineering/research-lab-setup-2026-06-14.md",
     "docs/engineering/no-claims.md",

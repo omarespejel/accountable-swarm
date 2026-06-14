@@ -29,6 +29,7 @@ Use:
 - `runs/**` only for small, intentional trace fixtures;
 - exact commands in the doc or PR body;
 - deterministic JSON serialization for traces;
+- integer or string scalar encoding for measurements that enter trace hashes;
 - explicit non-claims.
 
 Avoid:
@@ -39,6 +40,9 @@ Avoid:
 - screenshots as the only evidence;
 - undocumented cloud console state;
 - hidden local secrets.
+
+See `docs/engineering/trace-scalar-policy.md` before adding depth, confidence,
+pose, latency, or other measured values to traces.
 
 ## Reproducing The Current GO Gate
 
