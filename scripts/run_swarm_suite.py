@@ -71,8 +71,8 @@ def main() -> int:
             case_report["pass_conditions"]["agent_traces_replay_deterministic"]
             for case_report in case_reports
         ),
-        "all_replay_counts_match_reports": all(
-            case_report["pass_conditions"]["replay_counts_match_report"]
+        "all_replay_matches_sim_reports": all(
+            case_report["pass_conditions"]["replay_matches_sim_report"]
             for case_report in case_reports
         ),
         "all_replay_violation_counts_zero": all(
@@ -151,8 +151,12 @@ def _run_case(*, case: dict[str, Any], trace_root: Path) -> dict[str, Any]:
     sim_report = result.report_dict(trace_summary_shas)
     sim_report["replay"] = replay.to_dict()
 
-    replay_counts_match_report = (
-        replay.same_cell_collision_count == sim_report["same_cell_collision_count"]
+    replay_dict = replay.to_dict()
+    replay_matches_sim_report = (
+        replay.agent_count == sim_report["agent_count"]
+        and replay.ticks_replayed == sim_report["ticks_executed"]
+        and replay_dict["final_positions"] == sim_report["final_positions"]
+        and replay.same_cell_collision_count == sim_report["same_cell_collision_count"]
         and replay.swap_collision_count == sim_report["swap_collision_count"]
         and replay.obstacle_occupancy_violation_count
         == sim_report["obstacle_occupancy_violation_count"]
@@ -168,7 +172,7 @@ def _run_case(*, case: dict[str, Any], trace_root: Path) -> dict[str, Any]:
     pass_conditions = {
         "outcome_matches_expected": actual_outcome == expected_outcome,
         "agent_traces_replay_deterministic": agent_traces_replay_deterministic,
-        "replay_counts_match_report": replay_counts_match_report,
+        "replay_matches_sim_report": replay_matches_sim_report,
         "replay_violation_counts_zero": replay_violation_counts_zero,
     }
     return {
@@ -179,7 +183,10 @@ def _run_case(*, case: dict[str, Any], trace_root: Path) -> dict[str, Any]:
         "ticks": case["ticks"],
         "expected_outcome": expected_outcome,
         "actual_outcome": actual_outcome,
-        "trace_dir": str(case_trace_dir),
+        "trace_files": {
+            agent_id: f"{case_id}/{agent_id}.json"
+            for agent_id in sorted(trace_summary_shas)
+        },
         "trace_summary_shas": trace_summary_shas,
         "pass_conditions": pass_conditions,
         "sim_report": sim_report,
