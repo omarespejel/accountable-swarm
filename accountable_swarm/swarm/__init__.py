@@ -3,7 +3,6 @@
 from accountable_swarm.swarm.mission import (
     DEFAULT_MISSION_AGENT_COUNT,
     DEFAULT_MISSION_SCENARIO,
-    DEFAULT_MISSION_TICKS,
     MISSION_MODEL_FIXTURE_ID,
     MISSION_SCHEMA_VERSION,
     MissionSpec,
@@ -33,7 +32,6 @@ __all__ = [
     "AgentConfig",
     "DEFAULT_MISSION_AGENT_COUNT",
     "DEFAULT_MISSION_SCENARIO",
-    "DEFAULT_MISSION_TICKS",
     "GridPoint",
     "MISSION_MODEL_FIXTURE_ID",
     "MISSION_SCHEMA_VERSION",
