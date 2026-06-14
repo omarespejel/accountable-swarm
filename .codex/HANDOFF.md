@@ -41,6 +41,8 @@ What is checked locally:
 - low-rate fixture mission assignment validates strict mission JSON, emits a
   mission `DecisionTrace`, then runs the deterministic N=4 center-block swarm
   gate with trace-replayed zero same-cell, swap, and obstacle occupancy counts.
+- deterministic swarm scenario suite reruns N=2/N=4 scoped cases, includes an
+  expected `NARROW_CLAIM` canary, and verifies persisted agent traces from disk.
 - exploratory deterministic N=4 integer-grid probe passes locally, but is not a
   physical, physics, latency, reliability, or larger-swarm claim.
 - local-guard-only deterministic N=4 center-block obstacle probe remains useful
@@ -61,17 +63,14 @@ What is not checked yet:
 - Issue #1: research ground truth and build hierarchy.
 - Issue #3: physical-node safety contract.
 - Issue #4: Alibaba/Qwen proof path.
-- Issue #11: deterministic N=2 simulated swarm DecisionTrace GO gate.
-- Issue #13: deterministic obstacle-field swarm replay gate.
-- Issue #15: deterministic reservation-table planner for N=4 obstacle swarm.
-- Issue #17: low-rate Qwen mission assignment for simulated swarm.
-- Issue #2 and #6 are closed as GO.
-- PR #5, #7, #8, #9, #10, #12, and #14 are merged.
+- Issue #19: deterministic swarm scenario suite.
+- Issue #2, #6, #11, #13, #15, and #17 are closed as GO.
+- PR #5, #7, #8, #9, #10, #12, #14, #16, and #18 are merged.
 
 Before creating new work, inspect the current PR and issues:
 
 ```bash
-gh pr view 5 --comments
+gh pr list --state open
 gh issue list --state open
 ```
 

@@ -16,6 +16,7 @@ data sources, and external assets from day one.
 | 2026-06-14 | DashScope compatible-mode API path | Alibaba Cloud Model Studio docs | Service terms apply | Optional live Qwen GO-gate mode | Uses `ALIBABA_API_KEY` from environment and `https://dashscope-intl.aliyuncs.com/compatible-mode/v1`; no key committed. |
 | 2026-06-15 | Deterministic integer-grid swarm simulator | Authored for `accountable-swarm` | Apache-2.0 | Simulated N=2 DecisionTrace GO gate and exploratory N=4 probe | No external swarm code copied; no physics, DimOS, or physical-device claim. |
 | 2026-06-15 | Low-rate swarm mission gate | Authored for `accountable-swarm` | Apache-2.0 | Fixture/Qwen-style mission JSON validation before deterministic local swarm planning | Fixture mode is checked; live DashScope mission assignment is not claimed unless separately recorded. |
+| 2026-06-15 | Deterministic swarm scenario suite | Authored for `accountable-swarm` | Apache-2.0 | Multi-case integer-grid swarm regression and overclaim canary | Includes expected `NARROW_CLAIM` case; no physics, hardware, DimOS, or larger-swarm claim. |
 
 ## Pending Before Demo
 

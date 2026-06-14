@@ -29,6 +29,8 @@ This is the current repo state after the first 10-hour execution block began at
 - Low-rate fixture mission assignment validates a strict mission JSON,
   emits a mission `DecisionTrace`, then runs the deterministic N=4 center-block
   swarm gate with zero same-cell, swap, or obstacle occupancy violations.
+- Deterministic swarm suite runs four scoped cases, including an expected
+  `NARROW_CLAIM` canary, and verifies persisted agent traces from disk.
 
 ## NARROW_CLAIM
 
@@ -63,7 +65,7 @@ Latest local gates during this block:
 
 ```text
 ./scripts/local_gate.sh
-Ran 55 tests
+Ran 56 tests
 OK
 local gate passed
 ```
@@ -158,6 +160,18 @@ sim_report_outcome GO
 same_cell_collision_count 0
 swap_collision_count 0
 obstacle_occupancy_violation_count 0
+```
+
+Deterministic swarm suite:
+
+```text
+python3 scripts/run_swarm_suite.py --trace-root runs/swarm/suite --report-out runs/swarm/suite_report.json
+outcome GO
+case_count 4
+case n2-corridor-go expected GO actual GO
+case n2-center-block-go expected GO actual GO
+case n4-center-block-go expected GO actual GO
+case n4-center-block-short-narrow expected NARROW_CLAIM actual NARROW_CLAIM
 ```
 
 ## Next Work
