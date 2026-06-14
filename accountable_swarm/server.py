@@ -1,0 +1,110 @@
+"""Small stdlib HTTP server for manual Alibaba ECS deployment proof."""
+
+from __future__ import annotations
+
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import json
+import os
+from pathlib import Path
+from typing import Any
+from urllib.parse import parse_qs, urlparse
+
+from accountable_swarm.images import image_size
+from accountable_swarm.qwen.bbox import parse_qwen_bbox_response
+from accountable_swarm.qwen.client import DashScopeQwenClient, DashScopeResponseError, MissingAlibabaApiKey
+from accountable_swarm.trace.models import PerceptionEvent, build_single_event_trace, canonical_json, verify_trace
+
+
+FIXTURE_RESPONSE = '[{"bbox_2d":[250,250,750,750],"label":"marked hazard"}]'
+
+
+class AccountableSwarmHandler(BaseHTTPRequestHandler):
+    server_version = "AccountableSwarmHTTP/0.1"
+
+    def do_GET(self) -> None:  # noqa: N802
+        parsed = urlparse(self.path)
+        if parsed.path == "/healthz":
+            self._send_json({"status": "ok", "service": "accountable-swarm"})
+            return
+        if parsed.path == "/readyz":
+            self._send_json(
+                {
+                    "status": "ok",
+                    "has_alibaba_api_key": bool(os.getenv("ALIBABA_API_KEY")),
+                    "default_vl_model": os.getenv("QWEN_VL_MODEL", "qwen3-vl-flash"),
+                }
+            )
+            return
+        if parsed.path == "/camera-fixture":
+            self._handle_camera_fixture()
+            return
+        if parsed.path == "/qwen-ping":
+            query = parse_qs(parsed.query)
+            model = query.get("model", ["qwen-plus"])[0]
+            self._handle_qwen_ping(model=model)
+            return
+        self._send_json({"error": "not_found"}, status=404)
+
+    def log_message(self, format: str, *args: Any) -> None:
+        return
+
+    def _handle_camera_fixture(self) -> None:
+        image_path = Path("fixtures/hazard_marker.ppm")
+        width, height = image_size(image_path)
+        grounding = parse_qwen_bbox_response(FIXTURE_RESPONSE, image_width=width, image_height=height)
+        perception = PerceptionEvent(
+            event_id="ecs-fixture-perception-0000",
+            source=f"fixture://{image_path.name}",
+            image_width=width,
+            image_height=height,
+            label=grounding.label,
+            bbox_2d_norm_1000=grounding.bbox_2d_norm_1000,
+            bbox_2d_px=grounding.bbox_2d_px,
+            model="fixture-qwen3-vl-shape",
+        )
+        trace = build_single_event_trace(
+            run_id="ecs-fixture-go-gate-0000",
+            actor_id="ecs-edge-node-0",
+            mode="fixture",
+            perception=perception,
+            intent="hold if marked hazard is visible",
+            decision="VETO",
+            reason="hazard label detected in keyframe",
+            command={"type": "hold", "duration_ticks": 1},
+        )
+        summary_sha = verify_trace(trace)
+        self._send_json(
+            {
+                "status": "ok",
+                "trace_summary_sha": summary_sha,
+                "schema_version": trace.schema_version,
+                "decision": trace.events[0].decision,
+            }
+        )
+
+    def _handle_qwen_ping(self, *, model: str) -> None:
+        try:
+            content = DashScopeQwenClient(model=model).chat_text(prompt="Return exactly OK.", max_tokens=8)
+        except MissingAlibabaApiKey:
+            self._send_json({"status": "missing_key", "model": model}, status=503)
+            return
+        except (DashScopeResponseError, ValueError) as exc:
+            self._send_json({"status": "failed", "model": model, "error": str(exc)}, status=502)
+            return
+        self._send_json({"status": "ok", "model": model, "content_prefix": content.strip()[:16]})
+
+    def _send_json(self, payload: dict[str, Any], *, status: int = 200) -> None:
+        data = canonical_json(payload).encode("utf-8") + b"\n"
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+
+def run_server(*, host: str, port: int) -> None:
+    httpd = ThreadingHTTPServer((host, port), AccountableSwarmHandler)
+    try:
+        httpd.serve_forever()
+    finally:
+        httpd.server_close()
