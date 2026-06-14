@@ -6,6 +6,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
 from pathlib import Path
+import shutil
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlparse
 
@@ -16,7 +17,8 @@ from accountable_swarm.trace.models import PerceptionEvent, build_single_event_t
 
 
 FIXTURE_RESPONSE = '[{"bbox_2d":[250,250,750,750],"label":"marked hazard"}]'
-DEFAULT_SWARM_DEMO_BUNDLE_DIR = Path("runs/demo/swarm")
+REPO_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_SWARM_DEMO_BUNDLE_DIR = REPO_ROOT / "runs/demo/swarm"
 SWARM_DEMO_BUILD_COMMAND = "python3 scripts/build_swarm_demo_bundle.py"
 
 
@@ -103,23 +105,29 @@ class AccountableSwarmHandler(BaseHTTPRequestHandler):
         self._send_json({"status": "ok", "model": model, "content_prefix": content.strip()[:16]})
 
     def _handle_swarm_demo_file(self, rel_url_path: str) -> None:
-        root = Path(os.getenv("SWARM_DEMO_BUNDLE_DIR", str(DEFAULT_SWARM_DEMO_BUNDLE_DIR))).resolve()
+        root = _swarm_demo_bundle_root()
+        if not _has_swarm_demo_bundle_markers(root):
+            self._send_missing_swarm_demo_bundle()
+            return
         try:
             target = _safe_bundle_path(root=root, rel_url_path=rel_url_path)
         except ValueError as exc:
             self._send_json({"status": "rejected", "error": str(exc)}, status=400)
             return
         if not target.is_file():
-            self._send_json(
-                {
-                    "status": "missing_bundle",
-                    "error": "swarm demo bundle file not found",
-                    "build_command": SWARM_DEMO_BUILD_COMMAND,
-                },
-                status=404,
-            )
+            self._send_missing_swarm_demo_bundle()
             return
         self._send_file(target)
+
+    def _send_missing_swarm_demo_bundle(self) -> None:
+        self._send_json(
+            {
+                "status": "missing_bundle",
+                "error": "swarm demo bundle file not found",
+                "build_command": SWARM_DEMO_BUILD_COMMAND,
+            },
+            status=404,
+        )
 
     def _send_json(self, payload: dict[str, Any], *, status: int = 200) -> None:
         data = canonical_json(payload).encode("utf-8") + b"\n"
@@ -130,12 +138,36 @@ class AccountableSwarmHandler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def _send_file(self, path: Path) -> None:
-        data = path.read_bytes()
+        try:
+            size = path.stat().st_size
+            source = path.open("rb")
+        except FileNotFoundError:
+            self._send_missing_swarm_demo_bundle()
+            return
+        except OSError as exc:
+            self._send_json({"status": "failed", "error": f"could not read swarm demo file: {exc}"}, status=500)
+            return
+
         self.send_response(200)
         self.send_header("Content-Type", _content_type(path))
-        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Content-Length", str(size))
         self.end_headers()
-        self.wfile.write(data)
+        try:
+            with source:
+                shutil.copyfileobj(source, self.wfile)
+        except OSError:
+            return
+
+
+def _swarm_demo_bundle_root() -> Path:
+    configured = os.getenv("SWARM_DEMO_BUNDLE_DIR")
+    if configured is None or configured.strip() in {"", "."}:
+        return DEFAULT_SWARM_DEMO_BUNDLE_DIR.resolve()
+    return Path(configured).resolve()
+
+
+def _has_swarm_demo_bundle_markers(root: Path) -> bool:
+    return root.is_dir() and (root / "index.html").is_file() and (root / "summary.json").is_file()
 
 
 def _safe_bundle_path(*, root: Path, rel_url_path: str) -> Path:

@@ -58,10 +58,40 @@ class ServerTests(TestCase):
                 self.assertEqual(payload["status"], "missing_bundle")
                 self.assertEqual(payload["build_command"], "python3 scripts/build_swarm_demo_bundle.py")
 
+    def test_swarm_demo_empty_bundle_dir_does_not_serve_cwd(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            old_cwd = Path.cwd()
+            tmp_path = Path(tmpdir)
+            (tmp_path / "cwd-only.txt").write_text("must not be served", encoding="utf-8")
+            try:
+                os.chdir(tmp_path)
+                with patch.dict(os.environ, {"SWARM_DEMO_BUNDLE_DIR": ""}), _test_server() as base_url:
+                    with self.assertRaises(HTTPError) as ctx:
+                        _get_text(f"{base_url}/swarm-demo/cwd-only.txt")
+                    self.assertEqual(ctx.exception.code, 404)
+                    payload = json.loads(ctx.exception.read().decode("utf-8"))
+                    self.assertEqual(payload["status"], "missing_bundle")
+            finally:
+                os.chdir(old_cwd)
+
+    def test_swarm_demo_root_without_bundle_markers_fails_closed(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            bundle_dir = Path(tmpdir) / "bundle"
+            bundle_dir.mkdir()
+            (bundle_dir / "unexpected.txt").write_text("not a bundle", encoding="utf-8")
+            with patch.dict(os.environ, {"SWARM_DEMO_BUNDLE_DIR": str(bundle_dir)}), _test_server() as base_url:
+                with self.assertRaises(HTTPError) as ctx:
+                    _get_text(f"{base_url}/swarm-demo/unexpected.txt")
+                self.assertEqual(ctx.exception.code, 404)
+                payload = json.loads(ctx.exception.read().decode("utf-8"))
+                self.assertEqual(payload["status"], "missing_bundle")
+
     def test_swarm_demo_rejects_path_traversal(self) -> None:
         with TemporaryDirectory() as tmpdir:
             bundle_dir = Path(tmpdir) / "bundle"
             bundle_dir.mkdir()
+            (bundle_dir / "index.html").write_text("<!doctype html><title>bundle</title>", encoding="utf-8")
+            (bundle_dir / "summary.json").write_text('{"outcome":"GO"}\n', encoding="utf-8")
             with patch.dict(os.environ, {"SWARM_DEMO_BUNDLE_DIR": str(bundle_dir)}), _test_server() as base_url:
                 with self.assertRaises(HTTPError) as ctx:
                     _get_json(f"{base_url}/swarm-demo/%2e%2e/README.md")
