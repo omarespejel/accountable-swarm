@@ -93,6 +93,7 @@ sim-agent-3 (3, 0)
   violations.
 - Report records one 64-hex trace summary per agent.
 - Existing N=2 corridor and N=2 center-block gates still pass.
+- Expansion-budget exhaustion stays `NARROW_CLAIM`, not `GO`.
 - `./scripts/local_gate.sh` passes.
 
 ## Non-Claims

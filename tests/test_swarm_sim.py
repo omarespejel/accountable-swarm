@@ -2,7 +2,6 @@ from unittest import TestCase
 
 from accountable_swarm.swarm import GridPoint, build_agent_traces, replay_swarm_traces, run_swarm_sim
 from accountable_swarm.trace.models import canonical_json, trace_from_dict, verify_trace
-import accountable_swarm.swarm.sim as swarm_sim
 from accountable_swarm.swarm.sim import AgentConfig, _choose_tick_steps
 
 
@@ -116,13 +115,12 @@ class SwarmSimTests(TestCase):
         self.assertEqual(report["obstacle_occupancy_violation_count"], 0)
 
     def test_center_block_n4_planner_budget_exhaustion_stays_narrow_claim(self) -> None:
-        original_limit = swarm_sim.RESERVATION_PLANNER_MAX_EXPANSIONS
-        swarm_sim.RESERVATION_PLANNER_MAX_EXPANSIONS = 0
-        try:
-            result = run_swarm_sim(agent_count=4, ticks=16, scenario="center-block")
-        finally:
-            swarm_sim.RESERVATION_PLANNER_MAX_EXPANSIONS = original_limit
-
+        result = run_swarm_sim(
+            agent_count=4,
+            ticks=16,
+            scenario="center-block",
+            planner_max_expansions=0,
+        )
         traces = build_agent_traces(result)
         report = result.report_dict({agent_id: verify_trace(trace) for agent_id, trace in traces.items()})
 
@@ -130,6 +128,10 @@ class SwarmSimTests(TestCase):
         self.assertEqual(report["same_cell_collision_count"], 0)
         self.assertEqual(report["swap_collision_count"], 0)
         self.assertEqual(report["obstacle_occupancy_violation_count"], 0)
+
+    def test_negative_planner_budget_is_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            run_swarm_sim(agent_count=4, ticks=16, scenario="center-block", planner_max_expansions=-1)
 
     def test_replay_reports_obstacle_occupancy_when_supplied(self) -> None:
         result = run_swarm_sim(agent_count=2, ticks=8)
