@@ -15,10 +15,12 @@ from accountable_swarm.trace.models import (
     DecisionEvent,
     DecisionTrace,
     PerceptionEvent,
+    verify_trace,
 )
 
 SWARM_REPORT_SCHEMA_VERSION = "swarm-sim-report.v1"
 SWARM_MODEL_ID = "deterministic-grid-swarm-v1"
+SUPPORTED_SCENARIOS = ("corridor", "center-block")
 
 
 @dataclass(frozen=True, order=True)
@@ -34,6 +36,15 @@ class GridPoint:
 
     def to_dict(self) -> dict[str, int]:
         return {"x": self.x, "y": self.y}
+
+    @classmethod
+    def from_dict(cls, value: dict[str, Any]) -> "GridPoint":
+        try:
+            x = value["x"]
+            y = value["y"]
+        except KeyError as exc:
+            raise ValueError("grid point dict must contain x and y") from exc
+        return cls(x=x, y=y)
 
 
 @dataclass(frozen=True)
@@ -90,6 +101,7 @@ class TickRecord:
     steps: tuple[AgentStep, ...]
     same_cell_collisions: int
     swap_collisions: int
+    obstacle_occupancy_violations: int
 
 
 @dataclass(frozen=True)
@@ -99,6 +111,8 @@ class SwarmSimulationResult:
     run_id: str
     grid_width: int
     grid_height: int
+    scenario: str
+    obstacles: tuple[GridPoint, ...]
     configs: tuple[AgentConfig, ...]
     ticks: tuple[TickRecord, ...]
     final_positions: dict[str, GridPoint]
@@ -114,6 +128,10 @@ class SwarmSimulationResult:
     @property
     def swap_collision_count(self) -> int:
         return sum(tick.swap_collisions for tick in self.ticks)
+
+    @property
+    def obstacle_occupancy_violation_count(self) -> int:
+        return sum(tick.obstacle_occupancy_violations for tick in self.ticks)
 
     @property
     def reroute_count(self) -> int:
@@ -138,6 +156,7 @@ class SwarmSimulationResult:
             if self.all_goals_reached
             and self.same_cell_collision_count == 0
             and self.swap_collision_count == 0
+            and self.obstacle_occupancy_violation_count == 0
             and trace_summary_complete
             else "NARROW_CLAIM"
         )
@@ -146,11 +165,14 @@ class SwarmSimulationResult:
             "run_id": self.run_id,
             "outcome": outcome,
             "agent_count": self.agent_count,
+            "scenario": self.scenario,
             "grid": {"width": self.grid_width, "height": self.grid_height},
+            "obstacles": [point.to_dict() for point in self.obstacles],
             "ticks_executed": len(self.ticks),
             "all_goals_reached": self.all_goals_reached,
             "same_cell_collision_count": self.same_cell_collision_count,
             "swap_collision_count": self.swap_collision_count,
+            "obstacle_occupancy_violation_count": self.obstacle_occupancy_violation_count,
             "reroute_count": self.reroute_count,
             "hold_count": self.hold_count,
             "final_positions": {
@@ -178,6 +200,7 @@ class SwarmReplayReport:
     final_positions: dict[str, GridPoint]
     same_cell_collision_count: int
     swap_collision_count: int
+    obstacle_occupancy_violation_count: int
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -188,6 +211,7 @@ class SwarmReplayReport:
             },
             "same_cell_collision_count": self.same_cell_collision_count,
             "swap_collision_count": self.swap_collision_count,
+            "obstacle_occupancy_violation_count": self.obstacle_occupancy_violation_count,
         }
 
 
@@ -197,13 +221,18 @@ def run_swarm_sim(
     ticks: int = 8,
     grid_width: int = 7,
     grid_height: int = 5,
+    scenario: str = "corridor",
     run_id: str | None = None,
 ) -> SwarmSimulationResult:
     """Run the deterministic simulated swarm."""
 
     if ticks <= 0:
         raise ValueError("ticks must be positive")
+    if scenario not in SUPPORTED_SCENARIOS:
+        raise ValueError(f"scenario must be one of: {', '.join(SUPPORTED_SCENARIOS)}")
+    obstacles = _default_obstacles(scenario, grid_width=grid_width, grid_height=grid_height)
     configs = _default_configs(agent_count, grid_width=grid_width, grid_height=grid_height)
+    _validate_configs_against_obstacles(configs, obstacles)
     positions = {config.agent_id: config.start for config in configs}
     records: list[TickRecord] = []
     for tick in range(ticks):
@@ -214,21 +243,26 @@ def run_swarm_sim(
             positions=before,
             grid_width=grid_width,
             grid_height=grid_height,
+            obstacles=obstacles,
         )
         positions = {step.agent_id: step.accepted for step in steps}
         same_cell, swap = _collision_counts(before, positions)
+        obstacle_violations = _obstacle_occupancy_violations(positions, obstacles)
         records.append(
             TickRecord(
                 tick=tick,
                 steps=tuple(steps),
                 same_cell_collisions=same_cell,
                 swap_collisions=swap,
+                obstacle_occupancy_violations=obstacle_violations,
             )
         )
     return SwarmSimulationResult(
-        run_id=run_id or f"swarm-sim-n{agent_count}",
+        run_id=run_id or f"swarm-sim-{scenario}-n{agent_count}",
         grid_width=grid_width,
         grid_height=grid_height,
+        scenario=scenario,
+        obstacles=tuple(sorted(obstacles)),
         configs=configs,
         ticks=tuple(records),
         final_positions=positions,
@@ -264,17 +298,18 @@ def build_agent_traces(result: SwarmSimulationResult) -> dict[str, DecisionTrace
     return traces
 
 
-def replay_swarm_traces(traces: dict[str, DecisionTrace]) -> SwarmReplayReport:
+def replay_swarm_traces(traces: dict[str, DecisionTrace], *, obstacles: tuple[Any, ...]) -> SwarmReplayReport:
     """Replay per-agent traces into final positions and collision counts."""
 
     if not traces:
         raise ValueError("at least one trace is required")
+    obstacle_set = _normalize_obstacles(obstacles)
     agent_ids = sorted(traces)
     events_by_agent: dict[str, tuple[DecisionEvent, ...]] = {}
     expected_ticks: int | None = None
     for agent_id in agent_ids:
         trace = traces[agent_id]
-        trace.with_computed_summary()
+        verify_trace(trace)
         if expected_ticks is None:
             expected_ticks = len(trace.events)
         elif len(trace.events) != expected_ticks:
@@ -286,6 +321,7 @@ def replay_swarm_traces(traces: dict[str, DecisionTrace]) -> SwarmReplayReport:
     final_positions: dict[str, GridPoint] = {}
     same_cell_collision_count = 0
     swap_collision_count = 0
+    obstacle_occupancy_violation_count = 0
     for tick in range(expected_ticks):
         before: dict[str, GridPoint] = {}
         after: dict[str, GridPoint] = {}
@@ -308,6 +344,7 @@ def replay_swarm_traces(traces: dict[str, DecisionTrace]) -> SwarmReplayReport:
         same_cell, swap = _collision_counts(before, after)
         same_cell_collision_count += same_cell
         swap_collision_count += swap
+        obstacle_occupancy_violation_count += _obstacle_occupancy_violations(after, obstacle_set)
         previous_positions = after
         final_positions = after
     return SwarmReplayReport(
@@ -316,6 +353,7 @@ def replay_swarm_traces(traces: dict[str, DecisionTrace]) -> SwarmReplayReport:
         final_positions=final_positions,
         same_cell_collision_count=same_cell_collision_count,
         swap_collision_count=swap_collision_count,
+        obstacle_occupancy_violation_count=obstacle_occupancy_violation_count,
     )
 
 
@@ -326,20 +364,29 @@ def _choose_tick_steps(
     positions: dict[str, GridPoint],
     grid_width: int,
     grid_height: int,
+    obstacles: frozenset[GridPoint],
 ) -> list[AgentStep]:
     accepted: dict[str, GridPoint] = {}
     steps: list[AgentStep] = []
-    for config in sorted(configs, key=lambda item: item.agent_id):
+    sorted_configs = tuple(sorted(configs, key=lambda item: item.agent_id))
+    for config_index, config in enumerate(sorted_configs):
         before = positions[config.agent_id]
         candidates = _candidate_positions(config, before)
         proposed = candidates[0]
         accepted_point = before
         decision = "HOLD"
         reason = "no safe candidate available"
+        unprocessed_current_positions = {
+            positions[other_config.agent_id] for other_config in sorted_configs[config_index + 1 :]
+        }
         for index, candidate in enumerate(candidates):
             if not _in_bounds(candidate, grid_width=grid_width, grid_height=grid_height):
                 continue
+            if candidate in obstacles:
+                continue
             if candidate in accepted.values():
+                continue
+            if candidate in unprocessed_current_positions:
                 continue
             if _would_swap(config.agent_id, before, candidate, positions, accepted):
                 continue
@@ -405,7 +452,7 @@ def _decision_for_candidate(*, index: int, before: GridPoint, candidate: GridPoi
         return "HOLD", "already at goal or all movement candidates were blocked"
     if index == 0:
         return "MOVE", "direct grid step accepted"
-    return "REROUTE", "direct step blocked by local collision guard"
+    return "REROUTE", "direct step blocked by local collision or obstacle guard"
 
 
 def _would_swap(
@@ -437,6 +484,10 @@ def _collision_counts(before: dict[str, GridPoint], after: dict[str, GridPoint])
     return same_cell, swap
 
 
+def _obstacle_occupancy_violations(positions: dict[str, GridPoint], obstacles: frozenset[GridPoint]) -> int:
+    return sum(1 for point in positions.values() if point in obstacles)
+
+
 def _synthetic_perception(*, result: SwarmSimulationResult, tick: int, agent_id: str) -> PerceptionEvent:
     return PerceptionEvent(
         event_id=f"swarm-{agent_id}-tick-{tick:04d}",
@@ -462,6 +513,37 @@ def _default_configs(agent_count: int, *, grid_width: int, grid_height: int) -> 
     if agent_count not in {2, 4}:
         raise ValueError("agent_count must be 2 or 4 for the current checked scenarios")
     return configs[:agent_count]
+
+
+def _default_obstacles(scenario: str, *, grid_width: int, grid_height: int) -> frozenset[GridPoint]:
+    if scenario == "corridor":
+        return frozenset()
+    if scenario == "center-block":
+        return frozenset({GridPoint(grid_width // 2, grid_height // 2)})
+    raise ValueError(f"unsupported scenario: {scenario}")
+
+
+def _validate_configs_against_obstacles(
+    configs: tuple[AgentConfig, ...], obstacles: frozenset[GridPoint]
+) -> None:
+    for config in configs:
+        if config.start in obstacles:
+            raise ValueError(f"{config.agent_id} starts inside an obstacle")
+        if config.goal in obstacles:
+            raise ValueError(f"{config.agent_id} goal is inside an obstacle")
+
+
+def _normalize_obstacles(obstacles: tuple[Any, ...]) -> frozenset[GridPoint]:
+    normalized: list[GridPoint] = []
+    for obstacle in obstacles:
+        if isinstance(obstacle, GridPoint):
+            normalized.append(obstacle)
+            continue
+        if isinstance(obstacle, dict):
+            normalized.append(GridPoint.from_dict(obstacle))
+            continue
+        raise TypeError("obstacles must be GridPoint objects or {'x': int, 'y': int} dicts")
+    return frozenset(normalized)
 
 
 def _step_for_agent(tick: TickRecord, agent_id: str) -> AgentStep:

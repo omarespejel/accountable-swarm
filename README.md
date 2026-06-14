@@ -99,6 +99,20 @@ python3 scripts/verify_trace.py runs/swarm/n2/sim-agent-1.json
 The report includes a trace-derived replay section with final positions and
 same-cell/swap collision counts.
 
+Obstacle scenario:
+
+```bash
+python3 scripts/run_swarm_sim.py \
+  --agents 2 \
+  --ticks 9 \
+  --scenario center-block \
+  --trace-dir runs/swarm/center-block-n2 \
+  --report-out runs/swarm/center_block_n2_report.json
+```
+
+The obstacle report additionally records obstacle coordinates and
+trace-replayed obstacle-occupancy violations.
+
 This gate does not claim physical behavior, SO-101 operation, 3D physics,
 latency, reliability, DimOS integration, or Alibaba deployment.
 
@@ -129,4 +143,5 @@ NARROW_CLAIM matrix. The short version:
 - Qwen and DecisionTrace spine: GO.
 - Camera/static-frame live Qwen gate: GO for generated static frame.
 - Deterministic N=2 integer-grid simulated swarm: GO.
+- Deterministic N=2 center-block obstacle scenario: GO.
 - SO-101, physics/DimOS swarm, and Alibaba ECS deployment: not yet proven.
