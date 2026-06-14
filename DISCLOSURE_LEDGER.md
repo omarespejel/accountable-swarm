@@ -20,6 +20,7 @@ data sources, and external assets from day one.
 | 2026-06-15 | Vertical-slalom swarm scenario | Authored for `accountable-swarm` | Apache-2.0 | Second fixed two-obstacle N=4 integer-grid swarm gate | No external planner code copied; no arbitrary-map, physics, hardware, or larger-swarm claim. |
 | 2026-06-15 | Fixed swarm scenario registry | Authored for `accountable-swarm` | Apache-2.0 | Central source of truth for current deterministic scenario metadata | No user-supplied layouts, arbitrary-map planning, physics, hardware, or larger-swarm claim. |
 | 2026-06-15 | Horizontal-slalom swarm scenario | Authored for `accountable-swarm` | Apache-2.0 | Third fixed two-obstacle N=4 integer-grid swarm gate | No external planner code copied; no arbitrary-map, physics, hardware, or larger-swarm claim. |
+| 2026-06-15 | Registry-bound swarm mission scenario selection | Authored for `accountable-swarm` | Apache-2.0 | Fixture/DashScope mission prompt selection from reviewed scenario names | No live Qwen mission claim without separate DashScope evidence; no arbitrary-map or hardware claim. |
 
 ## Pending Before Demo
 

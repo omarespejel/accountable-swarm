@@ -8,13 +8,20 @@ deterministic simulator remains the only motion authority.
 
 ## Scope
 
-This gate uses fixture mode as the checked GO path. DashScope mode is wired to
-the same strict parser, but no live Qwen mission-assignment claim is made until
-a live run is separately recorded.
+This gate uses fixture mode as the checked GO path. Fixture mode emits the full
+mission JSON envelope. DashScope mode is constrained to an objective-only JSON
+object; deterministic local code binds the reviewed scenario, mission id, agent
+count, and tick budget. No live Qwen mission-assignment claim is made until a
+live run is separately recorded.
 
-## Mission Contract
+Mission scenarios are bounded to reviewed simulator scenario-registry names.
+The checked fixture path currently records `center-block` and
+`horizontal-slalom`; this is not an arbitrary-map interface.
 
-The accepted mission response is a strict JSON object with exactly these keys:
+## Mission Contracts
+
+The accepted fixture mission response is a strict JSON object with exactly
+these keys:
 
 ```text
 schema_version
@@ -29,6 +36,19 @@ Validation rejects malformed JSON, extra keys, unsupported scenarios,
 unsupported agent counts, raw floats, boolean-as-integer fields, and unsafe
 tick budgets.
 
+The accepted DashScope mission-intent response is stricter: a JSON object with
+exactly one key:
+
+```text
+objective
+```
+
+For DashScope mode, the requested scenario comes from `--mission-scenario` and
+must be one of the reviewed simulator scenario-registry names. Local code then
+derives the mission id, agent count, and tick budget deterministically. A
+model-returned scenario, mission id, agent count, tick budget, command, or
+coordinate is rejected as extra metadata.
+
 ## Commands
 
 ```bash
@@ -37,10 +57,15 @@ python3 scripts/run_swarm_mission_gate.py \
   --mode fixture \
   --trace-dir runs/swarm/mission-fixture-n4 \
   --report-out runs/swarm/mission_fixture_n4_report.json
+python3 scripts/run_swarm_mission_gate.py \
+  --mode fixture \
+  --mission-scenario horizontal-slalom \
+  --trace-dir runs/swarm/mission-horizontal-slalom-fixture-n4 \
+  --report-out runs/swarm/mission_horizontal_slalom_fixture_n4_report.json
 ./scripts/local_gate.sh
 ```
 
-## Result
+## Center-Block Result
 
 ```text
 outcome GO
@@ -73,9 +98,47 @@ sim_report_go true
 agent_trace_replay_counts_zero true
 ```
 
+## Horizontal-Slalom Result
+
+```text
+outcome GO
+mode fixture
+scenario horizontal-slalom
+agent_count 4
+mission_trace_summary_sha 2a75abfc4cdf17f903f80787c23689819b2af4b891ae0e8113c5c8a1232f849a
+sim_report_outcome GO
+same_cell_collision_count 0
+swap_collision_count 0
+obstacle_occupancy_violation_count 0
+```
+
+Agent trace summaries:
+
+```text
+sim-agent-0 283e6069b0a2ee992b3dcca3dc1131f6532824e7ebf85831578534608adee90f
+sim-agent-1 434e1ba89dc0fbaae215595abf2cdffa6f950dcbac17944342215bee95ed8331
+sim-agent-2 79c6e6a6f938368496a2d1ef388b0fbe56468e241ea59c3cf01e23b9cd86dc95
+sim-agent-3 93f5a811f6f5631f684e3a3716abc7b01fee28bb2dd1bcb57906e6f74413ed92
+```
+
+Pass conditions:
+
+```text
+mission_json_validated true
+mission_trace_replay_deterministic true
+agent_traces_replay_deterministic true
+sim_report_go true
+agent_trace_replay_counts_zero true
+```
+
 ## GO Gate
 
-- Fixture mission JSON validates.
+- Fixture mission JSON validates for reviewed scenario-registry names.
+- DashScope mission-intent JSON is objective-only.
+- Local code binds scenario, mission id, agent count, and tick budget after
+  objective parsing.
+- Unknown mission scenarios remain rejected.
+- Fixture scenario and mission-id mismatches remain rejected.
 - Mission trace verifies and replays to the same summary SHA.
 - Local deterministic simulator runs only after validation.
 - Simulator report outcome is `GO`.

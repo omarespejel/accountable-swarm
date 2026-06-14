@@ -163,8 +163,9 @@ general-purpose multi-agent planner.
 ## Low-Rate Mission Gate
 
 The mission gate gives Qwen-style reasoning a bounded, low-rate role. A fixture
-or DashScope text model proposes a strict mission JSON; local code validates it;
-only then does the deterministic simulator run.
+proposes a strict mission JSON envelope; DashScope text mode proposes only an
+`objective` string. Local code binds the reviewed scenario, mission id, agent
+count, and tick budget before the deterministic simulator runs.
 
 ```bash
 python3 scripts/run_swarm_mission_gate.py \
@@ -176,6 +177,17 @@ python3 scripts/run_swarm_mission_gate.py \
 Fixture mode currently produces `GO` for `center-block`, `agent_count=4`, and
 `ticks=16`. This does not place Qwen in the real-time loop and does not prove a
 live Qwen mission assignment unless `--mode dashscope` is separately recorded.
+The fixture can also request reviewed scenario-registry names, for example:
+
+```bash
+python3 scripts/run_swarm_mission_gate.py \
+  --mode fixture \
+  --mission-scenario horizontal-slalom \
+  --trace-dir runs/swarm/mission-horizontal-slalom-fixture-n4 \
+  --report-out runs/swarm/mission_horizontal_slalom_fixture_n4_report.json
+```
+
+This currently produces `GO` for the scoped horizontal-slalom mission fixture.
 
 ## Swarm Scenario Suite
 
@@ -229,6 +241,7 @@ NARROW_CLAIM matrix. The short version:
   integer-grid reservation-planner gate.
 - Deterministic N=4 horizontal-slalom obstacle scenario: GO for the scoped
   integer-grid reservation-planner gate.
-- Low-rate fixture mission assignment into N=4 center-block swarm gate: GO.
+- Low-rate fixture mission assignment into N=4 center-block and
+  horizontal-slalom swarm gates: GO.
 - Deterministic swarm scenario suite with expected-NARROW canary: GO.
 - SO-101, physics/DimOS swarm, and Alibaba ECS deployment: not yet proven.
