@@ -67,10 +67,8 @@ What is not checked yet:
 - Issue #1: research ground truth and build hierarchy.
 - Issue #3: physical-node safety contract.
 - Issue #4: Alibaba/Qwen proof path.
-- Issue #19: deterministic swarm scenario suite.
-- Issue #21: vertical-slalom deterministic swarm scenario.
-- Issue #2, #6, #11, #13, #15, and #17 are closed as GO.
-- PR #5, #7, #8, #9, #10, #12, #14, #16, and #18 are merged.
+- Issue #2, #6, #11, #13, #15, #17, #19, #21, and #23 are closed as GO.
+- PR #5, #7, #8, #9, #10, #12, #14, #16, #18, #20, and #22 are merged.
 
 Before creating new work, inspect the current PR and issues:
 

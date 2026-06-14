@@ -33,7 +33,7 @@ This is the current repo state after the first 10-hour execution block began at
 - Low-rate fixture mission assignment validates a strict mission JSON,
   emits a mission `DecisionTrace`, then runs the deterministic N=4 center-block
   swarm gate with zero same-cell, swap, or obstacle occupancy violations.
-- Deterministic swarm suite runs four scoped cases, including an expected
+- Deterministic swarm suite runs five scoped cases, including an expected
   `NARROW_CLAIM` canary, and verifies persisted agent traces from disk.
 
 ## NARROW_CLAIM
@@ -198,9 +198,12 @@ case n4-center-block-short-narrow expected NARROW_CLAIM actual NARROW_CLAIM
 ## Next Work
 
 1. Run the ECS manual deployment path on Alibaba Cloud and record proof.
-2. Decide whether the next swarm step is live DashScope mission assignment,
-   richer scenario fixtures, or a DimOS adapter sketch.
-3. Convert webcam evidence into a redacted/fixture-safe artifact only if it is
+2. Continue swarm-first work before physical hardware: either live DashScope
+   mission assignment, richer simulated scenario fixtures, or a small scenario
+   registry if fixed layouts keep growing.
+3. Keep SO-101 and physical-node work pending until the simulated-swarm GO/NO-GO
+   gates are stronger.
+4. Convert webcam evidence into a redacted/fixture-safe artifact only if it is
    useful for the hackathon story.
 
 ## Non-Claims
