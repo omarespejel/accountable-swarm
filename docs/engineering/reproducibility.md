@@ -136,6 +136,19 @@ in the agent trace-derived replay section.
 
 Do not commit API keys, raw secrets, or cloud credentials.
 
+Deterministic swarm suite:
+
+```bash
+python3 scripts/run_swarm_suite.py \
+  --trace-root runs/swarm/suite \
+  --report-out runs/swarm/suite_report.json
+```
+
+This report must show suite `outcome GO`, expected-GO cases still `GO`, the
+short N=4 canary still `NARROW_CLAIM`, deterministic agent trace replay from
+disk, replay counts matching simulator counts, and zero same-cell, swap, and
+obstacle-occupancy replay violations.
+
 ## Claim Scope Reminder
 
 Passing fixture mode means only that the local trace spine is deterministic for

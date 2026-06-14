@@ -150,6 +150,22 @@ Fixture mode currently produces `GO` for `center-block`, `agent_count=4`, and
 `ticks=16`. This does not place Qwen in the real-time loop and does not prove a
 live Qwen mission assignment unless `--mode dashscope` is separately recorded.
 
+## Swarm Scenario Suite
+
+The suite reruns the deterministic swarm cases and includes one intentional
+`NARROW_CLAIM` canary so the report catches overclaiming:
+
+```bash
+python3 scripts/run_swarm_suite.py \
+  --trace-root runs/swarm/suite \
+  --report-out runs/swarm/suite_report.json
+```
+
+The suite currently expects `GO` for N=2 corridor, N=2 center-block, and N=4
+center-block, and expects `NARROW_CLAIM` for a deliberately too-short N=4
+center-block run. Suite `GO` means those expectations matched and persisted
+agent traces replayed deterministically from disk.
+
 ## Minimal Backend
 
 For manual Alibaba ECS proof, run the stdlib demo server:
@@ -181,4 +197,5 @@ NARROW_CLAIM matrix. The short version:
 - Deterministic N=4 center-block obstacle scenario: GO for the scoped
   integer-grid reservation-planner gate.
 - Low-rate fixture mission assignment into N=4 center-block swarm gate: GO.
+- Deterministic swarm scenario suite with expected-NARROW canary: GO.
 - SO-101, physics/DimOS swarm, and Alibaba ECS deployment: not yet proven.
