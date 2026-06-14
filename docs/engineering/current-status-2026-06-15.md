@@ -151,6 +151,17 @@ python3 scripts/build_swarm_demo_bundle.py
 outcome GO
 scenario_count 4
 index_sha256 8ed23bca34358627a9948b49d265c28cd7433997e39578c62b911e5ee333f688
+```
+
+```text
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+summary = json.loads(Path("runs/demo/swarm/summary.json").read_text(encoding="utf-8"))
+for case in summary["scenarios"]:
+    print(case["scenario"], case["render_summary"]["outcome"], case["render_summary"]["html_sha256"])
+PY
 corridor GO 69321792e399a9313e7062655b93c408ee9ea8d379f3810149f3ce291f79ad35
 center-block GO 0a6b66dca4e478628b9c91880b40f1b0097391c534c3d7407736ff7c67815f66
 vertical-slalom GO 83d6fd2c622a61f6fd65b23c9a70375321ffb856a55c6b76190c5149dd11e04b

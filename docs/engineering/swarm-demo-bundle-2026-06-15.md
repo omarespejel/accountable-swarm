@@ -39,11 +39,26 @@ wrote runs/demo/swarm/summary.json
 
 Scenario replay HTML hashes:
 
+```bash
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+summary = json.loads(Path("runs/demo/swarm/summary.json").read_text(encoding="utf-8"))
+for case in summary["scenarios"]:
+    print(
+        case["scenario"],
+        case["render_summary"]["outcome"],
+        case["render_summary"]["html_sha256"],
+    )
+PY
+```
+
 ```text
-corridor            69321792e399a9313e7062655b93c408ee9ea8d379f3810149f3ce291f79ad35
-center-block        0a6b66dca4e478628b9c91880b40f1b0097391c534c3d7407736ff7c67815f66
-vertical-slalom     83d6fd2c622a61f6fd65b23c9a70375321ffb856a55c6b76190c5149dd11e04b
-horizontal-slalom   20587a02144999f625062b2fc8f359aacf6cfc288aff63fbacf7f06ea72e01a6
+corridor GO 69321792e399a9313e7062655b93c408ee9ea8d379f3810149f3ce291f79ad35
+center-block GO 0a6b66dca4e478628b9c91880b40f1b0097391c534c3d7407736ff7c67815f66
+vertical-slalom GO 83d6fd2c622a61f6fd65b23c9a70375321ffb856a55c6b76190c5149dd11e04b
+horizontal-slalom GO 20587a02144999f625062b2fc8f359aacf6cfc288aff63fbacf7f06ea72e01a6
 ```
 
 Every scenario report returned `GO` with zero same-cell, swap, and
