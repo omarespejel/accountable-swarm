@@ -107,7 +107,7 @@ def build_mission_trace(*, spec: MissionSpec, mode: str, model: str) -> Decision
     if mode not in {"fixture", "dashscope"}:
         raise ValueError("mission trace mode must be fixture or dashscope")
     perception = PerceptionEvent(
-        event_id="swarm-mission-0000",
+        event_id=f"swarm-mission-{spec.mission_id}",
         source=f"{mode}_mission://{spec.mission_id}",
         image_width=1,
         image_height=1,

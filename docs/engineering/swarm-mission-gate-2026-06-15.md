@@ -47,7 +47,7 @@ outcome GO
 mode fixture
 scenario center-block
 agent_count 4
-mission_trace_summary_sha 0b37a82e3714e7d8306ca41bfa8551f43d4a6f1bbfb84657a00c35ccb2a23f4b
+mission_trace_summary_sha 82e2138ee3f93e3468ebb04dd179c5c304688cc2ff243dbf129985d56927fcde
 sim_report_outcome GO
 same_cell_collision_count 0
 swap_collision_count 0
@@ -68,6 +68,7 @@ Pass conditions:
 ```text
 mission_json_validated true
 mission_trace_replay_deterministic true
+agent_traces_replay_deterministic true
 sim_report_go true
 agent_trace_replay_counts_zero true
 ```

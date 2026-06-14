@@ -58,12 +58,6 @@ def main() -> int:
         run_id=f"swarm-mission-{spec.mission_id}",
     )
     agent_traces = build_agent_traces(result)
-    agent_summary_shas = {
-        agent_id: verify_trace(trace) for agent_id, trace in sorted(agent_traces.items())
-    }
-    replay_report = replay_swarm_traces(agent_traces, obstacles=result.obstacles)
-    sim_report = result.report_dict(agent_summary_shas)
-    sim_report["replay"] = replay_report.to_dict()
 
     args.trace_dir.mkdir(parents=True, exist_ok=True)
     mission_trace_path = args.trace_dir / "mission.json"
@@ -73,12 +67,27 @@ def main() -> int:
 
     agents_dir = args.trace_dir / "agents"
     agents_dir.mkdir(exist_ok=True)
+    loaded_agent_traces = {}
     for agent_id, trace in sorted(agent_traces.items()):
-        (agents_dir / f"{agent_id}.json").write_text(trace.to_canonical_json() + "\n", encoding="utf-8")
+        trace_path = agents_dir / f"{agent_id}.json"
+        trace_path.write_text(trace.to_canonical_json() + "\n", encoding="utf-8")
+        loaded_trace = trace_from_dict(json.loads(trace_path.read_text(encoding="utf-8")))
+        loaded_agent_traces[agent_id] = loaded_trace
+    agent_summary_shas = {
+        agent_id: verify_trace(trace) for agent_id, trace in sorted(loaded_agent_traces.items())
+    }
+    replay_report = replay_swarm_traces(loaded_agent_traces, obstacles=result.obstacles)
+    sim_report = result.report_dict(agent_summary_shas)
+    sim_report["replay"] = replay_report.to_dict()
+    agent_replay_shas_match = all(
+        agent_summary_shas[agent_id] == verify_trace(agent_traces[agent_id])
+        for agent_id in sorted(agent_summary_shas)
+    )
 
     pass_conditions = {
         "mission_json_validated": True,
         "mission_trace_replay_deterministic": mission_summary_sha == mission_replay_sha,
+        "agent_traces_replay_deterministic": agent_replay_shas_match,
         "sim_report_go": sim_report["outcome"] == "GO",
         "agent_trace_replay_counts_zero": (
             replay_report.same_cell_collision_count == 0
