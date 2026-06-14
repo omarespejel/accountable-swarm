@@ -42,6 +42,9 @@ This is the current repo state after the first 10-hour execution block began at
   scenario-registry name, with persisted mission and agent traces replayed from
   disk. Child mission-gate or artifact failures now emit a suite
   `NARROW_CLAIM` report instead of raw stderr/stdout excerpts.
+- Swarm mission-suite trace verifier reports `GO` for clean persisted mission
+  and agent traces, and reports `NARROW_CLAIM` after a copied agent trace is
+  mutated without recomputing the hash chain.
 - Deterministic swarm suite runs six scoped cases, including an expected
   `NARROW_CLAIM` canary, and verifies persisted agent traces from disk.
 - Fixed swarm scenario registry centralizes current scenario names, obstacle
@@ -62,6 +65,9 @@ This is the current repo state after the first 10-hour execution block began at
   physics-backed behavior, latency, or reliability.
 - The mission assignment gate is fixture-mode GO only. It is not a live Qwen
   mission-assignment claim unless `--mode dashscope` is separately recorded.
+- The tamper gate is local hash-chain verification only. It is not a
+  cryptographic authenticity, remote attestation, or compromised-filesystem
+  claim.
 
 ## Open Blockers
 
@@ -80,7 +86,7 @@ Latest local gates during this block:
 
 ```text
 ./scripts/local_gate.sh
-Ran 78 tests
+Ran 81 tests
 OK
 local gate passed
 ```
@@ -234,6 +240,27 @@ case mission-corridor-fixture-n4-go scenario corridor expected GO actual GO
 case mission-center-block-fixture-n4-go scenario center-block expected GO actual GO
 case mission-vertical-slalom-fixture-n4-go scenario vertical-slalom expected GO actual GO
 case mission-horizontal-slalom-fixture-n4-go scenario horizontal-slalom expected GO actual GO
+```
+
+Swarm mission-suite trace verifier:
+
+```text
+python3 scripts/verify_swarm_mission_suite.py --trace-root runs/swarm/tamper-clean --report runs/swarm/tamper_clean_report.json --report-out runs/swarm/tamper_clean_verify_report.json
+outcome GO
+case_count 4
+case mission-corridor-fixture-n4-go actual GO verified True
+case mission-center-block-fixture-n4-go actual GO verified True
+case mission-vertical-slalom-fixture-n4-go actual GO verified True
+case mission-horizontal-slalom-fixture-n4-go actual GO verified True
+
+python3 scripts/verify_swarm_mission_suite.py --trace-root runs/swarm/tamper-agent --report runs/swarm/tamper_clean_report.json --report-out runs/swarm/tamper_agent_verify_report.json
+outcome NARROW_CLAIM
+case_count 4
+case mission-corridor-fixture-n4-go actual GO verified False
+case mission-center-block-fixture-n4-go actual GO verified True
+case mission-vertical-slalom-fixture-n4-go actual GO verified True
+case mission-horizontal-slalom-fixture-n4-go actual GO verified True
+failed_trace_kinds agent:sim-agent-0
 ```
 
 Deterministic swarm suite:

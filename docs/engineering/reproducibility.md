@@ -193,6 +193,20 @@ covered, every child mission gate `GO`, deterministic mission and agent trace
 replay from disk, and zero same-cell, swap, and obstacle-occupancy counts in
 each trace-derived replay section.
 
+Mission-suite trace verification:
+
+```bash
+python3 scripts/verify_swarm_mission_suite.py \
+  --trace-root runs/swarm/mission-suite \
+  --report runs/swarm/mission_suite_report.json \
+  --report-out runs/swarm/mission_suite_verify_report.json
+```
+
+For clean artifacts this report must show verifier `outcome GO`. If a persisted
+mission or agent trace is changed without recomputing hashes, the verifier must
+return non-zero and write `outcome NARROW_CLAIM` without storing raw trace
+contents or absolute local paths.
+
 Do not commit API keys, raw secrets, or cloud credentials.
 
 Deterministic swarm suite:

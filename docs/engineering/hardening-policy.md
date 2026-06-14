@@ -35,6 +35,18 @@ High-priority hardening targets:
 - physical movement without explicit operator arming;
 - docs that imply a stronger claim than evidence supports.
 
+Current swarm trace hardening command:
+
+```bash
+python3 scripts/verify_swarm_mission_suite.py \
+  --trace-root runs/swarm/mission-suite \
+  --report runs/swarm/mission_suite_report.json \
+  --report-out runs/swarm/mission_suite_verify_report.json
+```
+
+The verifier must fail closed with `NARROW_CLAIM` when a persisted mission or
+agent trace no longer matches its recorded hash-chain summary.
+
 ## Local Validation
 
 Run:

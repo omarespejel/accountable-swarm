@@ -204,6 +204,19 @@ mission and agent trace reloaded from disk to the recorded summary SHA, and
 trace-derived replay counters stayed at zero for same-cell, swap, and obstacle
 occupancy violations.
 
+Mission-suite trace verification:
+
+```bash
+python3 scripts/verify_swarm_mission_suite.py \
+  --trace-root runs/swarm/mission-suite \
+  --report runs/swarm/mission_suite_report.json \
+  --report-out runs/swarm/mission_suite_verify_report.json
+```
+
+This verifier walks the persisted mission and agent traces referenced by the
+suite report. It returns `GO` for clean artifacts and `NARROW_CLAIM` if a trace
+is mutated without recomputing the hash chain and summary SHA.
+
 ## Swarm Scenario Suite
 
 The suite reruns the deterministic swarm cases and includes one intentional

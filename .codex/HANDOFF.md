@@ -56,6 +56,9 @@ What is checked locally:
   scenario-registry name, verifies persisted mission and agent traces from disk,
   and keeps same-cell, swap, and obstacle occupancy counts at zero in each
   trace-derived replay.
+- swarm mission-suite trace verifier reports `GO` for clean persisted mission
+  and agent traces, and reports `NARROW_CLAIM` when a copied agent trace is
+  mutated without recomputing hashes.
 - deterministic swarm scenario suite reruns N=2/N=4 scoped cases, includes an
   expected `NARROW_CLAIM` canary, and verifies persisted agent traces from disk.
 - fixed swarm scenario registry centralizes current scenario names, obstacle
