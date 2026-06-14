@@ -19,6 +19,9 @@ This is the current repo state after the first 10-hour execution block began at
   same-cell or swap collisions.
 - Exploratory deterministic N=4 integer-grid probe reaches goals and reports
   zero same-cell or swap collisions.
+- Deterministic N=2 center-block obstacle scenario reaches both goals, reports
+  zero same-cell collisions, zero swap collisions, zero obstacle occupancy
+  violations, and replay recomputes obstacle occupancy from traces.
 
 ## NARROW_CLAIM
 
@@ -30,6 +33,8 @@ This is the current repo state after the first 10-hour execution block began at
 - Alibaba ECS manual deploy path is ready, but actual ECS proof is pending.
 - Physical-node safety contract exists, but no SO-101 connectivity or safe
   motion is proven.
+- Deterministic N=4 center-block obstacle scenario avoids collisions and the
+  obstacle but does not reach all goals with the current local guard.
 
 ## Open Blockers
 
@@ -92,11 +97,34 @@ swap_collision_count 0
 reroute_count 4
 ```
 
+Deterministic N=2 center-block obstacle gate:
+
+```text
+python3 scripts/run_swarm_sim.py --agents 2 --ticks 9 --scenario center-block --trace-dir runs/swarm/center-block-n2-replay --report-out runs/swarm/center_block_n2_replay_report.json
+outcome GO
+same_cell_collision_count 0
+swap_collision_count 0
+obstacle_occupancy_violation_count 0
+reroute_count 2
+sim-agent-0 summary_sha 972e065c57ce1fa897dadeb940a61350ff4941981da0ba0f2a7ff377d65ebca0
+sim-agent-1 summary_sha 34ebe9efad6276c48d2a076c3630482c06b0cbf977c950849df2a35f4bc68cc3
+```
+
+Exploratory deterministic N=4 center-block obstacle probe:
+
+```text
+outcome NARROW_CLAIM
+same_cell_collision_count 0
+swap_collision_count 0
+obstacle_occupancy_violation_count 0
+all_goals_reached false
+```
+
 ## Next Work
 
 1. Run the ECS manual deployment path on Alibaba Cloud and record proof.
-2. Decide whether the next swarm step is a fixture obstacle field, DimOS
-   adapter sketch, or Qwen low-rate mission planner.
+2. Decide whether the next swarm step is a reservation-table planner for N=4
+   center-block, a DimOS adapter sketch, or Qwen low-rate mission planner.
 3. Convert webcam evidence into a redacted/fixture-safe artifact only if it is
    useful for the hackathon story.
 

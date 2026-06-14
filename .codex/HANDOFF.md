@@ -32,8 +32,13 @@ What is checked locally:
   operator still needs to provision ECS and run the smoke checks.
 - deterministic N=2 integer-grid simulated swarm emits one DecisionTrace per
   agent, reaches goals, and reports zero same-cell or swap collisions.
+- deterministic N=2 center-block obstacle scenario reaches goals, reports zero
+  obstacle occupancy, and replay recomputes obstacle occupancy from traces.
 - exploratory deterministic N=4 integer-grid probe passes locally, but is not a
   physical, physics, latency, reliability, or larger-swarm claim.
+- exploratory deterministic N=4 center-block obstacle probe is `NARROW_CLAIM`:
+  it avoids collisions and obstacle occupancy but does not reach all goals with
+  the current local guard.
 
 What is not checked yet:
 
@@ -49,8 +54,9 @@ What is not checked yet:
 - Issue #3: physical-node safety contract.
 - Issue #4: Alibaba/Qwen proof path.
 - Issue #11: deterministic N=2 simulated swarm DecisionTrace GO gate.
+- Issue #13: deterministic obstacle-field swarm replay gate.
 - Issue #2 and #6 are closed as GO.
-- PR #5, #7, #8, #9, and #10 are merged.
+- PR #5, #7, #8, #9, #10, and #12 are merged.
 
 Before creating new work, inspect the current PR and issues:
 

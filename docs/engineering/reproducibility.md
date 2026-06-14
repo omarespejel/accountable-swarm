@@ -92,6 +92,20 @@ python3 scripts/verify_trace.py runs/swarm/n2/sim-agent-1.json
 The swarm report includes trace-derived replay fields so another agent can
 recompute final positions and collision counts from the emitted traces.
 
+Deterministic N=2 obstacle gate:
+
+```bash
+python3 scripts/run_swarm_sim.py \
+  --agents 2 \
+  --ticks 9 \
+  --scenario center-block \
+  --trace-dir runs/swarm/center-block-n2 \
+  --report-out runs/swarm/center_block_n2_report.json
+```
+
+The obstacle report also includes trace-derived obstacle-occupancy violation
+counts.
+
 Do not commit API keys, raw secrets, or cloud credentials.
 
 ## Claim Scope Reminder
