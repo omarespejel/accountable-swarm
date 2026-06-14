@@ -26,6 +26,9 @@ This is the current repo state after the first 10-hour execution block began at
   bounded reservation planner, reports zero same-cell collisions, zero swap
   collisions, zero obstacle occupancy violations, and replay recomputes those
   counts from traces.
+- Low-rate fixture mission assignment validates a strict mission JSON,
+  emits a mission `DecisionTrace`, then runs the deterministic N=4 center-block
+  swarm gate with zero same-cell, swap, or obstacle occupancy violations.
 
 ## NARROW_CLAIM
 
@@ -40,6 +43,8 @@ This is the current repo state after the first 10-hour execution block began at
 - The reservation planner result is scoped to the fixed integer-grid
   `center-block` scenario; it is not evidence for arbitrary maps, larger
   swarms, physics-backed behavior, latency, or reliability.
+- The mission assignment gate is fixture-mode GO only. It is not a live Qwen
+  mission-assignment claim unless `--mode dashscope` is separately recorded.
 
 ## Open Blockers
 
@@ -58,7 +63,7 @@ Latest local gates during this block:
 
 ```text
 ./scripts/local_gate.sh
-Ran 44 tests
+Ran 54 tests
 OK
 local gate passed
 ```
@@ -140,10 +145,25 @@ sim-agent-2 summary_sha 7486044106f38dc24c83ed2901c028a4e53a829925849a7af11bb1c0
 sim-agent-3 summary_sha 2dce3509c5028ab0542ef9e3426b70b49b6f189ed8783ead0e68d48898845f32
 ```
 
+Low-rate fixture mission gate:
+
+```text
+python3 scripts/run_swarm_mission_gate.py --mode fixture --trace-dir runs/swarm/mission-fixture-n4 --report-out runs/swarm/mission_fixture_n4_report.json
+outcome GO
+mode fixture
+scenario center-block
+agent_count 4
+mission_trace_summary_sha 0b37a82e3714e7d8306ca41bfa8551f43d4a6f1bbfb84657a00c35ccb2a23f4b
+sim_report_outcome GO
+same_cell_collision_count 0
+swap_collision_count 0
+obstacle_occupancy_violation_count 0
+```
+
 ## Next Work
 
 1. Run the ECS manual deployment path on Alibaba Cloud and record proof.
-2. Decide whether the next swarm step is Qwen low-rate mission assignment,
+2. Decide whether the next swarm step is live DashScope mission assignment,
    richer scenario fixtures, or a DimOS adapter sketch.
 3. Convert webcam evidence into a redacted/fixture-safe artifact only if it is
    useful for the hackathon story.
@@ -157,5 +177,6 @@ Do not claim:
 - physical safety;
 - latency or reliability;
 - physics-backed or physical swarm behavior;
+- live Qwen mission assignment;
 - Alibaba ECS deployment complete;
 - Qwen onboard execution.

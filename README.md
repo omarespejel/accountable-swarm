@@ -133,6 +133,23 @@ This gate does not claim physical behavior, SO-101 operation, 3D physics,
 latency, reliability, DimOS integration, Alibaba deployment, or a
 general-purpose multi-agent planner.
 
+## Low-Rate Mission Gate
+
+The mission gate gives Qwen-style reasoning a bounded, low-rate role. A fixture
+or DashScope text model proposes a strict mission JSON; local code validates it;
+only then does the deterministic simulator run.
+
+```bash
+python3 scripts/run_swarm_mission_gate.py \
+  --mode fixture \
+  --trace-dir runs/swarm/mission-fixture-n4 \
+  --report-out runs/swarm/mission_fixture_n4_report.json
+```
+
+Fixture mode currently produces `GO` for `center-block`, `agent_count=4`, and
+`ticks=16`. This does not place Qwen in the real-time loop and does not prove a
+live Qwen mission assignment unless `--mode dashscope` is separately recorded.
+
 ## Minimal Backend
 
 For manual Alibaba ECS proof, run the stdlib demo server:
@@ -163,4 +180,5 @@ NARROW_CLAIM matrix. The short version:
 - Deterministic N=2 center-block obstacle scenario: GO.
 - Deterministic N=4 center-block obstacle scenario: GO for the scoped
   integer-grid reservation-planner gate.
+- Low-rate fixture mission assignment into N=4 center-block swarm gate: GO.
 - SO-101, physics/DimOS swarm, and Alibaba ECS deployment: not yet proven.
