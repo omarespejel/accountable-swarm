@@ -282,6 +282,22 @@ and deterministic HTML SHA
 This is not a physical, physics, latency, live-Qwen, arbitrary-map, or
 larger-swarm claim.
 
+## One-Command Swarm Demo Bundle
+
+The demo bundle command generates scenario reports, verified agent traces,
+static replay pages, and a deterministic index from the reviewed local scenario
+registry:
+
+```bash
+python3 scripts/build_swarm_demo_bundle.py --out-dir runs/demo/swarm
+```
+
+The checked 2026-06-15 evidence shows `GO` across `corridor`,
+`center-block`, `vertical-slalom`, and `horizontal-slalom`, with bundle index
+SHA `8ed23bca34358627a9948b49d265c28cd7433997e39578c62b911e5ee333f688`.
+This command is the current swarm-first judge path. It does not require live
+Qwen, SO-101, webcam access, DimOS, Docker, or cloud credentials.
+
 ## Swarm Scenario Suite
 
 The suite reruns the deterministic swarm cases and includes one intentional
@@ -342,4 +358,6 @@ NARROW_CLAIM matrix. The short version:
   GO.
 - Deterministic swarm scenario suite with expected-NARROW canary: GO.
 - Deterministic swarm trace visualization from verified persisted traces: GO.
+- One-command deterministic swarm demo bundle across the reviewed scenario
+  registry: GO.
 - SO-101, physics/DimOS swarm, and Alibaba ECS deployment: not yet proven.

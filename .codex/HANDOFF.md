@@ -75,6 +75,10 @@ What is checked locally:
   canonical summary from verified persisted traces; the checked N=4
   center-block artifact has HTML SHA
   `686a328376478bc1bf76b9c59b7ed283f6889d5d48003fdc8928f9f80a231f60`.
+- one-command deterministic swarm demo bundle generates reports, verified
+  traces, static replays, and a deterministic index for every reviewed scenario
+  registry name; checked index SHA is
+  `8ed23bca34358627a9948b49d265c28cd7433997e39578c62b911e5ee333f688`.
 - exploratory deterministic N=4 integer-grid probe passes locally, but is not a
   physical, physics, latency, reliability, or larger-swarm claim.
 - local-guard-only deterministic N=4 center-block obstacle probe remains useful
@@ -96,11 +100,11 @@ What is not checked yet:
 - Issue #1: research ground truth and build hierarchy.
 - Issue #3: physical-node safety contract.
 - Issue #4: Alibaba/Qwen proof path.
-- Issue #39: deterministic swarm trace HTML replay artifact.
+- Issue #41: one-command deterministic swarm demo bundle.
 - Issue #2, #6, #11, #13, #15, #17, #19, #21, #23, #25, #27, #29, #33, and
-  #35, and #37 are closed as GO.
+  #35, #37, and #39 are closed as GO.
 - PR #5, #7, #8, #9, #10, #12, #14, #16, #18, #20, #22, #24, #34, #36, and
-  #38 are merged.
+  #38, and #40 are merged.
 
 Before creating new work, inspect the current PR and issues:
 
