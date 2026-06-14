@@ -271,6 +271,17 @@ same-cell, swap, and obstacle-occupancy violations, and a deterministic
 `html_sha256`. If a persisted agent trace is changed without recomputing the
 hash chain, the renderer must return non-zero and write no HTML or summary.
 
+One-command deterministic swarm demo bundle:
+
+```bash
+python3 scripts/build_swarm_demo_bundle.py --out-dir runs/demo/swarm
+```
+
+This report must show bundle `outcome GO`, all reviewed deterministic scenarios
+included, every child simulation report `GO`, every child render summary `GO`,
+zero trace-derived replay violations, relative artifact paths, and deterministic
+index HTML.
+
 Do not commit API keys, raw secrets, or cloud credentials.
 
 Deterministic swarm suite:

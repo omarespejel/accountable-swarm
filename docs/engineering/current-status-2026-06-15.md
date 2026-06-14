@@ -61,6 +61,9 @@ This is the current repo state after the first 10-hour execution block began at
 - Deterministic swarm trace visualization emits a static HTML/SVG replay and
   canonical summary from verified persisted N=4 center-block traces, with zero
   same-cell, swap, and obstacle-occupancy violations.
+- One-command deterministic swarm demo bundle generates scenario reports,
+  verified agent traces, static HTML/SVG replays, and a deterministic index
+  for every reviewed scenario-registry name.
 
 ## NARROW_CLAIM
 
@@ -85,6 +88,10 @@ This is the current repo state after the first 10-hour execution block began at
 - The swarm trace visualization is an inspection artifact over persisted
   integer-grid traces. It is not a physics, hardware, live-Qwen, latency,
   reliability, arbitrary-map, or larger-swarm claim.
+- The swarm demo bundle is the current judge-friendly local simulation path.
+  It is not evidence for physical robot behavior, SO-101 operation, 3D
+  physics, live Qwen reasoning, latency, reliability, DimOS integration,
+  arbitrary maps, or larger swarms.
 
 ## Open Blockers
 
@@ -103,7 +110,7 @@ Latest local gates during this block:
 
 ```text
 ./scripts/local_gate.sh
-Ran 92 tests
+Ran 94 tests
 OK
 local gate passed
 ```
@@ -135,6 +142,19 @@ html_sha256 686a328376478bc1bf76b9c59b7ed283f6889d5d48003fdc8928f9f80a231f60
 same_cell_collision_count 0
 swap_collision_count 0
 obstacle_occupancy_violation_count 0
+```
+
+One-command deterministic swarm demo bundle:
+
+```text
+python3 scripts/build_swarm_demo_bundle.py --out-dir runs/demo/swarm
+outcome GO
+scenario_count 4
+index_sha256 8ed23bca34358627a9948b49d265c28cd7433997e39578c62b911e5ee333f688
+corridor GO 69321792e399a9313e7062655b93c408ee9ea8d379f3810149f3ce291f79ad35
+center-block GO 0a6b66dca4e478628b9c91880b40f1b0097391c534c3d7407736ff7c67815f66
+vertical-slalom GO 83d6fd2c622a61f6fd65b23c9a70375321ffb856a55c6b76190c5149dd11e04b
+horizontal-slalom GO 20587a02144999f625062b2fc8f359aacf6cfc288aff63fbacf7f06ea72e01a6
 ```
 
 Deterministic N=2 swarm gate:
