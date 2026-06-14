@@ -34,6 +34,8 @@ required = [
     "docs/engineering/hardening-policy.md",
     "docs/engineering/camera-go-gate-2026-06-15.md",
     "docs/engineering/alibaba-ecs-manual-deploy-2026-06-15.md",
+    "docs/engineering/current-status-2026-06-15.md",
+    "docs/engineering/webcam-tooling-note-2026-06-15.md",
     "docs/engineering/trace-scalar-policy.md",
     "docs/engineering/review-bot-policy.md",
     "docs/engineering/research-lab-setup-2026-06-14.md",

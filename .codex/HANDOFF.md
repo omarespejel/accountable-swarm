@@ -42,10 +42,10 @@ What is not checked yet:
 ## Active GitHub Work
 
 - Issue #1: research ground truth and build hierarchy.
-- Issue #2: 48-hour GO gate for Qwen keyframe to `DecisionTrace`.
 - Issue #3: physical-node safety contract.
 - Issue #4: Alibaba/Qwen proof path.
-- PR #5: foundational GO-gate implementation.
+- Issue #2 and #6 are closed as GO.
+- PR #5, #7, #8, and #9 are merged.
 
 Before creating new work, inspect the current PR and issues:
 
