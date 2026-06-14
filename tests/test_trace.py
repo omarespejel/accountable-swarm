@@ -1,6 +1,7 @@
 from unittest import TestCase
 
 from accountable_swarm.trace.models import (
+    DecisionEvent,
     PerceptionEvent,
     build_single_event_trace,
     canonical_json,
@@ -40,6 +41,20 @@ class DecisionTraceTests(TestCase):
         value["summary_sha"] = "f" * 64
         with self.assertRaises(ValueError):
             verify_trace(trace_from_dict(value))
+
+    def test_rejects_non_hex_prev_sha(self) -> None:
+        with self.assertRaises(ValueError):
+            DecisionEvent(
+                tick=0,
+                actor_id="physical-node-0",
+                mode="fixture",
+                intent="hold on hazard",
+                decision="VETO",
+                reason="hazard detected",
+                command={"type": "hold"},
+                perception=_perception(),
+                prev_sha="z" * 64,
+            )
 
 
 def _perception() -> PerceptionEvent:

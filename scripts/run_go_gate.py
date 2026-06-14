@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from accountable_swarm.images import image_size
 from accountable_swarm.qwen.bbox import parse_qwen_bbox_response
-from accountable_swarm.qwen.client import DashScopeQwenClient, MissingAlibabaApiKey
+from accountable_swarm.qwen.client import DashScopeQwenClient, DashScopeResponseError, MissingAlibabaApiKey
 from accountable_swarm.trace.models import PerceptionEvent, build_single_event_trace, verify_trace
 
 
@@ -31,14 +31,16 @@ def main() -> int:
         print(f"image does not exist: {args.image}", file=sys.stderr)
         return 2
 
-    width, height = image_size(args.image)
     try:
+        width, height = image_size(args.image)
         response_text = _get_response(args.mode, image_path=args.image, target=args.target, model=args.model)
+        grounding = parse_qwen_bbox_response(response_text, image_width=width, image_height=height)
     except MissingAlibabaApiKey as exc:
         print(str(exc), file=sys.stderr)
         return 3
-
-    grounding = parse_qwen_bbox_response(response_text, image_width=width, image_height=height)
+    except (DashScopeResponseError, ValueError) as exc:
+        print(f"go-gate input/API validation failed: {exc}", file=sys.stderr)
+        return 4
     perception = PerceptionEvent(
         event_id="perception-0000",
         source=f"image://{args.image.name}",
