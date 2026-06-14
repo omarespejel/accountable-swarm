@@ -66,6 +66,17 @@ ALIBABA_API_KEY=... python3 scripts/run_go_gate.py \
 python3 scripts/verify_trace.py runs/go_gate/qwen_trace.json
 ```
 
+Camera/static-frame gate:
+
+```bash
+python3 scripts/run_camera_go_gate.py \
+  --image fixtures/hazard_marker.ppm \
+  --mode fixture \
+  --trace-out runs/go_gate/camera_trace.json \
+  --report-out runs/go_gate/camera_report.json
+python3 scripts/verify_trace.py runs/go_gate/camera_trace.json
+```
+
 Do not commit API keys, raw secrets, or cloud credentials.
 
 ## Claim Scope Reminder

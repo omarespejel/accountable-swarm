@@ -51,3 +51,30 @@ one image/frame -> qwen3-vl-flash bbox JSON -> normalized-coordinate rescale
 
 No swarm, SO-101, Qwen latency, reliability, or production-readiness claim is
 made until this gate passes with checked-in evidence.
+
+## Camera / Static-Frame Gate
+
+The next gate uses the same accountable trace spine with an edge-frame source:
+
+```bash
+python3 scripts/run_camera_go_gate.py \
+  --image fixtures/hazard_marker.ppm \
+  --mode fixture \
+  --trace-out runs/go_gate/camera_trace.json \
+  --report-out runs/go_gate/camera_report.json
+python3 scripts/verify_trace.py runs/go_gate/camera_trace.json
+```
+
+Live Qwen mode requires a local `ALIBABA_API_KEY`:
+
+```bash
+python3 scripts/run_camera_go_gate.py \
+  --image runs/go_gate/hazard_marker.png \
+  --mode dashscope \
+  --trace-out runs/go_gate/camera_qwen_trace.json \
+  --report-out runs/go_gate/camera_qwen_report.json
+```
+
+The report records five binary pass conditions: model response, JSON
+validation, bbox rescaling, deterministic trace replay, and DecisionTrace schema
+emission from the frame.
