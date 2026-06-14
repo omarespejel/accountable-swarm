@@ -28,10 +28,12 @@ What is checked locally:
 - camera/static-frame GO gate passes live `qwen3-vl-flash` with all five binary
   pass conditions and summary
   `214d4edb89537ecf6c8060b2e4fcd6053497aa20439b65cca8641ef8d0e011c8`.
+- minimal stdlib HTTP server and Dockerfile exist for manual Alibaba ECS proof;
+  operator still needs to provision ECS and run the smoke checks.
 
 What is not checked yet:
 
-- Alibaba Cloud deployment proof;
+- Alibaba Cloud deployment proof from an actual ECS instance;
 - SO-101 or true webcam physical frame source;
 - DimOS integration;
 - multi-agent swarm behavior;

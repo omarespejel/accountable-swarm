@@ -78,3 +78,22 @@ python3 scripts/run_camera_go_gate.py \
 The report records five binary pass conditions: model response, JSON
 validation, bbox rescaling, deterministic trace replay, and DecisionTrace schema
 emission from the frame.
+
+## Minimal Backend
+
+For manual Alibaba ECS proof, run the stdlib demo server:
+
+```bash
+python3 scripts/serve_demo.py --host 127.0.0.1 --port 8000
+```
+
+Smoke endpoints:
+
+```text
+GET /healthz
+GET /readyz
+GET /camera-fixture
+GET /qwen-ping?model=qwen-plus
+```
+
+See `docs/engineering/alibaba-ecs-manual-deploy-2026-06-15.md`.
