@@ -87,8 +87,9 @@ trace_paths_relative true
 - copied-and-mutated trace root exits non-zero with `outcome NARROW_CLAIM`;
 - verifier identifies the failed trace kind without storing raw trace contents;
 - verifier reports only relative suite trace paths and sanitized error classes;
-- local tests cover clean verification, agent-trace tamper, and unsafe absolute
-  path rejection.
+- local tests cover clean verification, agent-trace tamper, unsafe absolute
+  path rejection, symlink escape rejection, malformed suite reports,
+  incompatible suite schema versions, and pure summary-SHA mismatches.
 
 ## Non-Claims
 
