@@ -52,6 +52,10 @@ What is checked locally:
   obstacle occupancy counts.
 - mission scenario selection is bounded to reviewed simulator scenario-registry
   names; this is not an arbitrary-map interface.
+- fixture swarm mission suite runs the mission binding path for every reviewed
+  scenario-registry name, verifies persisted mission and agent traces from disk,
+  and keeps same-cell, swap, and obstacle occupancy counts at zero in each
+  trace-derived replay.
 - deterministic swarm scenario suite reruns N=2/N=4 scoped cases, includes an
   expected `NARROW_CLAIM` canary, and verifies persisted agent traces from disk.
 - fixed swarm scenario registry centralizes current scenario names, obstacle
