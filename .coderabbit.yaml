@@ -1,0 +1,130 @@
+language: en-US
+early_access: false
+enable_free_tier: true
+
+tone_instructions: |
+  Be direct, technical, and evidence-oriented. Prioritize correctness, safety,
+  reproducibility, security, physical-device risk, and unsupported claims.
+  Avoid style-only remarks unless they affect clarity of a public claim or
+  reviewer ability to verify behavior.
+
+reviews:
+  profile: assertive
+  request_changes_workflow: false
+  high_level_summary: true
+  changed_files_summary: true
+  poem: false
+  review_status: true
+  review_details: true
+  commit_status: true
+  fail_commit_status: true
+  collapse_walkthrough: true
+  sequence_diagrams: false
+  estimate_code_review_effort: true
+  assess_linked_issues: true
+  related_issues: false
+  related_prs: false
+  suggested_labels: true
+  auto_apply_labels: false
+  suggested_reviewers: false
+  in_progress_fortune: false
+  enable_prompt_for_ai_agents: true
+
+  slop_detection:
+    enabled: true
+    label: ai-spam
+
+  auto_review:
+    enabled: true
+    auto_incremental_review: true
+    auto_pause_after_reviewed_commits: 3
+    drafts: false
+    base_branches:
+      - main
+    ignore_title_keywords:
+      - WIP
+      - DO NOT MERGE
+      - artifact-only
+      - generated-only
+    ignore_usernames:
+      - github-actions[bot]
+      - dependabot[bot]
+      - coderabbitai[bot]
+      - qodo-code-review
+
+  path_filters:
+    - README.md
+    - AGENTS.md
+    - DISCLOSURE_LEDGER.md
+    - .coderabbit.yaml
+    - .pr_agent.toml
+    - .github/**
+    - accountable_swarm/**
+    - scripts/**
+    - tests/**
+    - examples/**
+    - docs/**/*.md
+    - pyproject.toml
+    - '!runs/**'
+    - '!artifacts/**'
+    - '!**/*.rrd'
+    - '!**/*.mp4'
+    - '!**/*.mov'
+    - '!**/*.zip'
+    - '!**/__pycache__/**'
+
+  path_instructions:
+    - path: "accountable_swarm/trace/**"
+      instructions: |
+        Review for deterministic serialization and replay. Flag nondeterministic
+        timestamps, host paths, unordered maps, unstable float formatting,
+        missing prev_sha linkage, weak schema validation, or hash-chain records
+        that cannot be reproduced across machines.
+
+    - path: "accountable_swarm/qwen/**"
+      instructions: |
+        Focus on API-key handling, request/response validation, retry bounds,
+        malformed JSON handling, Qwen3-VL 0-1000 bbox normalization, image-size
+        assumptions, and clear separation between Qwen semantic checks and local
+        control decisions.
+
+    - path: "accountable_swarm/physical/**"
+      instructions: |
+        Treat physical-device code as safety-sensitive. Flag missing low-speed
+        defaults, workspace bounds, emergency-stop paths, unsafe autonomous
+        motion during setup, and any code that can move hardware without an
+        explicit operator-controlled gate.
+
+    - path: "accountable_swarm/swarm/**"
+      instructions: |
+        Review local control, allocator, and collision logic for deterministic
+        behavior, bounded commands, stale perception handling, cloud-offline
+        fallback, and unsupported claims that Qwen is in the real-time loop.
+
+    - path: "scripts/**"
+      instructions: |
+        Treat scripts as reproducibility and judge-facing entrypoints. Check
+        fail-fast behavior, path safety, secret redaction, deterministic output,
+        helpful error messages, and exact command documentation.
+
+    - path: "tests/**"
+      instructions: |
+        Tests should cover positive paths, malformed Qwen output, 0-1000 bbox
+        rescaling, hash-chain mismatch, replay no-drift, and physical-safety
+        guards where applicable. Flag missing negative tests for trusted-core
+        behavior.
+
+    - path: "docs/**/*.md"
+      instructions: |
+        Review claims against checked evidence. Flag overclaims about onboard
+        Qwen, SO-101 ACT policy, swarm scale, safety, latency, deployment,
+        DimOS integration, or Qwen model availability. Require exact commands
+        for any reproduced result.
+
+  finishing_touches:
+    docstrings:
+      enabled: false
+    unit_tests:
+      enabled: false
+    simplify:
+      enabled: false

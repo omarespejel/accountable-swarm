@@ -1,0 +1,47 @@
+# Qodo Code Review / Qodo Merge repository configuration.
+# Docs checked 2026-06-14:
+# https://docs.qodo.ai/code-review
+# https://docs.qodo.ai/install-and-configure/configuration-overview/configuration-file
+
+[github_app]
+pr_commands = [
+  "/agentic_describe",
+  "/agentic_review"
+]
+
+[review_agent]
+comments_location_policy = "both"
+inline_comments_severity_threshold = 2
+
+issues_user_guidelines = """
+Focus review on correctness, reproducibility, safety, and evidence. This repo is
+an accountable edge-cloud robotics hackathon project, not a normal product repo.
+
+High-priority findings:
+- nondeterministic DecisionTrace JSON or hash-chain replay;
+- missing schema validation for Qwen/VLM output;
+- mishandled Qwen3-VL normalized 0-1000 bbox coordinates;
+- secrets or API keys in code, docs, logs, fixtures, or traces;
+- physical-device movement without explicit safety gates;
+- Qwen, LLM, or VLM logic placed in a real-time control loop;
+- unsupported public claims about onboard Qwen, 3D grounding, safety, latency,
+  swarm scale, SO-101 ACT, Alibaba deployment, or competition readiness;
+- missing negative tests for trusted-core behavior.
+
+Low-priority findings:
+- style-only rewrites;
+- broad refactors not needed by the PR;
+- documentation taste comments that do not affect claim accuracy or reproducibility.
+"""
+
+compliance_user_guidelines = """
+Check whether the PR preserves hackathon submission constraints:
+- public repo must keep a detectable top-level open-source license;
+- code must not require private services without documented fallbacks;
+- Alibaba/Qwen usage must be documented without exposing secrets;
+- physical-device demos must include safety notes and operator controls;
+- third-party code copied or adapted from DimOS, LeRobot, Qwen examples, or other
+  sources must be attributed in DISCLOSURE_LEDGER.md;
+- generated-AI assistance or model-generated code/assets must be recorded when
+  relevant to public claims.
+"""

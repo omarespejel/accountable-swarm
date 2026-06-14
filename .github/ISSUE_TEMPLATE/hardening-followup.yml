@@ -1,0 +1,50 @@
+name: Hardening follow-up
+description: Record safety, security, reproducibility, or integrity risks.
+title: "[hardening]: "
+labels: ["hardening"]
+body:
+  - type: textarea
+    id: risk
+    attributes:
+      label: Observed risk
+      description: Concrete risk, not a broad concern.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence or location
+      description: File, line, command, bot comment, trace, or artifact.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Why not current PR
+      description: Explain why this should not widen the current PR.
+    validations:
+      required: true
+  - type: textarea
+    id: fix
+    attributes:
+      label: Smallest fix or test
+      description: Minimal closure path.
+    validations:
+      required: true
+  - type: textarea
+    id: gate
+    attributes:
+      label: GO / NO-GO
+      description: When to fix now versus keep parked.
+    validations:
+      required: true
+  - type: textarea
+    id: validation
+    attributes:
+      label: Local validation plan
+      value: |
+        ```text
+        ./scripts/local_gate.sh
+        ```
+    validations:
+      required: true

@@ -1,0 +1,64 @@
+name: GO-gate hypothesis
+description: Time-bounded hypothesis with explicit GO / NO-GO gates.
+title: "[go-gate]: "
+labels: ["go-gate", "research"]
+body:
+  - type: textarea
+    id: thesis
+    attributes:
+      label: Thesis
+      description: What might be true?
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why it matters
+      description: Why this matters for the hackathon or accountable-autonomy thesis.
+    validations:
+      required: true
+  - type: textarea
+    id: falsifier
+    attributes:
+      label: Smallest falsifying experiment
+      description: The cheapest check that can kill or narrow the idea.
+    validations:
+      required: true
+  - type: textarea
+    id: go
+    attributes:
+      label: GO gate
+      description: Exact evidence required to continue.
+    validations:
+      required: true
+  - type: textarea
+    id: no_go
+    attributes:
+      label: NO-GO / NARROW gate
+      description: Exact evidence that kills or narrows the idea.
+    validations:
+      required: true
+  - type: textarea
+    id: artifacts
+    attributes:
+      label: Required artifacts
+      description: Docs, JSON, traces, commands, logs, screenshots, or videos.
+    validations:
+      required: true
+  - type: textarea
+    id: non_claims
+    attributes:
+      label: Non-claims
+      description: What must not be inferred even if the gate passes.
+    validations:
+      required: true
+  - type: textarea
+    id: validation
+    attributes:
+      label: Local validation plan
+      value: |
+        ```text
+        ./scripts/local_gate.sh
+        ```
+    validations:
+      required: true

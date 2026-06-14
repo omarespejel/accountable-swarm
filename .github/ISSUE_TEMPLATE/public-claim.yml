@@ -1,0 +1,40 @@
+name: Public claim
+description: Promote one bounded claim toward README, Devpost, deck, blog, or video.
+title: "[claim]: "
+labels: ["claim"]
+body:
+  - type: textarea
+    id: claim
+    attributes:
+      label: Claim
+      description: One bounded sentence.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence paths
+      description: Docs, JSON, traces, scripts, tests, commands, screenshots, or video.
+    validations:
+      required: true
+  - type: textarea
+    id: boundary
+    attributes:
+      label: Claim boundary
+      description: Fixture, hardware, backend, timing, model, deployment, and artifact scope.
+    validations:
+      required: true
+  - type: textarea
+    id: non_claims
+    attributes:
+      label: Non-claims
+      description: What readers must not infer.
+    validations:
+      required: true
+  - type: textarea
+    id: promotion
+    attributes:
+      label: Promotion gate
+      description: What must pass before this enters public materials.
+    validations:
+      required: true
