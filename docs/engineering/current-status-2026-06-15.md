@@ -130,11 +130,17 @@ trace_summary_sha 214d4edb89537ecf6c8060b2e4fcd6053497aa20439b65cca8641ef8d0e011
 Local server smoke:
 
 ```text
+curl -fsS http://127.0.0.1:8765/healthz
 GET /healthz -> {"service":"accountable-swarm","status":"ok"}
+curl -fsS http://127.0.0.1:8765/readyz
 GET /readyz -> {"default_vl_model":"qwen3-vl-flash","has_alibaba_api_key":true,"status":"ok"}
+curl -fsS http://127.0.0.1:8765/camera-fixture
 GET /camera-fixture -> trace_summary_sha 282a7982facaf066732b4a3dd1039529e0c8e5b8d54b2b1d458b0b8b7c6e5d2a
+curl -fsS "http://127.0.0.1:8765/qwen-ping?model=qwen-plus"
 GET /qwen-ping?model=qwen-plus -> {"content_prefix":"OK.","model":"qwen-plus","status":"ok"}
+curl -fsS http://127.0.0.1:8765/swarm-demo
 GET /swarm-demo -> existing bundle index.html
+curl -fsS http://127.0.0.1:8765/swarm-demo/summary.json
 GET /swarm-demo/summary.json -> existing bundle summary.json
 ```
 
