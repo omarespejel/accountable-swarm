@@ -1,0 +1,33 @@
+name: local-gate
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  local-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run local gate
+        run: ./scripts/local_gate.sh
+
+      - name: Run fixture GO gate
+        run: |
+          python3 scripts/run_go_gate.py \
+            --image fixtures/hazard_marker.ppm \
+            --mode fixture \
+            --out runs/go_gate/trace.json
+          python3 scripts/verify_trace.py runs/go_gate/trace.json
