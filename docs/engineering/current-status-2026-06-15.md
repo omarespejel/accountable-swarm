@@ -14,11 +14,19 @@ This is the current repo state after the first 10-hour execution block began at
 - Camera/static-frame GO gate reports five binary pass conditions.
 - Degraded/offline mode emits local `HOLD` trace without Qwen.
 - Minimal stdlib HTTP server works locally.
+- Deterministic N=2 integer-grid simulated swarm reaches both goals, emits one
+  DecisionTrace per agent, replays final positions from traces, and reports zero
+  same-cell or swap collisions.
+- Exploratory deterministic N=4 integer-grid probe reaches goals and reports
+  zero same-cell or swap collisions.
 
 ## NARROW_CLAIM
 
 - Camera/static-frame gate is live-Qwen GO for a generated static frame, not a
   true webcam frame.
+- One true webcam frame with target `person` passed locally after installing
+  `imagesnap`, but the artifact is intentionally not committed and no physical
+  robot claim follows from it.
 - Alibaba ECS manual deploy path is ready, but actual ECS proof is pending.
 - Physical-node safety contract exists, but no SO-101 connectivity or safe
   motion is proven.
@@ -27,9 +35,8 @@ This is the current repo state after the first 10-hour execution block began at
 
 - CodeRabbit status check fails because credits are exhausted, not because of a
   new code finding.
-- Local webcam capture tooling is unavailable on this machine:
-  - `imagesnap` not found;
-  - `opencv-python` not installed.
+- True webcam capture now depends on local camera permission and `imagesnap`;
+  this is machine state, not a judge-facing dependency.
 - Local Docker CLI exists, but the Colima/Docker daemon socket is not running,
   so Docker image build was not executed locally.
 - Alibaba ECS instance is not provisioned from this repo; the operator must run
@@ -62,11 +69,36 @@ GET /camera-fixture -> trace_summary_sha 282a7982facaf066732b4a3dd1039529e0c8e5b
 GET /qwen-ping?model=qwen-plus -> {"content_prefix":"OK.","model":"qwen-plus","status":"ok"}
 ```
 
+Deterministic N=2 swarm gate:
+
+```text
+python3 scripts/run_swarm_sim.py --agents 2 --ticks 8 --trace-dir runs/swarm/n2 --report-out runs/swarm/n2_report.json
+outcome GO
+same_cell_collision_count 0
+swap_collision_count 0
+reroute_count 1
+sim-agent-0 summary_sha a12de617ca2f821ba940d20388ec6bda7f333fd931df1658b3dbe1dd409233f7
+sim-agent-1 summary_sha 48fa08de489df7f15bd52fadf8c09f8fca203c22debb9820bede603c909937de
+replay same_cell_collision_count 0
+replay swap_collision_count 0
+```
+
+Exploratory deterministic N=4 swarm probe:
+
+```text
+outcome GO
+same_cell_collision_count 0
+swap_collision_count 0
+reroute_count 4
+```
+
 ## Next Work
 
-1. Run true webcam gate on a machine with camera tooling/permission.
-2. Run the ECS manual deployment path on Alibaba Cloud and record proof.
-3. Only after those are checked, start a small simulated swarm amplifier.
+1. Run the ECS manual deployment path on Alibaba Cloud and record proof.
+2. Decide whether the next swarm step is a fixture obstacle field, DimOS
+   adapter sketch, or Qwen low-rate mission planner.
+3. Convert webcam evidence into a redacted/fixture-safe artifact only if it is
+   useful for the hackathon story.
 
 ## Non-Claims
 
@@ -76,6 +108,6 @@ Do not claim:
 - SO-101 operation;
 - physical safety;
 - latency or reliability;
-- swarm behavior;
+- physics-backed or physical swarm behavior;
 - Alibaba ECS deployment complete;
 - Qwen onboard execution.

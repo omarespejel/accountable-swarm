@@ -30,13 +30,17 @@ What is checked locally:
   `214d4edb89537ecf6c8060b2e4fcd6053497aa20439b65cca8641ef8d0e011c8`.
 - minimal stdlib HTTP server and Dockerfile exist for manual Alibaba ECS proof;
   operator still needs to provision ECS and run the smoke checks.
+- deterministic N=2 integer-grid simulated swarm emits one DecisionTrace per
+  agent, reaches goals, and reports zero same-cell or swap collisions.
+- exploratory deterministic N=4 integer-grid probe passes locally, but is not a
+  physical, physics, latency, reliability, or larger-swarm claim.
 
 What is not checked yet:
 
 - Alibaba Cloud deployment proof from an actual ECS instance;
-- SO-101 or true webcam physical frame source;
+- SO-101 physical frame source;
 - DimOS integration;
-- multi-agent swarm behavior;
+- physics-backed multi-agent swarm behavior;
 - latency, reliability, or safety claims.
 
 ## Active GitHub Work
@@ -44,8 +48,9 @@ What is not checked yet:
 - Issue #1: research ground truth and build hierarchy.
 - Issue #3: physical-node safety contract.
 - Issue #4: Alibaba/Qwen proof path.
+- Issue #11: deterministic N=2 simulated swarm DecisionTrace GO gate.
 - Issue #2 and #6 are closed as GO.
-- PR #5, #7, #8, and #9 are merged.
+- PR #5, #7, #8, #9, and #10 are merged.
 
 Before creating new work, inspect the current PR and issues:
 

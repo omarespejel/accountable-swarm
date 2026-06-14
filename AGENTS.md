@@ -24,8 +24,9 @@ a replayable, deterministic DecisionTrace.
 - Do not claim Qwen runs onboard unless a checked artifact proves it.
 - Do not claim 3D grounding unless the output is validated. The default claim is
   2D bbox/label from Qwen plus depth or known geometry from the simulator/device.
-- Do not claim swarm success, SO-101 success, latency, reliability, safety,
-  state-of-the-art performance, or Alibaba deployment until evidence exists.
+- Do not claim unproven, physical, or physics-backed swarm success, SO-101
+  success, latency, reliability, safety, state-of-the-art performance, or
+  Alibaba deployment until evidence exists.
 - Treat physical-device code as safety-sensitive.
 - Use fixture/webcam/SO-101 gates before expanding to drone swarm complexity.
 
