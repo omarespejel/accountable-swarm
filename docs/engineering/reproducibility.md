@@ -248,6 +248,29 @@ mission or agent trace is changed without recomputing hashes, the verifier must
 return non-zero and write `outcome NARROW_CLAIM` without storing raw trace
 contents or absolute local paths.
 
+Swarm trace HTML replay:
+
+```bash
+python3 scripts/run_swarm_sim.py \
+  --agents 4 \
+  --ticks 16 \
+  --scenario center-block \
+  --trace-dir runs/swarm/render-center-block \
+  --report-out runs/swarm/render_center_block_report.json
+python3 scripts/render_swarm_trace_html.py \
+  --trace-dir runs/swarm/render-center-block \
+  --grid-width 7 \
+  --grid-height 5 \
+  --obstacle 3,2 \
+  --html-out runs/swarm/render-center-block.html \
+  --summary-out runs/swarm/render_center_block_visual_summary.json
+```
+
+This report must show renderer `outcome GO`, four agents, 16 ticks, zero
+same-cell, swap, and obstacle-occupancy violations, and a deterministic
+`html_sha256`. If a persisted agent trace is changed without recomputing the
+hash chain, the renderer must return non-zero and write no HTML or summary.
+
 Do not commit API keys, raw secrets, or cloud credentials.
 
 Deterministic swarm suite:

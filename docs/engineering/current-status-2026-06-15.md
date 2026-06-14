@@ -58,6 +58,9 @@ This is the current repo state after the first 10-hour execution block began at
   `NARROW_CLAIM` canary, and verifies persisted agent traces from disk.
 - Fixed swarm scenario registry centralizes current scenario names, obstacle
   policies, fixed-grid requirements, and reservation-planner use.
+- Deterministic swarm trace visualization emits a static HTML/SVG replay and
+  canonical summary from verified persisted N=4 center-block traces, with zero
+  same-cell, swap, and obstacle-occupancy violations.
 
 ## NARROW_CLAIM
 
@@ -79,6 +82,9 @@ This is the current repo state after the first 10-hour execution block began at
 - The tamper gate is local hash-chain verification only. It is not a
   cryptographic authenticity, remote attestation, or compromised-filesystem
   claim.
+- The swarm trace visualization is an inspection artifact over persisted
+  integer-grid traces. It is not a physics, hardware, live-Qwen, latency,
+  reliability, arbitrary-map, or larger-swarm claim.
 
 ## Open Blockers
 
@@ -97,7 +103,7 @@ Latest local gates during this block:
 
 ```text
 ./scripts/local_gate.sh
-Ran 85 tests
+Ran 92 tests
 OK
 local gate passed
 ```
@@ -116,6 +122,19 @@ GET /healthz -> {"service":"accountable-swarm","status":"ok"}
 GET /readyz -> {"default_vl_model":"qwen3-vl-flash","has_alibaba_api_key":true,"status":"ok"}
 GET /camera-fixture -> trace_summary_sha 282a7982facaf066732b4a3dd1039529e0c8e5b8d54b2b1d458b0b8b7c6e5d2a
 GET /qwen-ping?model=qwen-plus -> {"content_prefix":"OK.","model":"qwen-plus","status":"ok"}
+```
+
+Deterministic swarm trace visualization:
+
+```text
+python3 scripts/render_swarm_trace_html.py --trace-dir runs/swarm/render-center-block --grid-width 7 --grid-height 5 --obstacle 3,2 --html-out runs/swarm/render-center-block.html --summary-out runs/swarm/render_center_block_visual_summary.json
+outcome GO
+agent_count 4
+tick_count 16
+html_sha256 686a328376478bc1bf76b9c59b7ed283f6889d5d48003fdc8928f9f80a231f60
+same_cell_collision_count 0
+swap_collision_count 0
+obstacle_occupancy_violation_count 0
 ```
 
 Deterministic N=2 swarm gate:
