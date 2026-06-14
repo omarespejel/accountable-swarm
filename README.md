@@ -189,6 +189,21 @@ python3 scripts/run_swarm_mission_gate.py \
 
 This currently produces `GO` for the scoped horizontal-slalom mission fixture.
 
+Mission suite:
+
+```bash
+python3 scripts/run_swarm_mission_suite.py \
+  --trace-root runs/swarm/mission-suite \
+  --report-out runs/swarm/mission_suite_report.json
+```
+
+The suite currently runs fixture mission binding for every reviewed scenario in
+the deterministic registry: `corridor`, `center-block`, `vertical-slalom`, and
+`horizontal-slalom`. Suite `GO` means each child mission gate was `GO`, every
+mission and agent trace reloaded from disk to the recorded summary SHA, and
+trace-derived replay counters stayed at zero for same-cell, swap, and obstacle
+occupancy violations.
+
 ## Swarm Scenario Suite
 
 The suite reruns the deterministic swarm cases and includes one intentional

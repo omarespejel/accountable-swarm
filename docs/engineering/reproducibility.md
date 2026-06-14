@@ -180,6 +180,19 @@ This report must show scenario `horizontal-slalom`, mission trace replay,
 simulator `GO`, obstacles at `(2, 2)` and `(4, 2)`, and zero same-cell, swap,
 and obstacle-occupancy counts in the agent trace-derived replay section.
 
+Fixture mission suite:
+
+```bash
+python3 scripts/run_swarm_mission_suite.py \
+  --trace-root runs/swarm/mission-suite \
+  --report-out runs/swarm/mission_suite_report.json
+```
+
+This report must show suite `outcome GO`, every reviewed mission scenario
+covered, every child mission gate `GO`, deterministic mission and agent trace
+replay from disk, and zero same-cell, swap, and obstacle-occupancy counts in
+each trace-derived replay section.
+
 Do not commit API keys, raw secrets, or cloud credentials.
 
 Deterministic swarm suite:
