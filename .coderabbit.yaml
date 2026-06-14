@@ -1,12 +1,9 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
 language: en-US
 early_access: false
 enable_free_tier: true
 
-tone_instructions: |
-  Be direct, technical, and evidence-oriented. Prioritize correctness, safety,
-  reproducibility, security, physical-device risk, and unsupported claims.
-  Avoid style-only remarks unless they affect clarity of a public claim or
-  reviewer ability to verify behavior.
+tone_instructions: "Be direct and technical. Prioritize correctness, safety, reproducibility, security, physical-device risk, and unsupported claims. Avoid style-only remarks unless they affect verification."
 
 reviews:
   profile: assertive
