@@ -137,6 +137,22 @@ four agents reaching goals, zero same-cell collisions, zero swap collisions,
 zero obstacle occupancy violations, and matching zero counts in the
 trace-derived replay section.
 
+Deterministic N=4 horizontal-slalom obstacle gate:
+
+```bash
+python3 scripts/run_swarm_sim.py \
+  --agents 4 \
+  --ticks 16 \
+  --scenario horizontal-slalom \
+  --trace-dir runs/swarm/horizontal-slalom-n4 \
+  --report-out runs/swarm/horizontal_slalom_n4_report.json
+```
+
+This report must show `outcome GO`, obstacles at `(2, 2)` and `(4, 2)`, all
+four agents reaching goals, zero same-cell collisions, zero swap collisions,
+zero obstacle occupancy violations, and matching zero counts in the
+trace-derived replay section.
+
 Low-rate fixture mission gate:
 
 ```bash
@@ -161,10 +177,10 @@ python3 scripts/run_swarm_suite.py \
 ```
 
 This report must show suite `outcome GO`, expected-GO cases still `GO`, the
-new vertical-slalom case still `GO`, the short N=4 canary still
-`NARROW_CLAIM`, deterministic agent trace replay from disk, replay counts
-matching simulator counts, and zero same-cell, swap, and obstacle-occupancy
-replay violations.
+vertical-slalom and horizontal-slalom cases still `GO`, the short N=4 canary
+still `NARROW_CLAIM`, deterministic agent trace replay from disk, replay
+counts matching simulator counts, and zero same-cell, swap, and
+obstacle-occupancy replay violations.
 
 ## Claim Scope Reminder
 

@@ -42,6 +42,10 @@ What is checked locally:
   bounded reservation planner, reports zero same-cell collisions, zero swap
   collisions, zero obstacle occupancy, and replay recomputes those counts from
   traces.
+- deterministic N=4 horizontal-slalom obstacle scenario reaches goals with the
+  bounded reservation planner, reports zero same-cell collisions, zero swap
+  collisions, zero obstacle occupancy, and replay recomputes those counts from
+  traces.
 - low-rate fixture mission assignment validates strict mission JSON, emits a
   mission `DecisionTrace`, then runs the deterministic N=4 center-block swarm
   gate with trace-replayed zero same-cell, swap, and obstacle occupancy counts.
@@ -69,7 +73,8 @@ What is not checked yet:
 - Issue #1: research ground truth and build hierarchy.
 - Issue #3: physical-node safety contract.
 - Issue #4: Alibaba/Qwen proof path.
-- Issue #2, #6, #11, #13, #15, #17, #19, #21, #23, and #25 are closed as GO.
+- Issue #2, #6, #11, #13, #15, #17, #19, #21, #23, #25, and #27 are closed as
+  GO.
 - PR #5, #7, #8, #9, #10, #12, #14, #16, #18, #20, #22, and #24 are merged.
 
 Before creating new work, inspect the current PR and issues:

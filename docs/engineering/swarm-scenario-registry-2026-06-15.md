@@ -20,6 +20,8 @@ registry:
 - `corridor`: no obstacle, no reservation planner;
 - `center-block`: center obstacle, reservation planner enabled;
 - `vertical-slalom`: fixed 7x5 grid, fixed obstacles `(3,1)` and `(3,3)`,
+  reservation planner enabled;
+- `horizontal-slalom`: fixed 7x5 grid, fixed obstacles `(2,2)` and `(4,2)`,
   reservation planner enabled.
 
 The CLI derives `--scenario` choices from the registry. The old split obstacle
@@ -35,23 +37,24 @@ python3 scripts/run_swarm_suite.py --trace-root runs/swarm/suite --report-out ru
 Observed:
 
 ```text
-Ran 21 tests
+Ran 24 tests
 OK
 
 outcome GO
-case_count 5
+case_count 6
 case n2-corridor-go expected GO actual GO
 case n2-center-block-go expected GO actual GO
 case n4-center-block-go expected GO actual GO
 case n4-vertical-slalom-go expected GO actual GO
+case n4-horizontal-slalom-go expected GO actual GO
 case n4-center-block-short-narrow expected NARROW_CLAIM actual NARROW_CLAIM
 ```
 
 ## GO Gate
 
 - Scenario metadata has one code-owned source of truth.
-- Existing five-case deterministic swarm suite remains `GO`.
-- Non-default `vertical-slalom` grid remains rejected.
+- Existing six-case deterministic swarm suite remains `GO`.
+- Non-default fixed-scenario grids remain rejected.
 
 ## Non-Claims
 

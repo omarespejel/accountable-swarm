@@ -30,10 +30,14 @@ This is the current repo state after the first 10-hour execution block began at
   the bounded reservation planner, reports zero same-cell collisions, zero swap
   collisions, zero obstacle occupancy violations, and replay recomputes those
   counts from traces.
+- Deterministic N=4 horizontal-slalom obstacle scenario reaches all goals with
+  the bounded reservation planner, reports zero same-cell collisions, zero swap
+  collisions, zero obstacle occupancy violations, and replay recomputes those
+  counts from traces.
 - Low-rate fixture mission assignment validates a strict mission JSON,
   emits a mission `DecisionTrace`, then runs the deterministic N=4 center-block
   swarm gate with zero same-cell, swap, or obstacle occupancy violations.
-- Deterministic swarm suite runs five scoped cases, including an expected
+- Deterministic swarm suite runs six scoped cases, including an expected
   `NARROW_CLAIM` canary, and verifies persisted agent traces from disk.
 - Fixed swarm scenario registry centralizes current scenario names, obstacle
   policies, fixed-grid requirements, and reservation-planner use.
@@ -48,9 +52,9 @@ This is the current repo state after the first 10-hour execution block began at
 - Alibaba ECS manual deploy path is ready, but actual ECS proof is pending.
 - Physical-node safety contract exists, but no SO-101 connectivity or safe
   motion is proven.
-- The reservation planner result is scoped to the fixed integer-grid
-  `center-block` scenario; it is not evidence for arbitrary maps, larger
-  swarms, physics-backed behavior, latency, or reliability.
+- The reservation planner result is scoped to the listed fixed integer-grid
+  scenarios; it is not evidence for arbitrary maps, larger swarms,
+  physics-backed behavior, latency, or reliability.
 - The mission assignment gate is fixture-mode GO only. It is not a live Qwen
   mission-assignment claim unless `--mode dashscope` is separately recorded.
 
@@ -71,7 +75,7 @@ Latest local gates during this block:
 
 ```text
 ./scripts/local_gate.sh
-Ran 60 tests
+Ran 63 tests
 OK
 local gate passed
 ```
@@ -169,6 +173,22 @@ sim-agent-2 summary_sha 877e34acd6cd996c95ce256a6b0c23b28f13083306d19e9098e12c79
 sim-agent-3 summary_sha e444e2f6fb11a91b0ac39f8cf2e7a47c96374dda3f3e4395d31a08d3b0eac918
 ```
 
+Deterministic N=4 horizontal-slalom obstacle gate with bounded reservation
+planner:
+
+```text
+python3 scripts/run_swarm_sim.py --agents 4 --ticks 16 --scenario horizontal-slalom --trace-dir runs/swarm/horizontal-slalom-n4 --report-out runs/swarm/horizontal_slalom_n4_report.json
+outcome GO
+same_cell_collision_count 0
+swap_collision_count 0
+obstacle_occupancy_violation_count 0
+reroute_count 4
+sim-agent-0 summary_sha 594cd7d50b89fa809b251ed2d48deea45d8a066552213a67a66b382d9c606f9f
+sim-agent-1 summary_sha fb863f2f87a28b50d5dedb3140fa4e0bc3f5d3b55adf768fb17df027c3bba68f
+sim-agent-2 summary_sha 27e4a3de380f54c8653c4bdc2bfb6ed8fdde19eab202c5d1bd91a3902939a2f7
+sim-agent-3 summary_sha 4ce9200f856bcffd0cab3f77641dffc3fb937ef5105eafda770340f23761623b
+```
+
 Low-rate fixture mission gate:
 
 ```text
@@ -189,11 +209,12 @@ Deterministic swarm suite:
 ```text
 python3 scripts/run_swarm_suite.py --trace-root runs/swarm/suite --report-out runs/swarm/suite_report.json
 outcome GO
-case_count 5
+case_count 6
 case n2-corridor-go expected GO actual GO
 case n2-center-block-go expected GO actual GO
 case n4-center-block-go expected GO actual GO
 case n4-vertical-slalom-go expected GO actual GO
+case n4-horizontal-slalom-go expected GO actual GO
 case n4-center-block-short-narrow expected NARROW_CLAIM actual NARROW_CLAIM
 ```
 
