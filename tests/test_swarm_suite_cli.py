@@ -35,7 +35,7 @@ class SwarmSuiteCliTests(TestCase):
             report = json.loads(report_path.read_text(encoding="utf-8"))
             self.assertEqual(report["schema_version"], "swarm-suite-report.v1")
             self.assertEqual(report["outcome"], "GO")
-            self.assertEqual(report["case_count"], 4)
+            self.assertEqual(report["case_count"], 5)
             self.assertTrue(all(report["pass_conditions"].values()))
 
             cases = {case["case_id"]: case for case in report["cases"]}
@@ -45,6 +45,7 @@ class SwarmSuiteCliTests(TestCase):
                     "n2-center-block-go": "GO",
                     "n2-corridor-go": "GO",
                     "n4-center-block-go": "GO",
+                    "n4-vertical-slalom-go": "GO",
                     "n4-center-block-short-narrow": "NARROW_CLAIM",
                 },
             )

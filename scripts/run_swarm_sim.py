@@ -19,7 +19,11 @@ def main() -> int:
     parser.add_argument("--ticks", type=int, default=8)
     parser.add_argument("--grid-width", type=int, default=7)
     parser.add_argument("--grid-height", type=int, default=5)
-    parser.add_argument("--scenario", choices=["corridor", "center-block"], default="corridor")
+    parser.add_argument(
+        "--scenario",
+        choices=["corridor", "center-block", "vertical-slalom"],
+        default="corridor",
+    )
     parser.add_argument("--trace-dir", type=Path, required=True)
     parser.add_argument("--report-out", type=Path, required=True)
     args = parser.parse_args()

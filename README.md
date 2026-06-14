@@ -129,6 +129,19 @@ reach goals, with zero same-cell collisions, zero swaps, zero obstacle
 occupancy violations, and trace-derived replay counters matching the simulator
 report.
 
+Second fixed obstacle layout:
+
+```bash
+python3 scripts/run_swarm_sim.py \
+  --agents 4 \
+  --ticks 16 \
+  --scenario vertical-slalom \
+  --trace-dir runs/swarm/vertical-slalom-n4 \
+  --report-out runs/swarm/vertical_slalom_n4_report.json
+```
+
+This currently produces `GO` for the scoped two-obstacle integer-grid case.
+
 This gate does not claim physical behavior, SO-101 operation, 3D physics,
 latency, reliability, DimOS integration, Alibaba deployment, or a
 general-purpose multi-agent planner.
@@ -161,10 +174,11 @@ python3 scripts/run_swarm_suite.py \
   --report-out runs/swarm/suite_report.json
 ```
 
-The suite currently expects `GO` for N=2 corridor, N=2 center-block, and N=4
-center-block, and expects `NARROW_CLAIM` for a deliberately too-short N=4
-center-block run. Suite `GO` means those expectations matched and persisted
-agent traces replayed deterministically from disk.
+The suite currently expects `GO` for N=2 corridor, N=2 center-block, N=4
+center-block, and N=4 vertical-slalom, and expects `NARROW_CLAIM` for a
+deliberately too-short N=4 center-block run. Suite `GO` means those
+expectations matched and persisted agent traces replayed deterministically from
+disk.
 
 ## Minimal Backend
 
@@ -195,6 +209,8 @@ NARROW_CLAIM matrix. The short version:
 - Deterministic N=2 integer-grid simulated swarm: GO.
 - Deterministic N=2 center-block obstacle scenario: GO.
 - Deterministic N=4 center-block obstacle scenario: GO for the scoped
+  integer-grid reservation-planner gate.
+- Deterministic N=4 vertical-slalom obstacle scenario: GO for the scoped
   integer-grid reservation-planner gate.
 - Low-rate fixture mission assignment into N=4 center-block swarm gate: GO.
 - Deterministic swarm scenario suite with expected-NARROW canary: GO.

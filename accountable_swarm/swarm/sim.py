@@ -22,7 +22,7 @@ from accountable_swarm.trace.models import (
 
 SWARM_REPORT_SCHEMA_VERSION = "swarm-sim-report.v1"
 SWARM_MODEL_ID = "deterministic-grid-swarm-v1"
-SUPPORTED_SCENARIOS = ("corridor", "center-block")
+SUPPORTED_SCENARIOS = ("corridor", "center-block", "vertical-slalom")
 RESERVATION_PLANNER_MAX_DEPTH = 16
 RESERVATION_PLANNER_MAX_EXPANSIONS = 5_000
 
@@ -251,7 +251,7 @@ def run_swarm_sim(
             grid_width=grid_width,
             grid_height=grid_height,
             obstacles=obstacles,
-            use_reservation_planner=scenario == "center-block",
+            use_reservation_planner=scenario in {"center-block", "vertical-slalom"},
             reservation_planner_max_expansions=planner_max_expansions,
         )
         positions = {step.agent_id: step.accepted for step in steps}
@@ -757,6 +757,13 @@ def _default_obstacles(scenario: str, *, grid_width: int, grid_height: int) -> f
         return frozenset()
     if scenario == "center-block":
         return frozenset({GridPoint(grid_width // 2, grid_height // 2)})
+    if scenario == "vertical-slalom":
+        return frozenset(
+            {
+                GridPoint(grid_width // 2, max(1, grid_height // 2 - 1)),
+                GridPoint(grid_width // 2, min(grid_height - 2, grid_height // 2 + 1)),
+            }
+        )
     raise ValueError(f"unsupported scenario: {scenario}")
 
 
