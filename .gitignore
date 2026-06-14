@@ -14,7 +14,7 @@ build/
 *.egg-info/
 runs/
 artifacts/
-*.png
+/*.png
 !docs/**/*.png
 !examples/**/*.png
 *.rrd

@@ -42,7 +42,10 @@ def parse_qwen_bbox_response(response_text: str, *, image_width: int, image_heig
     if "label" not in item:
         raise ValueError("Qwen bbox item missing label")
 
-    label = str(item["label"]).strip()
+    label_raw = item["label"]
+    if not isinstance(label_raw, str):
+        raise ValueError("Qwen label must be a string")
+    label = label_raw.strip()
     if not label:
         raise ValueError("Qwen label must be non-empty")
 

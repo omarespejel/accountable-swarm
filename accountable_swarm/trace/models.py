@@ -198,17 +198,20 @@ def verify_events(events: tuple[DecisionEvent, ...]) -> tuple[DecisionEvent, ...
         if event.prev_sha != prev_sha:
             raise ValueError("trace hash chain is broken")
         computed = event.compute_sha()
-        if event.sha256 and event.sha256 != computed:
+        if not event.sha256:
+            raise ValueError("event sha missing")
+        if event.sha256 != computed:
             raise ValueError("event sha mismatch")
-        checked_event = event if event.sha256 else event.with_computed_sha()
-        checked.append(checked_event)
-        prev_sha = checked_event.sha256
+        checked.append(event)
+        prev_sha = event.sha256
     return tuple(checked)
 
 
 def verify_trace(trace: DecisionTrace) -> str:
+    if not trace.summary_sha:
+        raise ValueError("trace summary sha missing")
     recomputed = trace.with_computed_summary()
-    if trace.summary_sha and trace.summary_sha != recomputed.summary_sha:
+    if trace.summary_sha != recomputed.summary_sha:
         raise ValueError("trace summary sha mismatch")
     return recomputed.summary_sha
 
