@@ -7,7 +7,7 @@ import json
 import os
 from pathlib import Path
 from typing import Any
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 from accountable_swarm.images import image_size
 from accountable_swarm.qwen.bbox import parse_qwen_bbox_response
@@ -16,6 +16,8 @@ from accountable_swarm.trace.models import PerceptionEvent, build_single_event_t
 
 
 FIXTURE_RESPONSE = '[{"bbox_2d":[250,250,750,750],"label":"marked hazard"}]'
+DEFAULT_SWARM_DEMO_BUNDLE_DIR = Path("runs/demo/swarm")
+SWARM_DEMO_BUILD_COMMAND = "python3 scripts/build_swarm_demo_bundle.py"
 
 
 class AccountableSwarmHandler(BaseHTTPRequestHandler):
@@ -37,6 +39,13 @@ class AccountableSwarmHandler(BaseHTTPRequestHandler):
             return
         if parsed.path == "/camera-fixture":
             self._handle_camera_fixture()
+            return
+        if parsed.path == "/swarm-demo":
+            self._handle_swarm_demo_file("index.html")
+            return
+        if parsed.path.startswith("/swarm-demo/"):
+            rel_path = parsed.path.removeprefix("/swarm-demo/") or "index.html"
+            self._handle_swarm_demo_file(rel_path)
             return
         if parsed.path == "/qwen-ping":
             query = parse_qs(parsed.query)
@@ -93,6 +102,25 @@ class AccountableSwarmHandler(BaseHTTPRequestHandler):
             return
         self._send_json({"status": "ok", "model": model, "content_prefix": content.strip()[:16]})
 
+    def _handle_swarm_demo_file(self, rel_url_path: str) -> None:
+        root = Path(os.getenv("SWARM_DEMO_BUNDLE_DIR", str(DEFAULT_SWARM_DEMO_BUNDLE_DIR))).resolve()
+        try:
+            target = _safe_bundle_path(root=root, rel_url_path=rel_url_path)
+        except ValueError as exc:
+            self._send_json({"status": "rejected", "error": str(exc)}, status=400)
+            return
+        if not target.is_file():
+            self._send_json(
+                {
+                    "status": "missing_bundle",
+                    "error": "swarm demo bundle file not found",
+                    "build_command": SWARM_DEMO_BUILD_COMMAND,
+                },
+                status=404,
+            )
+            return
+        self._send_file(target)
+
     def _send_json(self, payload: dict[str, Any], *, status: int = 200) -> None:
         data = canonical_json(payload).encode("utf-8") + b"\n"
         self.send_response(status)
@@ -100,6 +128,34 @@ class AccountableSwarmHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
+
+    def _send_file(self, path: Path) -> None:
+        data = path.read_bytes()
+        self.send_response(200)
+        self.send_header("Content-Type", _content_type(path))
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+
+def _safe_bundle_path(*, root: Path, rel_url_path: str) -> Path:
+    rel_path = Path(unquote(rel_url_path))
+    if rel_path.is_absolute() or ".." in rel_path.parts:
+        raise ValueError("swarm demo path must stay inside bundle root")
+    target = (root / rel_path).resolve()
+    try:
+        target.relative_to(root)
+    except ValueError as exc:
+        raise ValueError("swarm demo path must stay inside bundle root") from exc
+    return target
+
+
+def _content_type(path: Path) -> str:
+    if path.suffix == ".html":
+        return "text/html; charset=utf-8"
+    if path.suffix == ".json":
+        return "application/json"
+    return "application/octet-stream"
 
 
 def run_server(*, host: str, port: int) -> None:

@@ -14,6 +14,8 @@ This is the current repo state after the first 10-hour execution block began at
 - Camera/static-frame GO gate reports five binary pass conditions.
 - Degraded/offline mode emits local `HOLD` trace without Qwen.
 - Minimal stdlib HTTP server works locally.
+- Minimal stdlib HTTP server serves existing deterministic swarm demo bundle
+  artifacts through path-safe `/swarm-demo` endpoints.
 - Deterministic N=2 integer-grid simulated swarm reaches both goals, emits one
   DecisionTrace per agent, replays final positions from traces, and reports zero
   same-cell or swap collisions.
@@ -92,6 +94,9 @@ This is the current repo state after the first 10-hour execution block began at
   It is not evidence for physical robot behavior, SO-101 operation, 3D
   physics, live Qwen reasoning, latency, reliability, DimOS integration,
   arbitrary maps, or larger swarms.
+- The swarm demo server endpoints serve existing local files only. They are not
+  Alibaba ECS deployment proof and do not generate, mutate, or validate a
+  bundle on request.
 
 ## Open Blockers
 
@@ -110,7 +115,7 @@ Latest local gates during this block:
 
 ```text
 ./scripts/local_gate.sh
-Ran 96 tests
+Ran 99 tests
 OK
 local gate passed
 ```
@@ -129,6 +134,8 @@ GET /healthz -> {"service":"accountable-swarm","status":"ok"}
 GET /readyz -> {"default_vl_model":"qwen3-vl-flash","has_alibaba_api_key":true,"status":"ok"}
 GET /camera-fixture -> trace_summary_sha 282a7982facaf066732b4a3dd1039529e0c8e5b8d54b2b1d458b0b8b7c6e5d2a
 GET /qwen-ping?model=qwen-plus -> {"content_prefix":"OK.","model":"qwen-plus","status":"ok"}
+GET /swarm-demo -> existing bundle index.html
+GET /swarm-demo/summary.json -> existing bundle summary.json
 ```
 
 Deterministic swarm trace visualization:

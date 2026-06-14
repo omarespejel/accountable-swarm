@@ -333,7 +333,13 @@ GET /healthz
 GET /readyz
 GET /camera-fixture
 GET /qwen-ping?model=qwen-plus
+GET /swarm-demo
+GET /swarm-demo/summary.json
 ```
+
+Run `python3 scripts/build_swarm_demo_bundle.py` before opening
+`/swarm-demo`. The server serves existing bundle artifacts only; it does not
+generate or mutate them on request.
 
 See `docs/engineering/alibaba-ecs-manual-deploy-2026-06-15.md`.
 
@@ -362,4 +368,6 @@ NARROW_CLAIM matrix. The short version:
 - Deterministic swarm trace visualization from verified persisted traces: GO.
 - One-command deterministic swarm demo bundle across the reviewed scenario
   registry: GO.
+- Read-only stdlib server endpoints for the deterministic swarm demo bundle:
+  GO.
 - SO-101, physics/DimOS swarm, and Alibaba ECS deployment: not yet proven.
