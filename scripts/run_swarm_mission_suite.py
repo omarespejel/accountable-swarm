@@ -137,30 +137,48 @@ def _run_case(*, case: dict[str, Any], trace_root: Path, repo_root: Path) -> dic
         check=False,
     )
 
-    if result.returncode != 0 or not case_report_path.exists():
+    if result.returncode != 0:
         return _failed_case_report(
             case=case,
             case_id=case_id,
             returncode=result.returncode,
-            stderr=result.stderr,
-            stdout=result.stdout,
+            error_type="mission_gate_failed",
+            error_message="child mission gate command failed",
+        )
+    if not case_report_path.exists():
+        return _failed_case_report(
+            case=case,
+            case_id=case_id,
+            returncode=result.returncode,
+            error_type="mission_report_missing",
+            error_message="child mission gate report was not produced",
         )
 
-    child_report = json.loads(case_report_path.read_text(encoding="utf-8"))
-    expected_outcome = case["expected_outcome"]
-    actual_outcome = child_report["outcome"]
-    trace_files = _verify_case_traces(
-        case_id=case_id,
-        trace_dir=trace_dir,
-        child_report=child_report,
-    )
-    child_conditions = child_report["pass_conditions"]
-    replay_report = child_report["sim_report"]["replay"]
-    replay_violation_counts_zero = (
-        replay_report["same_cell_collision_count"] == 0
-        and replay_report["swap_collision_count"] == 0
-        and replay_report["obstacle_occupancy_violation_count"] == 0
-    )
+    try:
+        child_report = json.loads(case_report_path.read_text(encoding="utf-8"))
+        expected_outcome = case["expected_outcome"]
+        actual_outcome = child_report["outcome"]
+        trace_files = _verify_case_traces(
+            case_id=case_id,
+            trace_dir=trace_dir,
+            child_report=child_report,
+        )
+        child_conditions = child_report["pass_conditions"]
+        replay_report = child_report["sim_report"]["replay"]
+        replay_violation_counts_zero = (
+            replay_report["same_cell_collision_count"] == 0
+            and replay_report["swap_collision_count"] == 0
+            and replay_report["obstacle_occupancy_violation_count"] == 0
+        )
+    except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
+        return _failed_case_report(
+            case=case,
+            case_id=case_id,
+            returncode=result.returncode,
+            error_type="case_artifact_invalid",
+            error_message="child mission gate artifact could not be verified",
+            error_class=exc.__class__.__name__,
+        )
     pass_conditions = {
         "mission_gate_command_succeeded": result.returncode == 0,
         "outcome_matches_expected": actual_outcome == expected_outcome,
@@ -220,12 +238,11 @@ def _failed_case_report(
     case: dict[str, Any],
     case_id: str,
     returncode: int,
-    stderr: str,
-    stdout: str,
+    error_type: str,
+    error_message: str,
+    error_class: str | None = None,
 ) -> dict[str, Any]:
-    stderr_excerpt = stderr.strip().splitlines()[:3]
-    stdout_excerpt = stdout.strip().splitlines()[:3]
-    return {
+    report = {
         "case_id": case_id,
         "purpose": case["purpose"],
         "mode": case["mode"],
@@ -233,8 +250,8 @@ def _failed_case_report(
         "expected_outcome": case["expected_outcome"],
         "actual_outcome": "NARROW_CLAIM",
         "mission_gate_returncode": returncode,
-        "stdout_excerpt": stdout_excerpt,
-        "stderr_excerpt": stderr_excerpt,
+        "error_type": error_type,
+        "error_message": error_message,
         "pass_conditions": {
             "mission_gate_command_succeeded": False,
             "outcome_matches_expected": False,
@@ -246,6 +263,9 @@ def _failed_case_report(
             "scenario_matches_case": False,
         },
     }
+    if error_class is not None:
+        report["error_class"] = error_class
+    return report
 
 
 def _safe_case_id(value: str) -> str:
