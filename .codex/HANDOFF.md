@@ -1,6 +1,6 @@
 # Accountable Swarm Handoff
 
-Last updated: 2026-06-14 JST
+Last updated: 2026-06-15 JST
 
 ## Active Thesis
 
@@ -11,7 +11,8 @@ matters must be reproducible as a hash-chained `DecisionTrace`.
 
 ## Current Evidence State
 
-Status: `NARROW_CLAIM`
+Status: `GO` for live Qwen API/model availability and single-keyframe
+DecisionTrace; `NARROW_CLAIM` for the broader robotics demo.
 
 What is checked locally:
 
@@ -20,10 +21,11 @@ What is checked locally:
 - deterministic `DecisionTrace` serialization and replay;
 - physical-node trace-only safety contract;
 - no-key DashScope failure path.
+- live `qwen3-vl-flash` DashScope trace from generated PNG fixture;
+- minimal `qwen-plus` and `qwen3.5-plus` Commander/text pings.
 
 What is not checked yet:
 
-- live DashScope / Qwen API call with `ALIBABA_API_KEY`;
 - Alibaba Cloud deployment proof;
 - SO-101 or webcam physical frame source;
 - DimOS integration;
