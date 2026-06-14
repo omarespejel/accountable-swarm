@@ -47,8 +47,11 @@ What is checked locally:
   collisions, zero obstacle occupancy, and replay recomputes those counts from
   traces.
 - low-rate fixture mission assignment validates strict mission JSON, emits a
-  mission `DecisionTrace`, then runs the deterministic N=4 center-block swarm
-  gate with trace-replayed zero same-cell, swap, and obstacle occupancy counts.
+  mission `DecisionTrace`, then runs deterministic N=4 center-block and
+  horizontal-slalom swarm gates with trace-replayed zero same-cell, swap, and
+  obstacle occupancy counts.
+- mission scenario selection is bounded to reviewed simulator scenario-registry
+  names; this is not an arbitrary-map interface.
 - deterministic swarm scenario suite reruns N=2/N=4 scoped cases, includes an
   expected `NARROW_CLAIM` canary, and verifies persisted agent traces from disk.
 - fixed swarm scenario registry centralizes current scenario names, obstacle
@@ -73,8 +76,8 @@ What is not checked yet:
 - Issue #1: research ground truth and build hierarchy.
 - Issue #3: physical-node safety contract.
 - Issue #4: Alibaba/Qwen proof path.
-- Issue #2, #6, #11, #13, #15, #17, #19, #21, #23, #25, and #27 are closed as
-  GO.
+- Issue #2, #6, #11, #13, #15, #17, #19, #21, #23, #25, #27, and #29 are closed
+  as GO.
 - PR #5, #7, #8, #9, #10, #12, #14, #16, #18, #20, #22, and #24 are merged.
 
 Before creating new work, inspect the current PR and issues:

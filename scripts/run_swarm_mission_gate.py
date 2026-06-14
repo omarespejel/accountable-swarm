@@ -12,11 +12,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from accountable_swarm.qwen.client import DashScopeQwenClient, DashScopeResponseError, MissingAlibabaApiKey
 from accountable_swarm.swarm import (
+    DEFAULT_MISSION_SCENARIO,
     MISSION_MODEL_FIXTURE_ID,
     MISSION_SCHEMA_VERSION,
+    SUPPORTED_MISSION_SCENARIOS,
     build_agent_traces,
     build_mission_trace,
     fixture_mission_response,
+    mission_id_for_scenario,
+    mission_spec_for_scenario,
+    parse_mission_intent_response,
     parse_mission_response,
     qwen_mission_prompt,
     replay_swarm_traces,
@@ -33,13 +38,23 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--mode", choices=["fixture", "dashscope"], default="fixture")
     parser.add_argument("--model", default=DEFAULT_MISSION_MODEL)
+    parser.add_argument(
+        "--mission-scenario",
+        choices=SUPPORTED_MISSION_SCENARIOS,
+        default=DEFAULT_MISSION_SCENARIO,
+        help="reviewed scenario-registry name to request from fixture or DashScope",
+    )
     parser.add_argument("--trace-dir", type=Path, required=True)
     parser.add_argument("--report-out", type=Path, required=True)
     args = parser.parse_args()
 
     try:
-        response_text = _mission_response(mode=args.mode, model=args.model)
-        spec = parse_mission_response(response_text)
+        response_text = _mission_response(mode=args.mode, model=args.model, scenario=args.mission_scenario)
+        spec = _mission_spec_from_response(
+            response_text=response_text,
+            mode=args.mode,
+            requested_scenario=args.mission_scenario,
+        )
     except MissingAlibabaApiKey as exc:
         print(str(exc), file=sys.stderr)
         return 3
@@ -136,10 +151,40 @@ def main() -> int:
     return 0 if outcome == "GO" else 4
 
 
-def _mission_response(*, mode: str, model: str) -> str:
+def _mission_response(*, mode: str, model: str, scenario: str) -> str:
     if mode == "fixture":
-        return fixture_mission_response()
-    return DashScopeQwenClient(model=model).chat_text(prompt=qwen_mission_prompt(), max_tokens=256)
+        return fixture_mission_response(scenario=scenario)
+    return DashScopeQwenClient(model=model).chat_text(
+        prompt=qwen_mission_prompt(scenario=scenario),
+        max_tokens=256,
+    )
+
+
+def _mission_spec_from_response(*, response_text: str, mode: str, requested_scenario: str):
+    if mode == "fixture":
+        spec = parse_mission_response(response_text)
+    elif mode == "dashscope":
+        objective = parse_mission_intent_response(response_text)
+        spec = mission_spec_for_scenario(scenario=requested_scenario, objective=objective)
+    else:
+        raise ValueError("mission mode must be fixture or dashscope")
+    _enforce_requested_scenario(spec=spec, requested_scenario=requested_scenario)
+    return spec
+
+
+def _enforce_requested_scenario(*, spec, requested_scenario: str) -> None:
+    if spec.scenario != requested_scenario:
+        raise ValueError(
+            f"mission scenario mismatch: requested {requested_scenario}, got {spec.scenario}"
+        )
+    expected_mission_id = mission_id_for_scenario(
+        scenario=requested_scenario,
+        agent_count=spec.agent_count,
+    )
+    if spec.mission_id != expected_mission_id:
+        raise ValueError(
+            f"mission_id mismatch for {requested_scenario}: expected {expected_mission_id}, got {spec.mission_id}"
+        )
 
 
 if __name__ == "__main__":

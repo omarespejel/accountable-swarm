@@ -12,11 +12,15 @@ from accountable_swarm.trace.models import (
     build_single_event_trace,
     reject_raw_floats,
 )
+from accountable_swarm.swarm.sim import scenario_names
 
 MISSION_SCHEMA_VERSION = "swarm-mission.v1"
 MISSION_MODEL_FIXTURE_ID = "fixture-qwen-mission-shape"
-SUPPORTED_MISSION_SCENARIOS = ("center-block",)
-SUPPORTED_MISSION_AGENT_COUNTS = (4,)
+DEFAULT_MISSION_SCENARIO = "center-block"
+DEFAULT_MISSION_AGENT_COUNT = 4
+DEFAULT_MISSION_TICKS = 16
+SUPPORTED_MISSION_SCENARIOS = scenario_names()
+SUPPORTED_MISSION_AGENT_COUNTS = (DEFAULT_MISSION_AGENT_COUNT,)
 MIN_MISSION_TICKS = 1
 MAX_MISSION_TICKS = 32
 MISSION_REQUIRED_KEYS = frozenset(
@@ -29,6 +33,7 @@ MISSION_REQUIRED_KEYS = frozenset(
         "objective",
     }
 )
+MISSION_INTENT_REQUIRED_KEYS = frozenset({"objective"})
 
 
 @dataclass(frozen=True)
@@ -101,6 +106,43 @@ def parse_mission_response(response_text: str) -> MissionSpec:
     )
 
 
+def parse_mission_intent_response(response_text: str) -> str:
+    """Parse a strict DashScope mission-intent JSON object."""
+
+    if not response_text.strip():
+        raise ValueError("mission intent response must be non-empty")
+    try:
+        value = json.loads(response_text)
+    except json.JSONDecodeError as exc:
+        raise ValueError("mission intent response must be valid JSON") from exc
+    reject_raw_floats(value)
+    if not isinstance(value, dict):
+        raise ValueError("mission intent response must be a JSON object")
+    keys = frozenset(value)
+    if keys != MISSION_INTENT_REQUIRED_KEYS:
+        missing = sorted(MISSION_INTENT_REQUIRED_KEYS - keys)
+        extra = sorted(keys - MISSION_INTENT_REQUIRED_KEYS)
+        raise ValueError(f"mission intent keys mismatch; missing={missing}; extra={extra}")
+    objective = _expect_str(value["objective"], "objective")
+    if not objective.strip():
+        raise ValueError("objective must be non-empty")
+    return objective
+
+
+def mission_spec_for_scenario(*, scenario: str, objective: str) -> MissionSpec:
+    """Build the deterministic mission envelope for a reviewed scenario."""
+
+    _validate_mission_scenario(scenario)
+    return MissionSpec(
+        schema_version=MISSION_SCHEMA_VERSION,
+        mission_id=mission_id_for_scenario(scenario=scenario),
+        scenario=scenario,
+        agent_count=DEFAULT_MISSION_AGENT_COUNT,
+        ticks=DEFAULT_MISSION_TICKS,
+        objective=objective,
+    )
+
+
 def build_mission_trace(*, spec: MissionSpec, mode: str, model: str) -> DecisionTrace:
     """Build a trace event for the validated low-rate mission decision."""
 
@@ -136,28 +178,25 @@ def build_mission_trace(*, spec: MissionSpec, mode: str, model: str) -> Decision
     )
 
 
-def fixture_mission_response() -> str:
+def fixture_mission_response(*, scenario: str = DEFAULT_MISSION_SCENARIO) -> str:
+    spec = mission_spec_for_scenario(
+        scenario=scenario,
+        objective="route all agents to their opposing goals without same-cell, swap, or obstacle occupancy violations",
+    )
     return json.dumps(
-        {
-            "schema_version": MISSION_SCHEMA_VERSION,
-            "mission_id": "center-block-n4",
-            "scenario": "center-block",
-            "agent_count": 4,
-            "ticks": 16,
-            "objective": "route all agents to their opposing goals without same-cell, swap, or obstacle occupancy violations",
-        },
+        spec.to_dict(),
         sort_keys=True,
         separators=(",", ":"),
     )
 
 
-def qwen_mission_prompt() -> str:
+def qwen_mission_prompt(*, scenario: str = DEFAULT_MISSION_SCENARIO) -> str:
+    _validate_mission_scenario(scenario)
     return (
-        "Return ONLY a JSON object with exactly these keys: "
-        "schema_version, mission_id, scenario, agent_count, ticks, objective. "
-        f"schema_version must be {MISSION_SCHEMA_VERSION}. "
-        "Choose scenario center-block, agent_count 4, ticks 16, mission_id center-block-n4. "
-        "Objective: route all agents to their opposing goals without same-cell, swap, or obstacle occupancy violations. "
+        "Return ONLY a JSON object with exactly one key: objective. "
+        f"The deterministic local runner has already selected scenario {scenario}; "
+        "do not output scenario, mission_id, agent_count, ticks, commands, coordinates, arrays, or control parameters. "
+        "The objective must describe the mission intent: route all agents to their opposing goals without same-cell, swap, or obstacle occupancy violations. "
         "Do not include markdown, comments, prose, arrays, floats, or extra keys."
     )
 
@@ -172,3 +211,15 @@ def _expect_int(value: Any, name: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int):
         raise TypeError(f"{name} must be an integer")
     return value
+
+
+def mission_id_for_scenario(*, scenario: str, agent_count: int = DEFAULT_MISSION_AGENT_COUNT) -> str:
+    _validate_mission_scenario(scenario)
+    if agent_count not in SUPPORTED_MISSION_AGENT_COUNTS:
+        raise ValueError(f"unsupported mission agent_count: {agent_count}")
+    return f"{scenario}-n{agent_count}"
+
+
+def _validate_mission_scenario(scenario: str) -> None:
+    if scenario not in SUPPORTED_MISSION_SCENARIOS:
+        raise ValueError(f"unsupported mission scenario: {scenario}")

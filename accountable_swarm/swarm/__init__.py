@@ -1,11 +1,18 @@
 """Deterministic simulated swarm primitives."""
 
 from accountable_swarm.swarm.mission import (
+    DEFAULT_MISSION_AGENT_COUNT,
+    DEFAULT_MISSION_SCENARIO,
+    DEFAULT_MISSION_TICKS,
     MISSION_MODEL_FIXTURE_ID,
     MISSION_SCHEMA_VERSION,
     MissionSpec,
+    SUPPORTED_MISSION_SCENARIOS,
     build_mission_trace,
     fixture_mission_response,
+    mission_id_for_scenario,
+    mission_spec_for_scenario,
+    parse_mission_intent_response,
     parse_mission_response,
     qwen_mission_prompt,
 )
@@ -23,15 +30,22 @@ from accountable_swarm.swarm.sim import (
 
 __all__ = [
     "AgentConfig",
+    "DEFAULT_MISSION_AGENT_COUNT",
+    "DEFAULT_MISSION_SCENARIO",
+    "DEFAULT_MISSION_TICKS",
     "GridPoint",
     "MISSION_MODEL_FIXTURE_ID",
     "MISSION_SCHEMA_VERSION",
     "MissionSpec",
+    "SUPPORTED_MISSION_SCENARIOS",
     "SwarmReplayReport",
     "SwarmSimulationResult",
     "build_agent_traces",
     "build_mission_trace",
     "fixture_mission_response",
+    "mission_id_for_scenario",
+    "mission_spec_for_scenario",
+    "parse_mission_intent_response",
     "parse_mission_response",
     "qwen_mission_prompt",
     "replay_swarm_traces",

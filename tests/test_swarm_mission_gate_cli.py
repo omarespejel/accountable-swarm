@@ -60,9 +60,50 @@ class SwarmMissionGateCliTests(TestCase):
             )
             self.assertEqual(verify_trace(agent_trace), report["trace_summary_shas"][agent_id])
 
+    def test_fixture_mission_gate_accepts_registered_horizontal_slalom(self) -> None:
+        trace_dir = ROOT / "runs/swarm/test-mission-horizontal-slalom-fixture-n4"
+        report_path = ROOT / "runs/swarm/test_mission_horizontal_slalom_fixture_n4_report.json"
+        result = subprocess.run(
+            [
+                sys.executable,
+                "scripts/run_swarm_mission_gate.py",
+                "--mode",
+                "fixture",
+                "--mission-scenario",
+                "horizontal-slalom",
+                "--trace-dir",
+                str(trace_dir),
+                "--report-out",
+                str(report_path),
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+        self.assertEqual(report["outcome"], "GO")
+        self.assertEqual(report["mode"], "fixture")
+        self.assertEqual(report["mission"]["mission_id"], "horizontal-slalom-n4")
+        self.assertEqual(report["mission"]["scenario"], "horizontal-slalom")
+        self.assertEqual(report["mission"]["agent_count"], 4)
+        self.assertEqual(report["mission"]["ticks"], 16)
+        self.assertEqual(report["sim_report"]["outcome"], "GO")
+        self.assertEqual(report["sim_report"]["scenario"], "horizontal-slalom")
+        self.assertEqual(report["sim_report"]["obstacles"], [{"x": 2, "y": 2}, {"x": 4, "y": 2}])
+        self.assertEqual(report["sim_report"]["same_cell_collision_count"], 0)
+        self.assertEqual(report["sim_report"]["swap_collision_count"], 0)
+        self.assertEqual(report["sim_report"]["obstacle_occupancy_violation_count"], 0)
+        self.assertTrue(report["pass_conditions"]["mission_trace_replay_deterministic"])
+        self.assertTrue(report["pass_conditions"]["agent_traces_replay_deterministic"])
+        self.assertTrue(report["pass_conditions"]["agent_trace_replay_counts_zero"])
+
     def test_dashscope_mission_response_uses_text_client(self) -> None:
         module = _load_mission_gate_module()
         calls = []
+        objective_response = '{"objective":"route agents through the selected fixed scenario"}'
 
         class FakeClient:
             def __init__(self, *, model: str) -> None:
@@ -70,20 +111,61 @@ class SwarmMissionGateCliTests(TestCase):
 
             def chat_text(self, *, prompt: str, max_tokens: int) -> str:
                 calls.append(("chat_text", prompt, max_tokens))
-                return fixture_mission_response()
+                return objective_response
 
         original = module.DashScopeQwenClient
         try:
             module.DashScopeQwenClient = FakeClient
-            response = module._mission_response(mode="dashscope", model="fake-qwen")
+            response = module._mission_response(
+                mode="dashscope",
+                model="fake-qwen",
+                scenario="horizontal-slalom",
+            )
         finally:
             module.DashScopeQwenClient = original
 
-        self.assertEqual(response, fixture_mission_response())
+        self.assertEqual(response, objective_response)
         self.assertEqual(calls[0], ("init", "fake-qwen"))
         self.assertEqual(calls[1][0], "chat_text")
-        self.assertIn("schema_version", calls[1][1])
+        self.assertIn("exactly one key: objective", calls[1][1])
+        self.assertIn("horizontal-slalom", calls[1][1])
+        self.assertIn("do not output scenario, mission_id, agent_count, ticks", calls[1][1])
         self.assertEqual(calls[1][2], 256)
+
+    def test_dashscope_spec_binds_requested_scenario_from_intent_only(self) -> None:
+        module = _load_mission_gate_module()
+        spec = module._mission_spec_from_response(
+            response_text='{"objective":"route agents through the selected fixed scenario"}',
+            mode="dashscope",
+            requested_scenario="horizontal-slalom",
+        )
+
+        self.assertEqual(spec.mission_id, "horizontal-slalom-n4")
+        self.assertEqual(spec.scenario, "horizontal-slalom")
+        self.assertEqual(spec.agent_count, 4)
+        self.assertEqual(spec.ticks, 16)
+
+    def test_fixture_spec_rejects_mismatched_requested_scenario(self) -> None:
+        module = _load_mission_gate_module()
+
+        with self.assertRaisesRegex(ValueError, "mission scenario mismatch"):
+            module._mission_spec_from_response(
+                response_text=fixture_mission_response(scenario="center-block"),
+                mode="fixture",
+                requested_scenario="horizontal-slalom",
+            )
+
+    def test_fixture_spec_rejects_mismatched_mission_id(self) -> None:
+        module = _load_mission_gate_module()
+        value = json.loads(fixture_mission_response(scenario="horizontal-slalom"))
+        value["mission_id"] = "wrong-id"
+
+        with self.assertRaisesRegex(ValueError, "mission_id mismatch"):
+            module._mission_spec_from_response(
+                response_text=json.dumps(value),
+                mode="fixture",
+                requested_scenario="horizontal-slalom",
+            )
 
 
 def _load_mission_gate_module():

@@ -166,6 +166,20 @@ This report must show validated mission JSON, a deterministic mission trace
 replay, simulator `GO`, and zero same-cell, swap, and obstacle-occupancy counts
 in the agent trace-derived replay section.
 
+Registry-bound horizontal-slalom mission fixture:
+
+```bash
+python3 scripts/run_swarm_mission_gate.py \
+  --mode fixture \
+  --mission-scenario horizontal-slalom \
+  --trace-dir runs/swarm/mission-horizontal-slalom-fixture-n4 \
+  --report-out runs/swarm/mission_horizontal_slalom_fixture_n4_report.json
+```
+
+This report must show scenario `horizontal-slalom`, mission trace replay,
+simulator `GO`, obstacles at `(2, 2)` and `(4, 2)`, and zero same-cell, swap,
+and obstacle-occupancy counts in the agent trace-derived replay section.
+
 Do not commit API keys, raw secrets, or cloud credentials.
 
 Deterministic swarm suite:

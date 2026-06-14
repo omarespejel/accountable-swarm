@@ -35,8 +35,9 @@ This is the current repo state after the first 10-hour execution block began at
   collisions, zero obstacle occupancy violations, and replay recomputes those
   counts from traces.
 - Low-rate fixture mission assignment validates a strict mission JSON,
-  emits a mission `DecisionTrace`, then runs the deterministic N=4 center-block
-  swarm gate with zero same-cell, swap, or obstacle occupancy violations.
+  emits a mission `DecisionTrace`, then runs deterministic N=4 center-block and
+  horizontal-slalom swarm gates with zero same-cell, swap, or obstacle occupancy
+  violations.
 - Deterministic swarm suite runs six scoped cases, including an expected
   `NARROW_CLAIM` canary, and verifies persisted agent traces from disk.
 - Fixed swarm scenario registry centralizes current scenario names, obstacle
@@ -75,7 +76,7 @@ Latest local gates during this block:
 
 ```text
 ./scripts/local_gate.sh
-Ran 63 tests
+Ran 75 tests
 OK
 local gate passed
 ```
@@ -198,6 +199,21 @@ mode fixture
 scenario center-block
 agent_count 4
 mission_trace_summary_sha 82e2138ee3f93e3468ebb04dd179c5c304688cc2ff243dbf129985d56927fcde
+sim_report_outcome GO
+same_cell_collision_count 0
+swap_collision_count 0
+obstacle_occupancy_violation_count 0
+```
+
+Registry-bound horizontal-slalom fixture mission gate:
+
+```text
+python3 scripts/run_swarm_mission_gate.py --mode fixture --mission-scenario horizontal-slalom --trace-dir runs/swarm/mission-horizontal-slalom-fixture-n4 --report-out runs/swarm/mission_horizontal_slalom_fixture_n4_report.json
+outcome GO
+mode fixture
+scenario horizontal-slalom
+agent_count 4
+mission_trace_summary_sha 2a75abfc4cdf17f903f80787c23689819b2af4b891ae0e8113c5c8a1232f849a
 sim_report_outcome GO
 same_cell_collision_count 0
 swap_collision_count 0
