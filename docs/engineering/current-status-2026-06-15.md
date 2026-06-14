@@ -110,7 +110,7 @@ Latest local gates during this block:
 
 ```text
 ./scripts/local_gate.sh
-Ran 94 tests
+Ran 96 tests
 OK
 local gate passed
 ```
@@ -147,7 +147,7 @@ obstacle_occupancy_violation_count 0
 One-command deterministic swarm demo bundle:
 
 ```text
-python3 scripts/build_swarm_demo_bundle.py --out-dir runs/demo/swarm
+python3 scripts/build_swarm_demo_bundle.py
 outcome GO
 scenario_count 4
 index_sha256 8ed23bca34358627a9948b49d265c28cd7433997e39578c62b911e5ee333f688

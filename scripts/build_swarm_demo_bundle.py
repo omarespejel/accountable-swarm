@@ -8,6 +8,7 @@ import hashlib
 import html
 import json
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 from typing import Any
@@ -21,11 +22,13 @@ from accountable_swarm.trace.models import canonical_json, verify_trace
 BUNDLE_SCHEMA_VERSION = "swarm-demo-bundle-report.v1"
 DEFAULT_AGENT_COUNT = 4
 DEFAULT_TICKS = 16
+DEFAULT_OUT_DIR = Path("runs/demo/swarm")
+RENDER_TIMEOUT_SECONDS = 60
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--out-dir", type=Path, required=True)
+    parser.add_argument("--out-dir", type=Path, default=DEFAULT_OUT_DIR)
     parser.add_argument("--agents", type=int, default=DEFAULT_AGENT_COUNT)
     parser.add_argument("--ticks", type=int, default=DEFAULT_TICKS)
     parser.add_argument(
@@ -36,10 +39,12 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    scenarios = tuple(args.scenario or scenario_names())
+    scenarios = _canonical_scenarios(args.scenario)
+    out_dir = _normalize_out_dir(args.out_dir)
+    display_out_dir = args.out_dir
     try:
         report = _build_bundle(
-            out_dir=args.out_dir,
+            out_dir=out_dir,
             scenarios=scenarios,
             agent_count=args.agents,
             ticks=args.ticks,
@@ -51,9 +56,26 @@ def main() -> int:
     print(f"outcome {report['outcome']}")
     print(f"scenario_count {report['scenario_count']}")
     print(f"index_sha256 {report['index_sha256']}")
-    print(f"wrote {args.out_dir / 'index.html'}")
-    print(f"wrote {args.out_dir / 'summary.json'}")
+    print(f"wrote {display_out_dir / 'index.html'}")
+    print(f"wrote {display_out_dir / 'summary.json'}")
     return 0 if report["outcome"] == "GO" else 4
+
+
+def _canonical_scenarios(requested: list[str] | None) -> tuple[str, ...]:
+    if requested is None:
+        return scenario_names()
+    if not requested:
+        raise ValueError("at least one scenario is required")
+    requested_set = set(requested)
+    if len(requested_set) != len(requested):
+        raise ValueError("scenarios must be unique")
+    return tuple(scenario for scenario in scenario_names() if scenario in requested_set)
+
+
+def _normalize_out_dir(out_dir: Path) -> Path:
+    if out_dir.is_absolute():
+        return out_dir
+    return Path.cwd() / out_dir
 
 
 def _build_bundle(
@@ -80,7 +102,7 @@ def _build_bundle(
         cases.append(case)
 
     pass_conditions = {
-        "all_reviewed_scenarios_included": tuple(scenarios) == scenario_names(),
+        "all_reviewed_scenarios_included": set(scenarios) == set(scenario_names()),
         "every_sim_report_go": all(case["sim_report"]["outcome"] == "GO" for case in cases),
         "every_render_report_go": all(case["render_summary"]["outcome"] == "GO" for case in cases),
         "every_trace_replay_clean": all(
@@ -136,6 +158,8 @@ def _build_scenario_case(
     report_path = scenario_dir / "sim_report.json"
     render_path = scenario_dir / "replay.html"
     render_summary_path = scenario_dir / "replay_summary.json"
+    if scenario_dir.exists():
+        shutil.rmtree(scenario_dir)
     scenario_dir.mkdir(parents=True, exist_ok=True)
 
     result = run_swarm_sim(
@@ -176,13 +200,17 @@ def _build_scenario_case(
     ]
     for obstacle in result.obstacles:
         render_args.extend(["--obstacle", f"{obstacle.x},{obstacle.y}"])
-    render_result = subprocess.run(
-        render_args,
-        cwd=Path(__file__).resolve().parents[1],
-        text=True,
-        capture_output=True,
-        check=False,
-    )
+    try:
+        render_result = subprocess.run(
+            render_args,
+            cwd=Path(__file__).resolve().parents[1],
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=RENDER_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise ValueError(f"trace renderer timed out for {scenario}") from exc
     if render_result.returncode != 0:
         raise ValueError(f"trace renderer failed for {scenario}: {render_result.stderr.strip()}")
     render_summary = json.loads(render_summary_path.read_text(encoding="utf-8"))

@@ -24,7 +24,7 @@ and writes an index page plus canonical JSON summary.
 ## Command
 
 ```bash
-python3 scripts/build_swarm_demo_bundle.py --out-dir runs/demo/swarm
+python3 scripts/build_swarm_demo_bundle.py
 ```
 
 ## Result
@@ -70,7 +70,7 @@ Focused test:
 
 ```text
 python3 -m unittest tests.test_swarm_demo_bundle_cli
-Ran 2 tests
+Ran 4 tests
 OK
 ```
 

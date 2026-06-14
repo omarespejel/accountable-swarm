@@ -289,7 +289,7 @@ static replay pages, and a deterministic index from the reviewed local scenario
 registry:
 
 ```bash
-python3 scripts/build_swarm_demo_bundle.py --out-dir runs/demo/swarm
+python3 scripts/build_swarm_demo_bundle.py
 ```
 
 The checked 2026-06-15 evidence shows `GO` across `corridor`,
@@ -297,6 +297,8 @@ The checked 2026-06-15 evidence shows `GO` across `corridor`,
 SHA `8ed23bca34358627a9948b49d265c28cd7433997e39578c62b911e5ee333f688`.
 This command is the current swarm-first judge path. It does not require live
 Qwen, SO-101, webcam access, DimOS, Docker, or cloud credentials.
+Use `--out-dir` only when you want to override the default `runs/demo/swarm`
+output location.
 
 ## Swarm Scenario Suite
 
