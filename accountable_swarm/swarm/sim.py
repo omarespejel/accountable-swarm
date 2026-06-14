@@ -22,11 +22,13 @@ from accountable_swarm.trace.models import (
 
 SWARM_REPORT_SCHEMA_VERSION = "swarm-sim-report.v1"
 SWARM_MODEL_ID = "deterministic-grid-swarm-v1"
-SUPPORTED_SCENARIOS = ("corridor", "center-block", "vertical-slalom")
 RESERVATION_PLANNER_MAX_DEPTH = 16
 RESERVATION_PLANNER_MAX_EXPANSIONS = 5_000
 VERTICAL_SLALOM_GRID_WIDTH = 7
 VERTICAL_SLALOM_GRID_HEIGHT = 5
+SCENARIO_OBSTACLE_NONE = "none"
+SCENARIO_OBSTACLE_CENTER = "center"
+SCENARIO_OBSTACLE_FIXED = "fixed"
 
 
 @dataclass(frozen=True, order=True)
@@ -54,6 +56,71 @@ class GridPoint:
 
 
 VERTICAL_SLALOM_OBSTACLES = (GridPoint(3, 1), GridPoint(3, 3))
+
+
+@dataclass(frozen=True)
+class ScenarioSpec:
+    """Reviewed deterministic scenario metadata."""
+
+    name: str
+    obstacle_policy: str
+    use_reservation_planner: bool
+    fixed_grid: tuple[int, int] | None = None
+    fixed_obstacles: tuple[GridPoint, ...] = ()
+
+    def validate_grid(self, *, grid_width: int, grid_height: int) -> None:
+        if self.fixed_grid is None:
+            return
+        if (grid_width, grid_height) != self.fixed_grid:
+            width, height = self.fixed_grid
+            raise ValueError(f"{self.name} requires the fixed {width}x{height} grid")
+
+    def obstacles(self, *, grid_width: int, grid_height: int) -> frozenset[GridPoint]:
+        self.validate_grid(grid_width=grid_width, grid_height=grid_height)
+        if self.obstacle_policy == SCENARIO_OBSTACLE_NONE:
+            return frozenset()
+        if self.obstacle_policy == SCENARIO_OBSTACLE_CENTER:
+            return frozenset({GridPoint(grid_width // 2, grid_height // 2)})
+        if self.obstacle_policy == SCENARIO_OBSTACLE_FIXED:
+            return frozenset(self.fixed_obstacles)
+        raise ValueError(f"unsupported obstacle policy: {self.obstacle_policy}")
+
+
+SCENARIO_REGISTRY = {
+    "corridor": ScenarioSpec(
+        name="corridor",
+        obstacle_policy=SCENARIO_OBSTACLE_NONE,
+        use_reservation_planner=False,
+    ),
+    "center-block": ScenarioSpec(
+        name="center-block",
+        obstacle_policy=SCENARIO_OBSTACLE_CENTER,
+        use_reservation_planner=True,
+    ),
+    "vertical-slalom": ScenarioSpec(
+        name="vertical-slalom",
+        obstacle_policy=SCENARIO_OBSTACLE_FIXED,
+        use_reservation_planner=True,
+        fixed_grid=(VERTICAL_SLALOM_GRID_WIDTH, VERTICAL_SLALOM_GRID_HEIGHT),
+        fixed_obstacles=VERTICAL_SLALOM_OBSTACLES,
+    ),
+}
+SUPPORTED_SCENARIOS = tuple(SCENARIO_REGISTRY)
+
+
+def scenario_names() -> tuple[str, ...]:
+    """Return supported deterministic scenario names."""
+
+    return SUPPORTED_SCENARIOS
+
+
+def scenario_spec(scenario: str) -> ScenarioSpec:
+    """Return the reviewed scenario spec for a supported scenario."""
+
+    try:
+        return SCENARIO_REGISTRY[scenario]
+    except KeyError as exc:
+        raise ValueError(f"scenario must be one of: {', '.join(SUPPORTED_SCENARIOS)}") from exc
 
 
 @dataclass(frozen=True)
@@ -240,13 +307,9 @@ def run_swarm_sim(
         raise ValueError("ticks must be positive")
     if planner_max_expansions < 0:
         raise ValueError("planner_max_expansions must be non-negative")
-    if scenario not in SUPPORTED_SCENARIOS:
-        raise ValueError(f"scenario must be one of: {', '.join(SUPPORTED_SCENARIOS)}")
-    if scenario == "vertical-slalom" and (
-        grid_width != VERTICAL_SLALOM_GRID_WIDTH or grid_height != VERTICAL_SLALOM_GRID_HEIGHT
-    ):
-        raise ValueError("vertical-slalom requires the fixed 7x5 grid")
-    obstacles = _default_obstacles(scenario, grid_width=grid_width, grid_height=grid_height)
+    spec = scenario_spec(scenario)
+    spec.validate_grid(grid_width=grid_width, grid_height=grid_height)
+    obstacles = spec.obstacles(grid_width=grid_width, grid_height=grid_height)
     configs = _default_configs(agent_count, grid_width=grid_width, grid_height=grid_height)
     _validate_configs_against_obstacles(configs, obstacles)
     positions = {config.agent_id: config.start for config in configs}
@@ -260,7 +323,7 @@ def run_swarm_sim(
             grid_width=grid_width,
             grid_height=grid_height,
             obstacles=obstacles,
-            use_reservation_planner=scenario in {"center-block", "vertical-slalom"},
+            use_reservation_planner=spec.use_reservation_planner,
             reservation_planner_max_expansions=planner_max_expansions,
         )
         positions = {step.agent_id: step.accepted for step in steps}
@@ -759,16 +822,6 @@ def _default_configs(agent_count: int, *, grid_width: int, grid_height: int) -> 
     if agent_count not in {2, 4}:
         raise ValueError("agent_count must be 2 or 4 for the current checked scenarios")
     return configs[:agent_count]
-
-
-def _default_obstacles(scenario: str, *, grid_width: int, grid_height: int) -> frozenset[GridPoint]:
-    if scenario == "corridor":
-        return frozenset()
-    if scenario == "center-block":
-        return frozenset({GridPoint(grid_width // 2, grid_height // 2)})
-    if scenario == "vertical-slalom":
-        return frozenset(VERTICAL_SLALOM_OBSTACLES)
-    raise ValueError(f"unsupported scenario: {scenario}")
 
 
 def _validate_configs_against_obstacles(

@@ -47,6 +47,8 @@ What is checked locally:
   gate with trace-replayed zero same-cell, swap, and obstacle occupancy counts.
 - deterministic swarm scenario suite reruns N=2/N=4 scoped cases, includes an
   expected `NARROW_CLAIM` canary, and verifies persisted agent traces from disk.
+- fixed swarm scenario registry centralizes current scenario names, obstacle
+  policies, fixed-grid requirements, and reservation-planner use.
 - exploratory deterministic N=4 integer-grid probe passes locally, but is not a
   physical, physics, latency, reliability, or larger-swarm claim.
 - local-guard-only deterministic N=4 center-block obstacle probe remains useful
@@ -67,8 +69,8 @@ What is not checked yet:
 - Issue #1: research ground truth and build hierarchy.
 - Issue #3: physical-node safety contract.
 - Issue #4: Alibaba/Qwen proof path.
-- Issue #2, #6, #11, #13, #15, #17, #19, #21, and #23 are closed as GO.
-- PR #5, #7, #8, #9, #10, #12, #14, #16, #18, #20, and #22 are merged.
+- Issue #2, #6, #11, #13, #15, #17, #19, #21, #23, and #25 are closed as GO.
+- PR #5, #7, #8, #9, #10, #12, #14, #16, #18, #20, #22, and #24 are merged.
 
 Before creating new work, inspect the current PR and issues:
 

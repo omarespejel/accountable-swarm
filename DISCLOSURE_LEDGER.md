@@ -18,6 +18,7 @@ data sources, and external assets from day one.
 | 2026-06-15 | Low-rate swarm mission gate | Authored for `accountable-swarm` | Apache-2.0 | Fixture/Qwen-style mission JSON validation before deterministic local swarm planning | Fixture mode is checked; live DashScope mission assignment is not claimed unless separately recorded. |
 | 2026-06-15 | Deterministic swarm scenario suite | Authored for `accountable-swarm` | Apache-2.0 | Multi-case integer-grid swarm regression and overclaim canary | Includes expected `NARROW_CLAIM` case; no physics, hardware, DimOS, or larger-swarm claim. |
 | 2026-06-15 | Vertical-slalom swarm scenario | Authored for `accountable-swarm` | Apache-2.0 | Second fixed two-obstacle N=4 integer-grid swarm gate | No external planner code copied; no arbitrary-map, physics, hardware, or larger-swarm claim. |
+| 2026-06-15 | Fixed swarm scenario registry | Authored for `accountable-swarm` | Apache-2.0 | Central source of truth for current deterministic scenario metadata | No user-supplied layouts, arbitrary-map planning, physics, hardware, or larger-swarm claim. |
 
 ## Pending Before Demo
 
