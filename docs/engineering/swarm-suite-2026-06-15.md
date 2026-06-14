@@ -8,7 +8,7 @@ integer-grid replay gate, not a physics or hardware gate.
 
 ## Scope
 
-The suite runs six fixed cases:
+The suite runs seven fixed cases:
 
 ```text
 n2-corridor-go
@@ -16,6 +16,7 @@ n2-center-block-go
 n4-center-block-go
 n4-vertical-slalom-go
 n4-horizontal-slalom-go
+n4-double-chicane-go
 n4-center-block-short-narrow
 ```
 
@@ -37,12 +38,13 @@ python3 scripts/run_swarm_suite.py \
 
 ```text
 outcome GO
-case_count 6
+case_count 7
 case n2-corridor-go expected GO actual GO
 case n2-center-block-go expected GO actual GO
 case n4-center-block-go expected GO actual GO
 case n4-vertical-slalom-go expected GO actual GO
 case n4-horizontal-slalom-go expected GO actual GO
+case n4-double-chicane-go expected GO actual GO
 case n4-center-block-short-narrow expected NARROW_CLAIM actual NARROW_CLAIM
 ```
 
@@ -122,6 +124,20 @@ sim-agent-0 237440225ca798fc797f80791d9240b0b17d6ab62d4b2d55af88358a121ceaec
 sim-agent-1 397f73e8b798779a3e2292252545c1ab56710bc515e5a2be10fbb9a67ac3ce3a
 sim-agent-2 8d93ed711be9d41e1c29e513d16c65d0323d587a5df3d59b5b35f86bfc2899f6
 sim-agent-3 5e9fa5167936787d3488f8996941fb4ce4a96a542a7662e7ab990b0cb7e161ef
+```
+
+`n4-double-chicane-go`
+
+```text
+expected GO
+actual GO
+same_cell_collision_count 0
+swap_collision_count 0
+obstacle_occupancy_violation_count 0
+sim-agent-0 d63c0b106d53a9912ededf15f0d74b08670311c164be07f9da797cdc95ef4612
+sim-agent-1 b071b8a80e76f301d4ce94b75965026d47d84f1b1ad67793c77927fc207051d0
+sim-agent-2 40c9c96e83ce5648765937dabdcdfc74f02aca38394c5348f73c1376739755fe
+sim-agent-3 6e86d52772fde0826446122a71409781b5b74f6567a3b8158d97c16983646446
 ```
 
 `n4-center-block-short-narrow`

@@ -36,7 +36,7 @@ class SwarmDemoBundleCliTests(TestCase):
             self.assertEqual(first_summary["outcome"], "GO")
             self.assertEqual(first_summary["scenario_count"], len(scenario_names()))
             self.assertEqual(first_summary["agent_count"], 4)
-            self.assertEqual(first_summary["ticks"], 16)
+            self.assertEqual(first_summary["ticks"], 17)
             self.assertTrue(all(first_summary["pass_conditions"].values()))
             self.assertEqual(
                 [case["scenario"] for case in first_summary["scenarios"]],

@@ -28,6 +28,8 @@ VERTICAL_SLALOM_GRID_WIDTH = 7
 VERTICAL_SLALOM_GRID_HEIGHT = 5
 HORIZONTAL_SLALOM_GRID_WIDTH = 7
 HORIZONTAL_SLALOM_GRID_HEIGHT = 5
+DOUBLE_CHICANE_GRID_WIDTH = 7
+DOUBLE_CHICANE_GRID_HEIGHT = 5
 SCENARIO_OBSTACLE_NONE = "none"
 SCENARIO_OBSTACLE_CENTER = "center"
 SCENARIO_OBSTACLE_FIXED = "fixed"
@@ -59,6 +61,13 @@ class GridPoint:
 
 VERTICAL_SLALOM_OBSTACLES = (GridPoint(3, 1), GridPoint(3, 3))
 HORIZONTAL_SLALOM_OBSTACLES = (GridPoint(2, 2), GridPoint(4, 2))
+DOUBLE_CHICANE_OBSTACLES = (
+    GridPoint(2, 1),
+    GridPoint(3, 1),
+    GridPoint(4, 2),
+    GridPoint(3, 3),
+    GridPoint(2, 3),
+)
 
 
 @dataclass(frozen=True)
@@ -70,6 +79,11 @@ class ScenarioSpec:
     use_reservation_planner: bool
     fixed_grid: tuple[int, int] | None = None
     fixed_obstacles: tuple[GridPoint, ...] = ()
+    default_ticks: int = 16
+
+    def __post_init__(self) -> None:
+        if self.default_ticks <= 0:
+            raise ValueError("scenario default_ticks must be positive")
 
     def validate_grid(self, *, grid_width: int, grid_height: int) -> None:
         if self.fixed_grid is None:
@@ -114,6 +128,14 @@ SCENARIO_REGISTRY = {
         fixed_grid=(HORIZONTAL_SLALOM_GRID_WIDTH, HORIZONTAL_SLALOM_GRID_HEIGHT),
         fixed_obstacles=HORIZONTAL_SLALOM_OBSTACLES,
     ),
+    "double-chicane": ScenarioSpec(
+        name="double-chicane",
+        obstacle_policy=SCENARIO_OBSTACLE_FIXED,
+        use_reservation_planner=True,
+        fixed_grid=(DOUBLE_CHICANE_GRID_WIDTH, DOUBLE_CHICANE_GRID_HEIGHT),
+        fixed_obstacles=DOUBLE_CHICANE_OBSTACLES,
+        default_ticks=17,
+    ),
 }
 SUPPORTED_SCENARIOS = tuple(SCENARIO_REGISTRY)
 
@@ -131,6 +153,12 @@ def scenario_spec(scenario: str) -> ScenarioSpec:
         return SCENARIO_REGISTRY[scenario]
     except KeyError as exc:
         raise ValueError(f"scenario must be one of: {', '.join(SUPPORTED_SCENARIOS)}") from exc
+
+
+def scenario_default_ticks(scenario: str) -> int:
+    """Return the reviewed default tick budget for a supported scenario."""
+
+    return scenario_spec(scenario).default_ticks
 
 
 @dataclass(frozen=True)

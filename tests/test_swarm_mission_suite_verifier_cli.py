@@ -5,6 +5,8 @@ import sys
 from tempfile import TemporaryDirectory
 from unittest import TestCase
 
+from accountable_swarm.swarm import SUPPORTED_MISSION_SCENARIOS
+
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -36,7 +38,7 @@ class SwarmMissionSuiteVerifierCliTests(TestCase):
             self.assertEqual(report["schema_version"], "swarm-mission-suite-verify-report.v1")
             self.assertEqual(report["outcome"], "GO")
             self.assertEqual(report["suite_outcome"], "GO")
-            self.assertEqual(report["case_count"], 4)
+            self.assertEqual(report["case_count"], len(SUPPORTED_MISSION_SCENARIOS))
             self.assertTrue(all(report["pass_conditions"].values()))
             for case in report["cases"]:
                 self.assertTrue(case["pass_conditions"]["case_verified"])

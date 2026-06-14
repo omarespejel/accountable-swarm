@@ -24,6 +24,7 @@ from accountable_swarm.swarm.sim import (
     build_agent_traces,
     replay_swarm_traces,
     run_swarm_sim,
+    scenario_default_ticks,
     scenario_names,
     scenario_spec,
 )
@@ -50,6 +51,7 @@ __all__ = [
     "qwen_mission_prompt",
     "replay_swarm_traces",
     "run_swarm_sim",
+    "scenario_default_ticks",
     "scenario_names",
     "scenario_spec",
 ]

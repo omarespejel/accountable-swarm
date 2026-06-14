@@ -58,6 +58,14 @@ DEFAULT_CASES = (
         "purpose": "four-agent two-obstacle horizontal slalom success case",
     },
     {
+        "case_id": "n4-double-chicane-go",
+        "agent_count": 4,
+        "ticks": 17,
+        "scenario": "double-chicane",
+        "expected_outcome": "GO",
+        "purpose": "four-agent five-obstacle double-chicane boundary success case",
+    },
+    {
         "case_id": "n4-center-block-short-narrow",
         "agent_count": 4,
         "ticks": 2,

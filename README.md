@@ -156,6 +156,20 @@ python3 scripts/run_swarm_sim.py \
 This currently produces `GO` for the scoped horizontal two-obstacle
 integer-grid case.
 
+Five-obstacle double-chicane layout:
+
+```bash
+python3 scripts/run_swarm_sim.py \
+  --agents 4 \
+  --ticks 17 \
+  --scenario double-chicane \
+  --trace-dir runs/swarm/double-chicane-n4 \
+  --report-out runs/swarm/double_chicane_n4_report.json
+```
+
+This currently produces `GO` for the scoped five-obstacle integer-grid case.
+A 16-tick run for the same scenario intentionally remains `NARROW_CLAIM`.
+
 This gate does not claim physical behavior, SO-101 operation, 3D physics,
 latency, reliability, DimOS integration, Alibaba deployment, or a
 general-purpose multi-agent planner.
@@ -215,9 +229,10 @@ python3 scripts/run_swarm_mission_suite.py \
 ```
 
 The suite defaults to fixture mission binding for every reviewed scenario in
-the deterministic registry: `corridor`, `center-block`, `vertical-slalom`, and
-`horizontal-slalom`. Suite `GO` means each child mission gate was `GO`, every
-mission and agent trace reloaded from disk to the recorded summary SHA, and
+the deterministic registry: `corridor`, `center-block`, `vertical-slalom`,
+`horizontal-slalom`, and `double-chicane`. Suite `GO` means each child mission
+gate was `GO`, every mission and agent trace reloaded from disk to the recorded
+summary SHA, and
 trace-derived replay counters stayed at zero for same-cell, swap, and obstacle
 occupancy violations.
 
@@ -235,10 +250,12 @@ python3 scripts/verify_swarm_mission_suite.py \
   --report-out runs/swarm/live_mission_suite_verify_report.json
 ```
 
-The checked 2026-06-15 evidence shows `GO` for live `qwen-plus` mission intent
-across all four reviewed scenario-registry names. This is still not a
-real-time Qwen control claim, arbitrary-map claim, larger-swarm claim, or
-physical robot claim.
+The prior checked 2026-06-15 evidence shows `GO` for live `qwen-plus` mission
+intent across the then-reviewed four scenario-registry names. The current
+five-scenario registry has local fixture/sim evidence for `double-chicane`;
+rerun the live suite before making a five-scenario live-Qwen claim. This is
+still not a real-time Qwen control claim, arbitrary-map claim, larger-swarm
+claim, or physical robot claim.
 
 Mission-suite trace verification:
 
@@ -293,8 +310,9 @@ python3 scripts/build_swarm_demo_bundle.py
 ```
 
 The checked 2026-06-15 evidence shows `GO` across `corridor`,
-`center-block`, `vertical-slalom`, and `horizontal-slalom`, with bundle index
-SHA `8ed23bca34358627a9948b49d265c28cd7433997e39578c62b911e5ee333f688`.
+`center-block`, `vertical-slalom`, `horizontal-slalom`, and `double-chicane`,
+with bundle index SHA
+`b929f77827e69b9100e9883f78e7b882e7b161d67350a31a129d452f99c63368`.
 This command is the current swarm-first judge path. It does not require live
 Qwen, SO-101, webcam access, DimOS, Docker, or cloud credentials.
 Use `--out-dir` only when you want to override the default `runs/demo/swarm`
@@ -312,9 +330,9 @@ python3 scripts/run_swarm_suite.py \
 ```
 
 The suite currently expects `GO` for N=2 corridor, N=2 center-block, N=4
-center-block, N=4 vertical-slalom, and N=4 horizontal-slalom, and expects
-`NARROW_CLAIM` for a
-deliberately too-short N=4 center-block run. Suite `GO` means those
+center-block, N=4 vertical-slalom, N=4 horizontal-slalom, and N=4
+double-chicane, and expects `NARROW_CLAIM` for a deliberately too-short N=4
+center-block run. Suite `GO` means those
 expectations matched and persisted agent traces replayed deterministically from
 disk.
 
@@ -358,12 +376,14 @@ NARROW_CLAIM matrix. The short version:
   integer-grid reservation-planner gate.
 - Deterministic N=4 horizontal-slalom obstacle scenario: GO for the scoped
   integer-grid reservation-planner gate.
+- Deterministic N=4 double-chicane obstacle scenario: GO at 17 ticks and
+  NARROW_CLAIM at 16 ticks.
 - Low-rate fixture mission assignment into N=4 center-block and
   horizontal-slalom swarm gates: GO.
 - Live `qwen-plus` mission intent into the reviewed N=4 center-block swarm
   gate: GO.
-- Live `qwen-plus` mission suite across every reviewed scenario-registry name:
-  GO.
+- Prior live `qwen-plus` mission suite across the then-reviewed four-scenario
+  registry: GO. Rerun before claiming live-Qwen coverage for `double-chicane`.
 - Deterministic swarm scenario suite with expected-NARROW canary: GO.
 - Deterministic swarm trace visualization from verified persisted traces: GO.
 - One-command deterministic swarm demo bundle across the reviewed scenario

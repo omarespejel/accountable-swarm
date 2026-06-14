@@ -22,7 +22,10 @@ registry:
 - `vertical-slalom`: fixed 7x5 grid, fixed obstacles `(3,1)` and `(3,3)`,
   reservation planner enabled;
 - `horizontal-slalom`: fixed 7x5 grid, fixed obstacles `(2,2)` and `(4,2)`,
-  reservation planner enabled.
+  reservation planner enabled;
+- `double-chicane`: fixed 7x5 grid, fixed obstacles `(2,1)`, `(3,1)`,
+  `(4,2)`, `(3,3)`, and `(2,3)`, reservation planner enabled, reviewed
+  default tick budget 17.
 
 The CLI derives `--scenario` choices from the registry. The old split obstacle
 helper was removed, and tests now lock the current registry contents.
@@ -41,19 +44,20 @@ Ran 24 tests
 OK
 
 outcome GO
-case_count 6
+case_count 7
 case n2-corridor-go expected GO actual GO
 case n2-center-block-go expected GO actual GO
 case n4-center-block-go expected GO actual GO
 case n4-vertical-slalom-go expected GO actual GO
 case n4-horizontal-slalom-go expected GO actual GO
+case n4-double-chicane-go expected GO actual GO
 case n4-center-block-short-narrow expected NARROW_CLAIM actual NARROW_CLAIM
 ```
 
 ## GO Gate
 
 - Scenario metadata has one code-owned source of truth.
-- Existing six-case deterministic swarm suite remains `GO`.
+- Existing seven-case deterministic swarm suite remains `GO`.
 - Non-default fixed-scenario grids remain rejected.
 
 ## Non-Claims

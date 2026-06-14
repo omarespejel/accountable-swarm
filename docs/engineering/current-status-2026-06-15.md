@@ -36,6 +36,11 @@ This is the current repo state after the first 10-hour execution block began at
   the bounded reservation planner, reports zero same-cell collisions, zero swap
   collisions, zero obstacle occupancy violations, and replay recomputes those
   counts from traces.
+- Deterministic N=4 double-chicane obstacle scenario reaches all goals at its
+  reviewed 17-tick budget with the bounded reservation planner, reports zero
+  same-cell collisions, zero swap collisions, zero obstacle occupancy
+  violations, and replay recomputes those counts from traces. The same
+  scenario at 16 ticks remains `NARROW_CLAIM`.
 - Low-rate fixture mission assignment validates a strict mission JSON,
   emits a mission `DecisionTrace`, then runs deterministic N=4 center-block and
   horizontal-slalom swarm gates with zero same-cell, swap, or obstacle occupancy
@@ -44,11 +49,11 @@ This is the current repo state after the first 10-hour execution block began at
   objective for the reviewed `center-block` scenario, emits a mission
   `DecisionTrace`, then runs the deterministic N=4 center-block swarm gate with
   zero same-cell, swap, or obstacle occupancy violations.
-- Live `qwen-plus` DashScope mission suite validates intent-only objectives for
-  every reviewed scenario-registry name, emits mission `DecisionTrace`
-  artifacts, runs deterministic N=4 local swarm gates, verifies persisted
-  mission and agent traces from disk, and reports zero same-cell, swap, or
-  obstacle occupancy violations for each case.
+- Prior live `qwen-plus` DashScope mission suite validates intent-only
+  objectives for the then-reviewed four scenario-registry names, emits mission
+  `DecisionTrace` artifacts, runs deterministic N=4 local swarm gates, verifies
+  persisted mission and agent traces from disk, and reports zero same-cell,
+  swap, or obstacle occupancy violations for each case.
 - Fixture swarm mission suite runs the mission binding path for every reviewed
   scenario-registry name, with persisted mission and agent traces replayed from
   disk. Child mission-gate or artifact failures now emit a suite
@@ -56,7 +61,7 @@ This is the current repo state after the first 10-hour execution block began at
 - Swarm mission-suite trace verifier reports `GO` for clean persisted mission
   and agent traces, and reports `NARROW_CLAIM` after a copied agent trace is
   mutated without recomputing the hash chain.
-- Deterministic swarm suite runs six scoped cases, including an expected
+- Deterministic swarm suite runs seven scoped cases, including an expected
   `NARROW_CLAIM` canary, and verifies persisted agent traces from disk.
 - Fixed swarm scenario registry centralizes current scenario names, obstacle
   policies, fixed-grid requirements, and reservation-planner use.
@@ -80,10 +85,12 @@ This is the current repo state after the first 10-hour execution block began at
 - The reservation planner result is scoped to the listed fixed integer-grid
   scenarios; it is not evidence for arbitrary maps, larger swarms,
   physics-backed behavior, latency, or reliability.
-- The live mission assignment evidence is scoped to `qwen-plus` and the
-  reviewed scenario registry: `corridor`, `center-block`, `vertical-slalom`,
-  and `horizontal-slalom`. It is not an arbitrary mission, arbitrary-map, or
-  real-time-control claim.
+- The prior live mission assignment evidence is scoped to `qwen-plus` and the
+  four-scenario registry before `double-chicane` was added: `corridor`,
+  `center-block`, `vertical-slalom`, and `horizontal-slalom`. The current
+  five-scenario registry has local fixture/sim evidence for `double-chicane`;
+  rerun the live suite before making a five-scenario live-Qwen claim. It is not
+  an arbitrary mission, arbitrary-map, or real-time-control claim.
 - The tamper gate is local hash-chain verification only. It is not a
   cryptographic authenticity, remote attestation, or compromised-filesystem
   claim.
@@ -115,7 +122,7 @@ Latest local gates during this block:
 
 ```text
 ./scripts/local_gate.sh
-Ran 101 tests
+Ran 107 tests
 OK
 local gate passed
 ```
@@ -157,13 +164,51 @@ swap_collision_count 0
 obstacle_occupancy_violation_count 0
 ```
 
+Deterministic N=4 double-chicane obstacle gate with bounded reservation
+planner:
+
+```text
+python3 scripts/run_swarm_sim.py --agents 4 --ticks 17 --scenario double-chicane --trace-dir runs/swarm/double-chicane-n4 --report-out runs/swarm/double_chicane_n4_report.json
+outcome GO
+same_cell_collision_count 0
+swap_collision_count 0
+obstacle_occupancy_violation_count 0
+reroute_count 23
+```
+
+One tick short:
+
+```text
+python3 scripts/run_swarm_sim.py --agents 4 --ticks 16 --scenario double-chicane --trace-dir runs/swarm/double-chicane-n4-short --report-out runs/swarm/double_chicane_n4_short_report.json
+outcome NARROW_CLAIM
+same_cell_collision_count 0
+swap_collision_count 0
+obstacle_occupancy_violation_count 0
+reroute_count 23
+```
+
+Deterministic swarm suite:
+
+```text
+python3 scripts/run_swarm_suite.py --trace-root runs/swarm/suite --report-out runs/swarm/suite_report.json
+outcome GO
+case_count 7
+case n2-corridor-go expected GO actual GO
+case n2-center-block-go expected GO actual GO
+case n4-center-block-go expected GO actual GO
+case n4-vertical-slalom-go expected GO actual GO
+case n4-horizontal-slalom-go expected GO actual GO
+case n4-double-chicane-go expected GO actual GO
+case n4-center-block-short-narrow expected NARROW_CLAIM actual NARROW_CLAIM
+```
+
 One-command deterministic swarm demo bundle:
 
 ```text
 python3 scripts/build_swarm_demo_bundle.py
 outcome GO
-scenario_count 4
-index_sha256 8ed23bca34358627a9948b49d265c28cd7433997e39578c62b911e5ee333f688
+scenario_count 5
+index_sha256 b929f77827e69b9100e9883f78e7b882e7b161d67350a31a129d452f99c63368
 ```
 
 ```text
@@ -175,10 +220,11 @@ summary = json.loads(Path("runs/demo/swarm/summary.json").read_text(encoding="ut
 for case in summary["scenarios"]:
     print(case["scenario"], case["render_summary"]["outcome"], case["render_summary"]["html_sha256"])
 PY
-corridor GO 69321792e399a9313e7062655b93c408ee9ea8d379f3810149f3ce291f79ad35
-center-block GO 0a6b66dca4e478628b9c91880b40f1b0097391c534c3d7407736ff7c67815f66
-vertical-slalom GO 83d6fd2c622a61f6fd65b23c9a70375321ffb856a55c6b76190c5149dd11e04b
-horizontal-slalom GO 20587a02144999f625062b2fc8f359aacf6cfc288aff63fbacf7f06ea72e01a6
+corridor GO b254699d286bf0edf94c2f522f88c2a30fb242b82e31077b800f2d27e8206bd4
+center-block GO 737be22729f58b9d2ec9a5ba82398b20b1859f1f184e5a7bea06d9933129af90
+vertical-slalom GO ad881d0b9f0771c0798aa5e7a4f9004c53b7d8fb71d684a08cae8a6b8783ab6f
+horizontal-slalom GO 88d2393344cdf159acd18a9588dd779b7a914370e35b9b3b610e901e6e661639
+double-chicane GO 06840a1c1c031147d86b9d2c35cf2220425dc905a8fcbeecc845377299098145
 ```
 
 Deterministic N=2 swarm gate:
@@ -309,11 +355,12 @@ Fixture swarm mission suite:
 ```text
 python3 scripts/run_swarm_mission_suite.py --trace-root runs/swarm/mission-suite --report-out runs/swarm/mission_suite_report.json
 outcome GO
-case_count 4
+case_count 5
 case mission-corridor-fixture-n4-go scenario corridor expected GO actual GO
 case mission-center-block-fixture-n4-go scenario center-block expected GO actual GO
 case mission-vertical-slalom-fixture-n4-go scenario vertical-slalom expected GO actual GO
 case mission-horizontal-slalom-fixture-n4-go scenario horizontal-slalom expected GO actual GO
+case mission-double-chicane-fixture-n4-go scenario double-chicane expected GO actual GO
 ```
 
 Swarm mission-suite trace verifier:
@@ -321,19 +368,21 @@ Swarm mission-suite trace verifier:
 ```text
 python3 scripts/verify_swarm_mission_suite.py --trace-root runs/swarm/tamper-clean --report runs/swarm/tamper_clean_report.json --report-out runs/swarm/tamper_clean_verify_report.json
 outcome GO
-case_count 4
+case_count 5
 case mission-corridor-fixture-n4-go actual GO verified True
 case mission-center-block-fixture-n4-go actual GO verified True
 case mission-vertical-slalom-fixture-n4-go actual GO verified True
 case mission-horizontal-slalom-fixture-n4-go actual GO verified True
+case mission-double-chicane-fixture-n4-go actual GO verified True
 
 python3 scripts/verify_swarm_mission_suite.py --trace-root runs/swarm/tamper-agent --report runs/swarm/tamper_clean_report.json --report-out runs/swarm/tamper_agent_verify_report.json
 outcome NARROW_CLAIM
-case_count 4
+case_count 5
 case mission-corridor-fixture-n4-go actual GO verified False
 case mission-center-block-fixture-n4-go actual GO verified True
 case mission-vertical-slalom-fixture-n4-go actual GO verified True
 case mission-horizontal-slalom-fixture-n4-go actual GO verified True
+case mission-double-chicane-fixture-n4-go actual GO verified True
 failed_trace_kinds agent:sim-agent-0
 ```
 
@@ -378,20 +427,6 @@ case mission-corridor-dashscope-qwen-plus-n4-go actual GO verified True
 case mission-center-block-dashscope-qwen-plus-n4-go actual GO verified True
 case mission-vertical-slalom-dashscope-qwen-plus-n4-go actual GO verified True
 case mission-horizontal-slalom-dashscope-qwen-plus-n4-go actual GO verified True
-```
-
-Deterministic swarm suite:
-
-```text
-python3 scripts/run_swarm_suite.py --trace-root runs/swarm/suite --report-out runs/swarm/suite_report.json
-outcome GO
-case_count 6
-case n2-corridor-go expected GO actual GO
-case n2-center-block-go expected GO actual GO
-case n4-center-block-go expected GO actual GO
-case n4-vertical-slalom-go expected GO actual GO
-case n4-horizontal-slalom-go expected GO actual GO
-case n4-center-block-short-narrow expected NARROW_CLAIM actual NARROW_CLAIM
 ```
 
 ## Next Work

@@ -12,7 +12,7 @@ from accountable_swarm.trace.models import (
     build_single_event_trace,
     reject_raw_floats,
 )
-from accountable_swarm.swarm.sim import scenario_names
+from accountable_swarm.swarm.sim import scenario_default_ticks, scenario_names
 
 MISSION_SCHEMA_VERSION = "swarm-mission.v1"
 MISSION_MODEL_FIXTURE_ID = "fixture-qwen-mission-shape"
@@ -138,7 +138,7 @@ def mission_spec_for_scenario(*, scenario: str, objective: str) -> MissionSpec:
         mission_id=mission_id_for_scenario(scenario=scenario),
         scenario=scenario,
         agent_count=DEFAULT_MISSION_AGENT_COUNT,
-        ticks=DEFAULT_MISSION_TICKS,
+        ticks=scenario_default_ticks(scenario),
         objective=objective,
     )
 

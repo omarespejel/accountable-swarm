@@ -46,6 +46,7 @@ class SwarmMissionTests(TestCase):
         self.assertIn("center-block", SUPPORTED_MISSION_SCENARIOS)
         self.assertIn("vertical-slalom", SUPPORTED_MISSION_SCENARIOS)
         self.assertIn("horizontal-slalom", SUPPORTED_MISSION_SCENARIOS)
+        self.assertIn("double-chicane", SUPPORTED_MISSION_SCENARIOS)
 
     def test_fixture_mission_can_select_horizontal_slalom(self) -> None:
         spec = parse_mission_response(fixture_mission_response(scenario="horizontal-slalom"))
@@ -56,6 +57,17 @@ class SwarmMissionTests(TestCase):
         self.assertEqual(spec.agent_count, 4)
         self.assertEqual(spec.ticks, 16)
         self.assertEqual(trace.events[0].perception.event_id, "swarm-mission-horizontal-slalom-n4")
+        self.assertEqual(len(verify_trace(trace)), 64)
+
+    def test_fixture_mission_can_select_double_chicane_with_reviewed_tick_budget(self) -> None:
+        spec = parse_mission_response(fixture_mission_response(scenario="double-chicane"))
+        trace = build_mission_trace(spec=spec, mode="fixture", model=MISSION_MODEL_FIXTURE_ID)
+
+        self.assertEqual(spec.mission_id, "double-chicane-n4")
+        self.assertEqual(spec.scenario, "double-chicane")
+        self.assertEqual(spec.agent_count, 4)
+        self.assertEqual(spec.ticks, 17)
+        self.assertEqual(trace.events[0].perception.event_id, "swarm-mission-double-chicane-n4")
         self.assertEqual(len(verify_trace(trace)), 64)
 
     def test_dashscope_intent_response_only_accepts_objective(self) -> None:
@@ -96,6 +108,17 @@ class SwarmMissionTests(TestCase):
         self.assertEqual(spec.scenario, "horizontal-slalom")
         self.assertEqual(spec.agent_count, 4)
         self.assertEqual(spec.ticks, 16)
+
+    def test_mission_spec_for_scenario_uses_reviewed_scenario_tick_budget(self) -> None:
+        spec = mission_spec_for_scenario(
+            scenario="double-chicane",
+            objective="route agents through the selected fixed scenario",
+        )
+
+        self.assertEqual(spec.mission_id, "double-chicane-n4")
+        self.assertEqual(spec.scenario, "double-chicane")
+        self.assertEqual(spec.agent_count, 4)
+        self.assertEqual(spec.ticks, 17)
 
     def test_fixture_mission_rejects_unregistered_scenario(self) -> None:
         with self.assertRaises(ValueError):

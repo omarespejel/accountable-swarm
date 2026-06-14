@@ -46,6 +46,11 @@ What is checked locally:
   bounded reservation planner, reports zero same-cell collisions, zero swap
   collisions, zero obstacle occupancy, and replay recomputes those counts from
   traces.
+- deterministic N=4 double-chicane obstacle scenario reaches goals at its
+  reviewed 17-tick budget with the bounded reservation planner, reports zero
+  same-cell collisions, zero swap collisions, zero obstacle occupancy, and
+  replay recomputes those counts from traces. The same scenario at 16 ticks
+  remains `NARROW_CLAIM`.
 - low-rate fixture mission assignment validates strict mission JSON, emits a
   mission `DecisionTrace`, then runs deterministic N=4 center-block and
   horizontal-slalom swarm gates with trace-replayed zero same-cell, swap, and
@@ -54,10 +59,11 @@ What is checked locally:
   objective for the reviewed `center-block` scenario, emits a mission
   `DecisionTrace`, then runs the deterministic N=4 center-block swarm gate with
   trace-replayed zero same-cell, swap, and obstacle occupancy counts.
-- live `qwen-plus` DashScope mission suite validates intent-only objectives
-  for every reviewed scenario-registry name, emits mission `DecisionTrace`
-  artifacts, then verifies persisted mission and agent traces from disk with
-  trace-replayed zero same-cell, swap, and obstacle occupancy counts.
+- prior live `qwen-plus` DashScope mission suite validates intent-only
+  objectives for the then-reviewed four scenario-registry names, emits mission
+  `DecisionTrace` artifacts, then verifies persisted mission and agent traces
+  from disk with trace-replayed zero same-cell, swap, and obstacle occupancy
+  counts.
 - mission scenario selection is bounded to reviewed simulator scenario-registry
   names; this is not an arbitrary-map interface.
 - fixture swarm mission suite runs the mission binding path for every reviewed
@@ -67,8 +73,9 @@ What is checked locally:
 - swarm mission-suite trace verifier reports `GO` for clean persisted mission
   and agent traces, and reports `NARROW_CLAIM` when a copied agent trace is
   mutated without recomputing hashes.
-- deterministic swarm scenario suite reruns N=2/N=4 scoped cases, includes an
-  expected `NARROW_CLAIM` canary, and verifies persisted agent traces from disk.
+- deterministic swarm scenario suite reruns seven N=2/N=4 scoped cases,
+  includes an expected `NARROW_CLAIM` canary, and verifies persisted agent
+  traces from disk.
 - fixed swarm scenario registry centralizes current scenario names, obstacle
   policies, fixed-grid requirements, and reservation-planner use.
 - deterministic swarm trace visualization emits a static HTML/SVG replay and
@@ -78,7 +85,7 @@ What is checked locally:
 - one-command deterministic swarm demo bundle generates reports, verified
   traces, static replays, and a deterministic index for every reviewed scenario
   registry name; checked index SHA is
-  `8ed23bca34358627a9948b49d265c28cd7433997e39578c62b911e5ee333f688`.
+  `b929f77827e69b9100e9883f78e7b882e7b161d67350a31a129d452f99c63368`.
 - read-only stdlib server endpoints serve existing swarm bundle artifacts at
   `/swarm-demo` and `/swarm-demo/summary.json` with path traversal rejection.
 - exploratory deterministic N=4 integer-grid probe passes locally, but is not a
@@ -94,19 +101,21 @@ What is not checked yet:
 - DimOS integration;
 - physics-backed multi-agent swarm behavior;
 - latency, reliability, or safety claims.
-- live Qwen mission assignment beyond the scoped `qwen-plus` reviewed-scenario
-  suite evidence.
+- live Qwen mission assignment beyond the scoped prior `qwen-plus`
+  four-scenario suite evidence; the current five-scenario registry has local
+  fixture/sim evidence for `double-chicane`, but no fresh five-scenario live
+  Qwen suite has been recorded.
 
 ## Active GitHub Work
 
 - Issue #1: research ground truth and build hierarchy.
 - Issue #3: physical-node safety contract.
 - Issue #4: Alibaba/Qwen proof path.
-- Issue #43: serve deterministic swarm demo bundle locally.
-- Issue #2, #6, #11, #13, #15, #17, #19, #21, #23, #25, #27, #29, #33, and
-  #35, #37, #39, and #41 are closed as GO.
+- Issue #45: deterministic double-chicane swarm scenario.
+- Issue #2, #6, #11, #13, #15, #17, #19, #21, #23, #25, #27, #29, #33,
+  #35, #37, #39, #41, and #43 are closed as GO.
 - PR #5, #7, #8, #9, #10, #12, #14, #16, #18, #20, #22, #24, #34, #36, and
-  #38, #40, and #42 are merged.
+  #38, #40, #42, and #44 are merged.
 
 Before creating new work, inspect the current PR and issues:
 

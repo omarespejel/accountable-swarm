@@ -21,6 +21,7 @@ Current covered mission scenarios:
 - `center-block`
 - `vertical-slalom`
 - `horizontal-slalom`
+- `double-chicane`
 
 ## Command
 
@@ -34,11 +35,12 @@ python3 scripts/run_swarm_mission_suite.py \
 
 ```text
 outcome GO
-case_count 4
+case_count 5
 case mission-corridor-fixture-n4-go scenario corridor expected GO actual GO
 case mission-center-block-fixture-n4-go scenario center-block expected GO actual GO
 case mission-vertical-slalom-fixture-n4-go scenario vertical-slalom expected GO actual GO
 case mission-horizontal-slalom-fixture-n4-go scenario horizontal-slalom expected GO actual GO
+case mission-double-chicane-fixture-n4-go scenario double-chicane expected GO actual GO
 wrote runs/swarm/mission-suite
 wrote runs/swarm/mission_suite_report.json
 ```
@@ -63,6 +65,7 @@ corridor           8aa35324b9b2b36e2f17b22b348b8febe6d0829dec3781a085e7c484c819b
 center-block       82e2138ee3f93e3468ebb04dd179c5c304688cc2ff243dbf129985d56927fcde
 vertical-slalom    4b9203963703f4b7960a690ed0b3691babfdf424311596a6d866cec0639d3afc
 horizontal-slalom  2a75abfc4cdf17f903f80787c23689819b2af4b891ae0e8113c5c8a1232f849a
+double-chicane     8abfb5b86d5fe177390c97879c74d3d55c21938e60d2636c3526a6cd68c66e53
 ```
 
 Agent trace summary SHAs:
@@ -91,6 +94,12 @@ mission-horizontal-slalom-fixture-n4-go
   sim-agent-1 434e1ba89dc0fbaae215595abf2cdffa6f950dcbac17944342215bee95ed8331
   sim-agent-2 79c6e6a6f938368496a2d1ef388b0fbe56468e241ea59c3cf01e23b9cd86dc95
   sim-agent-3 93f5a811f6f5631f684e3a3716abc7b01fee28bb2dd1bcb57906e6f74413ed92
+
+mission-double-chicane-fixture-n4-go
+  sim-agent-0 11d4192248137ed0563f5854ab2010412e95146a5df7a72ad6f2423e8391e12e
+  sim-agent-1 0eff388c0df65b7fda62c71d0a437e4a5e41a3f17d1e399c077b6a5a04e74a07
+  sim-agent-2 3a54d31550cb4d2540293d33223d61fff06228d2e175c3f36f2b12288eb93d1d
+  sim-agent-3 fa0c5851820ec9b00c4ae23ef801f6187e64d4f3858b04ff70964ce52da4f0d1
 ```
 
 ## Non-Claims
