@@ -55,4 +55,6 @@ with Path(".coderabbit.yaml").open() as f:
     yaml.safe_load(f)
 PY
 
+python3 -m unittest discover -s tests
+
 echo "local gate passed"
