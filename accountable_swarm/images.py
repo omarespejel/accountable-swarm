@@ -72,8 +72,13 @@ def _jpeg_size(f: BinaryIO) -> tuple[int, int]:
             if not marker:
                 raise ValueError("invalid JPEG: truncated marker")
         if marker in {b"\xc0", b"\xc1", b"\xc2", b"\xc3"}:
-            f.read(3)
-            height, width = struct.unpack(">HH", f.read(4))
+            sof_prefix = f.read(3)
+            if len(sof_prefix) != 3:
+                raise ValueError("invalid JPEG SOF segment")
+            dims = f.read(4)
+            if len(dims) != 4:
+                raise ValueError("invalid JPEG SOF segment")
+            height, width = struct.unpack(">HH", dims)
             return int(width), int(height)
         segment_len_raw = f.read(2)
         if len(segment_len_raw) != 2:

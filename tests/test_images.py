@@ -9,3 +9,8 @@ class ImageHelperTests(TestCase):
         data = BytesIO(b"\xff\xd8\xff\xe0\x00\x01")
         with self.assertRaises(ValueError):
             _jpeg_size(data)
+
+    def test_rejects_truncated_jpeg_sof_dimensions(self) -> None:
+        data = BytesIO(b"\xff\xd8\xff\xc0\x00\x11\x08\x00")
+        with self.assertRaises(ValueError):
+            _jpeg_size(data)

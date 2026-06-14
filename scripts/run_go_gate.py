@@ -30,6 +30,9 @@ def main() -> int:
     if not args.image.exists():
         print(f"image does not exist: {args.image}", file=sys.stderr)
         return 2
+    if not args.image.is_file():
+        print(f"image is not a file: {args.image}", file=sys.stderr)
+        return 2
 
     try:
         width, height = image_size(args.image)
@@ -38,7 +41,7 @@ def main() -> int:
     except MissingAlibabaApiKey as exc:
         print(str(exc), file=sys.stderr)
         return 3
-    except (DashScopeResponseError, ValueError) as exc:
+    except (DashScopeResponseError, OSError, ValueError) as exc:
         print(f"go-gate input/API validation failed: {exc}", file=sys.stderr)
         return 4
     perception = PerceptionEvent(
