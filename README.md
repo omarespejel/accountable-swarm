@@ -97,3 +97,12 @@ GET /qwen-ping?model=qwen-plus
 ```
 
 See `docs/engineering/alibaba-ecs-manual-deploy-2026-06-15.md`.
+
+## Current Status
+
+See `docs/engineering/current-status-2026-06-15.md` for the current GO /
+NARROW_CLAIM matrix. The short version:
+
+- Qwen and DecisionTrace spine: GO.
+- Camera/static-frame live Qwen gate: GO for generated static frame.
+- True webcam, SO-101, swarm, and Alibaba ECS deployment: not yet proven.
