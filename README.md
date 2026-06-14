@@ -253,6 +253,35 @@ This verifier walks the persisted mission and agent traces referenced by the
 suite report. It returns `GO` for clean artifacts and `NARROW_CLAIM` if a trace
 is mutated without recomputing the hash chain and summary SHA.
 
+## Swarm Trace Visualization
+
+The trace renderer turns persisted agent `DecisionTrace` files into a static
+HTML/SVG replay and canonical JSON summary. It verifies traces before
+rendering and fails closed if a trace was mutated.
+
+```bash
+python3 scripts/run_swarm_sim.py \
+  --agents 4 \
+  --ticks 16 \
+  --scenario center-block \
+  --trace-dir runs/swarm/render-center-block \
+  --report-out runs/swarm/render_center_block_report.json
+python3 scripts/render_swarm_trace_html.py \
+  --trace-dir runs/swarm/render-center-block \
+  --grid-width 7 \
+  --grid-height 5 \
+  --obstacle 3,2 \
+  --html-out runs/swarm/render-center-block.html \
+  --summary-out runs/swarm/render_center_block_visual_summary.json
+```
+
+The checked 2026-06-15 evidence shows `GO` for the N=4 center-block trace
+replay artifact with zero same-cell, swap, and obstacle-occupancy violations
+and deterministic HTML SHA
+`686a328376478bc1bf76b9c59b7ed283f6889d5d48003fdc8928f9f80a231f60`.
+This is not a physical, physics, latency, live-Qwen, arbitrary-map, or
+larger-swarm claim.
+
 ## Swarm Scenario Suite
 
 The suite reruns the deterministic swarm cases and includes one intentional
@@ -309,5 +338,8 @@ NARROW_CLAIM matrix. The short version:
   horizontal-slalom swarm gates: GO.
 - Live `qwen-plus` mission intent into the reviewed N=4 center-block swarm
   gate: GO.
+- Live `qwen-plus` mission suite across every reviewed scenario-registry name:
+  GO.
 - Deterministic swarm scenario suite with expected-NARROW canary: GO.
+- Deterministic swarm trace visualization from verified persisted traces: GO.
 - SO-101, physics/DimOS swarm, and Alibaba ECS deployment: not yet proven.

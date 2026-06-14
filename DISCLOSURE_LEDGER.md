@@ -25,6 +25,7 @@ data sources, and external assets from day one.
 | 2026-06-15 | Swarm mission-suite tamper verifier | Authored for `accountable-swarm` | Apache-2.0 | Local verification of persisted mission-suite trace artifacts and negative tamper gate | No cryptographic authenticity claim beyond local hash-chain verification; no hardware, cloud, latency, or reliability claim. |
 | 2026-06-15 | Live DashScope swarm mission assignment | Alibaba Cloud Model Studio / DashScope `qwen-plus` | Service terms apply | Low-rate live mission-intent evidence for reviewed `center-block` deterministic swarm scenario | API key loaded from local environment only; no key committed; no Qwen real-time control, hardware, physics, latency, reliability, arbitrary-map, or ECS deployment claim. |
 | 2026-06-15 | Live DashScope swarm mission suite | Alibaba Cloud Model Studio / DashScope `qwen-plus` | Service terms apply | Low-rate live mission-intent evidence across reviewed deterministic swarm scenarios | API key loaded from local environment only; no key committed; no Qwen real-time control, hardware, physics, latency, reliability, arbitrary-map, larger-swarm, or ECS deployment claim. |
+| 2026-06-15 | Swarm trace HTML renderer | Authored for `accountable-swarm` | Apache-2.0 | Deterministic static HTML/SVG replay and canonical summary from verified persisted swarm traces | No external renderer code copied; no physical, physics, live-Qwen, latency, reliability, arbitrary-map, or larger-swarm claim. |
 
 ## Pending Before Demo
 
