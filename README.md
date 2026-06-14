@@ -79,6 +79,29 @@ The report records five binary pass conditions: model response, JSON
 validation, bbox rescaling, deterministic trace replay, and DecisionTrace schema
 emission from the frame.
 
+## Simulated Swarm Gate
+
+The first swarm-shaped gate is deterministic and local. It uses an integer grid,
+not physics, to prove that multiple local actors can emit replayable
+DecisionTrace artifacts while collision and swap guards stay outside the Qwen
+loop.
+
+```bash
+python3 scripts/run_swarm_sim.py \
+  --agents 2 \
+  --ticks 8 \
+  --trace-dir runs/swarm/n2 \
+  --report-out runs/swarm/n2_report.json
+python3 scripts/verify_trace.py runs/swarm/n2/sim-agent-0.json
+python3 scripts/verify_trace.py runs/swarm/n2/sim-agent-1.json
+```
+
+The report includes a trace-derived replay section with final positions and
+same-cell/swap collision counts.
+
+This gate does not claim physical behavior, SO-101 operation, 3D physics,
+latency, reliability, DimOS integration, or Alibaba deployment.
+
 ## Minimal Backend
 
 For manual Alibaba ECS proof, run the stdlib demo server:
@@ -105,4 +128,5 @@ NARROW_CLAIM matrix. The short version:
 
 - Qwen and DecisionTrace spine: GO.
 - Camera/static-frame live Qwen gate: GO for generated static frame.
-- True webcam, SO-101, swarm, and Alibaba ECS deployment: not yet proven.
+- Deterministic N=2 integer-grid simulated swarm: GO.
+- SO-101, physics/DimOS swarm, and Alibaba ECS deployment: not yet proven.

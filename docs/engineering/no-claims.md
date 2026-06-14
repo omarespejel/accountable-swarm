@@ -8,7 +8,7 @@ Do not claim any of the following without checked artifacts:
 - The system is safe.
 - SO-101 runs an ACT policy.
 - Any physical-device task succeeds.
-- Any swarm size succeeds.
+- Any physical, physics-backed, or unproven swarm size succeeds.
 - Any latency or reliability number.
 - Alibaba Cloud deployment is complete.
 - DimOS integration is complete.

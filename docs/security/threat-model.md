@@ -83,7 +83,7 @@ This repository does not currently prove:
 - perception correctness;
 - Qwen truthfulness;
 - Qwen onboard execution;
-- swarm collision avoidance;
+- physical or physics-backed swarm collision avoidance;
 - real-time latency;
 - reliability;
 - Alibaba deployment;

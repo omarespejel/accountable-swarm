@@ -14,6 +14,7 @@ data sources, and external assets from day one.
 | 2026-06-14 | Qwen-style grounding response shape | Qwen3-VL docs / Model Studio docs | Documentation terms | GO-gate parser and tests | Parser expects `bbox_2d` plus `label` and validates normalized 0-1000 coordinates. |
 | 2026-06-14 | Deterministic hazard marker fixture | Authored for `accountable-swarm` | Apache-2.0 | Fixture-mode GO gate | Text PPM fixture for local-only tests; not used as a DashScope image. |
 | 2026-06-14 | DashScope compatible-mode API path | Alibaba Cloud Model Studio docs | Service terms apply | Optional live Qwen GO-gate mode | Uses `ALIBABA_API_KEY` from environment and `https://dashscope-intl.aliyuncs.com/compatible-mode/v1`; no key committed. |
+| 2026-06-15 | Deterministic integer-grid swarm simulator | Authored for `accountable-swarm` | Apache-2.0 | Simulated N=2 DecisionTrace GO gate and exploratory N=4 probe | No external swarm code copied; no physics, DimOS, or physical-device claim. |
 
 ## Pending Before Demo
 
