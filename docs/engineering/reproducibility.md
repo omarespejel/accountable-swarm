@@ -1,0 +1,74 @@
+# Engineering Reproducibility
+
+This repo should be reproducible by a judge, a teammate, or a fresh agent from a
+clean checkout.
+
+## Baseline Command
+
+Run from the repository root:
+
+```bash
+./scripts/local_gate.sh
+```
+
+The local gate checks:
+
+- whitespace hygiene via `git diff --check`;
+- required repo-governance files;
+- `.pr_agent.toml` syntax when `tomllib` is available;
+- `.coderabbit.yaml` syntax when `PyYAML` is available;
+- the Python unit test suite.
+
+## Evidence Rules
+
+Every experimental result needs enough evidence for another agent to rerun it.
+
+Use:
+
+- `docs/engineering/*.md` for human-readable notes;
+- `runs/**` only for small, intentional trace fixtures;
+- exact commands in the doc or PR body;
+- deterministic JSON serialization for traces;
+- explicit non-claims.
+
+Avoid:
+
+- timestamps in generated machine-readable artifacts unless time is the measured
+  object;
+- host-specific absolute paths in committed evidence;
+- screenshots as the only evidence;
+- undocumented cloud console state;
+- hidden local secrets.
+
+## Reproducing The Current GO Gate
+
+Fixture mode:
+
+```bash
+python3 scripts/run_go_gate.py \
+  --image fixtures/hazard_marker.ppm \
+  --mode fixture \
+  --out runs/go_gate/trace.json
+python3 scripts/verify_trace.py runs/go_gate/trace.json
+```
+
+DashScope mode requires an environment variable:
+
+```bash
+ALIBABA_API_KEY=... python3 scripts/run_go_gate.py \
+  --image runs/go_gate/hazard_marker.png \
+  --mode dashscope \
+  --out runs/go_gate/qwen_trace.json
+python3 scripts/verify_trace.py runs/go_gate/qwen_trace.json
+```
+
+Do not commit API keys, raw secrets, or cloud credentials.
+
+## Claim Scope Reminder
+
+Passing fixture mode means only that the local trace spine is deterministic for
+the fixture. It does not prove live Qwen behavior, SO-101 operation, physical
+safety, swarm behavior, Alibaba deployment, latency, or reliability.
+
+Any public-facing claim needs a `Public claim` issue and the promotion gate in
+`.codex/research/north_star.yml`.

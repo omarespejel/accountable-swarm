@@ -1,9 +1,14 @@
+---
+applyTo: "**"
+---
+
 # Repository Review Instructions
 
 Review this repository as safety-sensitive robotics evidence code.
 
 Prioritize:
 
+- the read order in `AGENTS.md` and `.codex/START_HERE.md`;
 - deterministic DecisionTrace serialization and replay;
 - Qwen response validation and bbox normalization;
 - physical-device safety guards;
