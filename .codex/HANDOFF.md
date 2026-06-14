@@ -38,6 +38,9 @@ What is checked locally:
   bounded reservation planner, reports zero same-cell collisions, zero swap
   collisions, zero obstacle occupancy, and replay recomputes those counts from
   traces.
+- low-rate fixture mission assignment validates strict mission JSON, emits a
+  mission `DecisionTrace`, then runs the deterministic N=4 center-block swarm
+  gate with trace-replayed zero same-cell, swap, and obstacle occupancy counts.
 - exploratory deterministic N=4 integer-grid probe passes locally, but is not a
   physical, physics, latency, reliability, or larger-swarm claim.
 - local-guard-only deterministic N=4 center-block obstacle probe remains useful
@@ -51,6 +54,7 @@ What is not checked yet:
 - DimOS integration;
 - physics-backed multi-agent swarm behavior;
 - latency, reliability, or safety claims.
+- live Qwen mission assignment.
 
 ## Active GitHub Work
 
@@ -60,6 +64,7 @@ What is not checked yet:
 - Issue #11: deterministic N=2 simulated swarm DecisionTrace GO gate.
 - Issue #13: deterministic obstacle-field swarm replay gate.
 - Issue #15: deterministic reservation-table planner for N=4 obstacle swarm.
+- Issue #17: low-rate Qwen mission assignment for simulated swarm.
 - Issue #2 and #6 are closed as GO.
 - PR #5, #7, #8, #9, #10, #12, and #14 are merged.
 
