@@ -38,3 +38,11 @@ class QwenBBoxTests(TestCase):
                 image_width=100,
                 image_height=50,
             )
+
+    def test_rejects_non_string_label(self) -> None:
+        with self.assertRaises(ValueError):
+            parse_qwen_bbox_response(
+                '[{"bbox_2d":[0,0,1000,900],"label":false}]',
+                image_width=100,
+                image_height=50,
+            )

@@ -42,6 +42,38 @@ class DecisionTraceTests(TestCase):
         with self.assertRaises(ValueError):
             verify_trace(trace_from_dict(value))
 
+    def test_trace_rejects_missing_summary(self) -> None:
+        trace = build_single_event_trace(
+            run_id="run",
+            actor_id="physical-node-0",
+            mode="fixture",
+            perception=_perception(),
+            intent="hold on hazard",
+            decision="VETO",
+            reason="hazard detected",
+            command={"type": "hold", "duration_ticks": 1},
+        )
+        value = trace.to_dict()
+        value["summary_sha"] = ""
+        with self.assertRaises(ValueError):
+            verify_trace(trace_from_dict(value))
+
+    def test_trace_rejects_missing_event_hash(self) -> None:
+        trace = build_single_event_trace(
+            run_id="run",
+            actor_id="physical-node-0",
+            mode="fixture",
+            perception=_perception(),
+            intent="hold on hazard",
+            decision="VETO",
+            reason="hazard detected",
+            command={"type": "hold", "duration_ticks": 1},
+        )
+        value = trace.to_dict()
+        value["events"][0]["sha256"] = ""
+        with self.assertRaises(ValueError):
+            verify_trace(trace_from_dict(value))
+
     def test_rejects_non_hex_prev_sha(self) -> None:
         with self.assertRaises(ValueError):
             DecisionEvent(
