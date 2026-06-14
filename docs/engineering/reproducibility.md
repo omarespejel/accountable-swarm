@@ -106,16 +106,32 @@ python3 scripts/run_swarm_sim.py \
 The obstacle report also includes trace-derived obstacle-occupancy violation
 counts.
 
+Deterministic N=4 obstacle gate with bounded reservation planner:
+
+```bash
+python3 scripts/run_swarm_sim.py \
+  --agents 4 \
+  --ticks 16 \
+  --scenario center-block \
+  --trace-dir runs/swarm/reservation-center-block-n4 \
+  --report-out runs/swarm/reservation_center_block_n4_report.json
+```
+
+This report must show `outcome GO`, `all_goals_reached true`, zero same-cell
+collisions, zero swap collisions, zero obstacle occupancy violations, and the
+same zero counts in the trace-derived replay section.
+
 Do not commit API keys, raw secrets, or cloud credentials.
 
 ## Claim Scope Reminder
 
 Passing fixture mode means only that the local trace spine is deterministic for
-the fixture. Passing the deterministic swarm gate means only that the integer
-grid scenario emits replayable traces with zero reported same-cell or swap
-collisions. These gates do not prove live Qwen behavior, SO-101 operation,
-physical safety, physics-backed swarm behavior, Alibaba deployment, latency, or
-reliability.
+the fixture. Passing deterministic swarm gates means only that the scoped
+integer-grid scenarios emit replayable traces with zero reported same-cell,
+swap, and, where applicable, obstacle-occupancy violations. These gates do not
+prove live Qwen behavior, SO-101 operation, physical safety, physics-backed
+swarm behavior, Alibaba deployment, latency, reliability, or a general-purpose
+multi-agent planner.
 
 Any public-facing claim needs a `Public claim` issue and the promotion gate in
 `.codex/research/north_star.yml`.

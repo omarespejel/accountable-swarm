@@ -113,8 +113,25 @@ python3 scripts/run_swarm_sim.py \
 The obstacle report additionally records obstacle coordinates and
 trace-replayed obstacle-occupancy violations.
 
+Four-agent obstacle scenario with the bounded deterministic reservation planner:
+
+```bash
+python3 scripts/run_swarm_sim.py \
+  --agents 4 \
+  --ticks 16 \
+  --scenario center-block \
+  --trace-dir runs/swarm/reservation-center-block-n4 \
+  --report-out runs/swarm/reservation_center_block_n4_report.json
+```
+
+This currently produces `GO` for the scoped integer-grid case: all four agents
+reach goals, with zero same-cell collisions, zero swaps, zero obstacle
+occupancy violations, and trace-derived replay counters matching the simulator
+report.
+
 This gate does not claim physical behavior, SO-101 operation, 3D physics,
-latency, reliability, DimOS integration, or Alibaba deployment.
+latency, reliability, DimOS integration, Alibaba deployment, or a
+general-purpose multi-agent planner.
 
 ## Minimal Backend
 
@@ -144,4 +161,6 @@ NARROW_CLAIM matrix. The short version:
 - Camera/static-frame live Qwen gate: GO for generated static frame.
 - Deterministic N=2 integer-grid simulated swarm: GO.
 - Deterministic N=2 center-block obstacle scenario: GO.
+- Deterministic N=4 center-block obstacle scenario: GO for the scoped
+  integer-grid reservation-planner gate.
 - SO-101, physics/DimOS swarm, and Alibaba ECS deployment: not yet proven.

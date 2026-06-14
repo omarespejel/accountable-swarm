@@ -22,6 +22,10 @@ This is the current repo state after the first 10-hour execution block began at
 - Deterministic N=2 center-block obstacle scenario reaches both goals, reports
   zero same-cell collisions, zero swap collisions, zero obstacle occupancy
   violations, and replay recomputes obstacle occupancy from traces.
+- Deterministic N=4 center-block obstacle scenario reaches all goals with the
+  bounded reservation planner, reports zero same-cell collisions, zero swap
+  collisions, zero obstacle occupancy violations, and replay recomputes those
+  counts from traces.
 
 ## NARROW_CLAIM
 
@@ -33,8 +37,9 @@ This is the current repo state after the first 10-hour execution block began at
 - Alibaba ECS manual deploy path is ready, but actual ECS proof is pending.
 - Physical-node safety contract exists, but no SO-101 connectivity or safe
   motion is proven.
-- Deterministic N=4 center-block obstacle scenario avoids collisions and the
-  obstacle but does not reach all goals with the current local guard.
+- The reservation planner result is scoped to the fixed integer-grid
+  `center-block` scenario; it is not evidence for arbitrary maps, larger
+  swarms, physics-backed behavior, latency, or reliability.
 
 ## Open Blockers
 
@@ -53,7 +58,7 @@ Latest local gates during this block:
 
 ```text
 ./scripts/local_gate.sh
-Ran 28 tests
+Ran 43 tests
 OK
 local gate passed
 ```
@@ -120,11 +125,26 @@ obstacle_occupancy_violation_count 0
 all_goals_reached false
 ```
 
+Deterministic N=4 center-block obstacle gate with bounded reservation planner:
+
+```text
+python3 scripts/run_swarm_sim.py --agents 4 --ticks 16 --scenario center-block --trace-dir runs/swarm/reservation-center-block-n4 --report-out runs/swarm/reservation_center_block_n4_report.json
+outcome GO
+same_cell_collision_count 0
+swap_collision_count 0
+obstacle_occupancy_violation_count 0
+reroute_count 11
+sim-agent-0 summary_sha 8483b3c9d5009ca9d4b389edbb6b27aa4175cc7b5d4f60845ace327eac652a80
+sim-agent-1 summary_sha 69eebbc9173944af9061b39934aa64d5e02cdad944d75f3cc501d5085722a030
+sim-agent-2 summary_sha 7486044106f38dc24c83ed2901c028a4e53a829925849a7af11bb1c0abfb0d36
+sim-agent-3 summary_sha 2dce3509c5028ab0542ef9e3426b70b49b6f189ed8783ead0e68d48898845f32
+```
+
 ## Next Work
 
 1. Run the ECS manual deployment path on Alibaba Cloud and record proof.
-2. Decide whether the next swarm step is a reservation-table planner for N=4
-   center-block, a DimOS adapter sketch, or Qwen low-rate mission planner.
+2. Decide whether the next swarm step is Qwen low-rate mission assignment,
+   richer scenario fixtures, or a DimOS adapter sketch.
 3. Convert webcam evidence into a redacted/fixture-safe artifact only if it is
    useful for the hackathon story.
 

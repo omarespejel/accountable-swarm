@@ -2,6 +2,7 @@ from unittest import TestCase
 
 from accountable_swarm.swarm import GridPoint, build_agent_traces, replay_swarm_traces, run_swarm_sim
 from accountable_swarm.trace.models import canonical_json, trace_from_dict, verify_trace
+import accountable_swarm.swarm.sim as swarm_sim
 from accountable_swarm.swarm.sim import AgentConfig, _choose_tick_steps
 
 
@@ -82,6 +83,53 @@ class SwarmSimTests(TestCase):
         self.assertEqual(replay.same_cell_collision_count, 0)
         self.assertEqual(replay.swap_collision_count, 0)
         self.assertEqual(replay.obstacle_occupancy_violation_count, 0)
+
+    def test_center_block_n4_reservation_planner_reaches_goals(self) -> None:
+        result = run_swarm_sim(agent_count=4, ticks=16, scenario="center-block")
+        traces = build_agent_traces(result)
+        report = result.report_dict({agent_id: verify_trace(trace) for agent_id, trace in traces.items()})
+        replay = replay_swarm_traces(traces, obstacles=result.obstacles)
+
+        self.assertEqual(report["outcome"], "GO")
+        self.assertTrue(report["all_goals_reached"])
+        self.assertEqual(report["agent_count"], 4)
+        self.assertEqual(report["same_cell_collision_count"], 0)
+        self.assertEqual(report["swap_collision_count"], 0)
+        self.assertEqual(report["obstacle_occupancy_violation_count"], 0)
+        self.assertEqual(replay.same_cell_collision_count, 0)
+        self.assertEqual(replay.swap_collision_count, 0)
+        self.assertEqual(replay.obstacle_occupancy_violation_count, 0)
+        self.assertEqual(report["final_positions"], replay.to_dict()["final_positions"])
+        self.assertEqual(set(report["trace_summary_shas"]), {f"sim-agent-{index}" for index in range(4)})
+        for summary_sha in report["trace_summary_shas"].values():
+            self.assertEqual(len(summary_sha), 64)
+
+    def test_center_block_n4_short_run_stays_narrow_claim(self) -> None:
+        result = run_swarm_sim(agent_count=4, ticks=2, scenario="center-block")
+        traces = build_agent_traces(result)
+        report = result.report_dict({agent_id: verify_trace(trace) for agent_id, trace in traces.items()})
+
+        self.assertEqual(report["outcome"], "NARROW_CLAIM")
+        self.assertFalse(report["all_goals_reached"])
+        self.assertEqual(report["same_cell_collision_count"], 0)
+        self.assertEqual(report["swap_collision_count"], 0)
+        self.assertEqual(report["obstacle_occupancy_violation_count"], 0)
+
+    def test_center_block_n4_planner_budget_exhaustion_stays_narrow_claim(self) -> None:
+        original_limit = swarm_sim.RESERVATION_PLANNER_MAX_EXPANSIONS
+        swarm_sim.RESERVATION_PLANNER_MAX_EXPANSIONS = 0
+        try:
+            result = run_swarm_sim(agent_count=4, ticks=16, scenario="center-block")
+        finally:
+            swarm_sim.RESERVATION_PLANNER_MAX_EXPANSIONS = original_limit
+
+        traces = build_agent_traces(result)
+        report = result.report_dict({agent_id: verify_trace(trace) for agent_id, trace in traces.items()})
+
+        self.assertEqual(report["outcome"], "NARROW_CLAIM")
+        self.assertEqual(report["same_cell_collision_count"], 0)
+        self.assertEqual(report["swap_collision_count"], 0)
+        self.assertEqual(report["obstacle_occupancy_violation_count"], 0)
 
     def test_replay_reports_obstacle_occupancy_when_supplied(self) -> None:
         result = run_swarm_sim(agent_count=2, ticks=8)
