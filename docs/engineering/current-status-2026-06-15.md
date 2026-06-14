@@ -42,6 +42,11 @@ This is the current repo state after the first 10-hour execution block began at
   objective for the reviewed `center-block` scenario, emits a mission
   `DecisionTrace`, then runs the deterministic N=4 center-block swarm gate with
   zero same-cell, swap, or obstacle occupancy violations.
+- Live `qwen-plus` DashScope mission suite validates intent-only objectives for
+  every reviewed scenario-registry name, emits mission `DecisionTrace`
+  artifacts, runs deterministic N=4 local swarm gates, verifies persisted
+  mission and agent traces from disk, and reports zero same-cell, swap, or
+  obstacle occupancy violations for each case.
 - Fixture swarm mission suite runs the mission binding path for every reviewed
   scenario-registry name, with persisted mission and agent traces replayed from
   disk. Child mission-gate or artifact failures now emit a suite
@@ -67,8 +72,9 @@ This is the current repo state after the first 10-hour execution block began at
 - The reservation planner result is scoped to the listed fixed integer-grid
   scenarios; it is not evidence for arbitrary maps, larger swarms,
   physics-backed behavior, latency, or reliability.
-- The live mission assignment gate is scoped to `qwen-plus` and the reviewed
-  `center-block` scenario. It is not an arbitrary mission, arbitrary-map, or
+- The live mission assignment evidence is scoped to `qwen-plus` and the
+  reviewed scenario registry: `corridor`, `center-block`, `vertical-slalom`,
+  and `horizontal-slalom`. It is not an arbitrary mission, arbitrary-map, or
   real-time-control claim.
 - The tamper gate is local hash-chain verification only. It is not a
   cryptographic authenticity, remote attestation, or compromised-filesystem
@@ -289,6 +295,28 @@ python3 scripts/verify_trace.py runs/swarm/live-mission-center-block/mission.jso
 summary_sha 5fb552f8dd758c71085cc1a1dfcc9db6f62ab35d39551d97211e306a600ebdb1
 ```
 
+Live DashScope mission suite:
+
+```text
+python3 scripts/run_swarm_mission_suite.py --mode dashscope --model qwen-plus --trace-root runs/swarm/live-mission-suite --report-out runs/swarm/live_mission_suite_report.json
+outcome GO
+mode dashscope
+model qwen-plus
+case_count 4
+case mission-corridor-dashscope-qwen-plus-n4-go scenario corridor expected GO actual GO
+case mission-center-block-dashscope-qwen-plus-n4-go scenario center-block expected GO actual GO
+case mission-vertical-slalom-dashscope-qwen-plus-n4-go scenario vertical-slalom expected GO actual GO
+case mission-horizontal-slalom-dashscope-qwen-plus-n4-go scenario horizontal-slalom expected GO actual GO
+
+python3 scripts/verify_swarm_mission_suite.py --trace-root runs/swarm/live-mission-suite --report runs/swarm/live_mission_suite_report.json --report-out runs/swarm/live_mission_suite_verify_report.json
+outcome GO
+case_count 4
+case mission-corridor-dashscope-qwen-plus-n4-go actual GO verified True
+case mission-center-block-dashscope-qwen-plus-n4-go actual GO verified True
+case mission-vertical-slalom-dashscope-qwen-plus-n4-go actual GO verified True
+case mission-horizontal-slalom-dashscope-qwen-plus-n4-go actual GO verified True
+```
+
 Deterministic swarm suite:
 
 ```text
@@ -307,7 +335,8 @@ case n4-center-block-short-narrow expected NARROW_CLAIM actual NARROW_CLAIM
 
 1. Run the ECS manual deployment path on Alibaba Cloud and record proof.
 2. Continue swarm-first work before physical hardware with richer simulated
-   scenario fixtures, suite-level live mission coverage, or visualization.
+   scenario fixtures, trace visualization, or suite-level negative live-model
+   parser hardening.
 3. Keep SO-101 and physical-node work pending until the simulated-swarm GO/NO-GO
    gates are stronger.
 4. Convert webcam evidence into a redacted/fixture-safe artifact only if it is
@@ -322,7 +351,7 @@ Do not claim:
 - physical safety;
 - latency or reliability;
 - physics-backed or physical swarm behavior;
-- live Qwen mission assignment beyond the scoped `qwen-plus` / `center-block`
-  evidence;
+- live Qwen mission assignment beyond the scoped `qwen-plus` reviewed-scenario
+  suite evidence;
 - Alibaba ECS deployment complete;
 - Qwen onboard execution.
