@@ -40,6 +40,7 @@ required = [
     "docs/engineering/reproducibility.md",
     "docs/engineering/hardening-policy.md",
     "docs/engineering/swarm-demo-bundle-2026-06-15.md",
+    "docs/engineering/swarm-demo-server-2026-06-15.md",
     "docs/engineering/swarm-sim-n2-2026-06-15.md",
     "docs/engineering/swarm-obstacle-gate-2026-06-15.md",
     "docs/engineering/swarm-reservation-planner-2026-06-15.md",

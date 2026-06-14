@@ -27,6 +27,7 @@ data sources, and external assets from day one.
 | 2026-06-15 | Live DashScope swarm mission suite | Alibaba Cloud Model Studio / DashScope `qwen-plus` | Service terms apply | Low-rate live mission-intent evidence across reviewed deterministic swarm scenarios | API key loaded from local environment only; no key committed; no Qwen real-time control, hardware, physics, latency, reliability, arbitrary-map, larger-swarm, or ECS deployment claim. |
 | 2026-06-15 | Swarm trace HTML renderer | Authored for `accountable-swarm` | Apache-2.0 | Deterministic static HTML/SVG replay and canonical summary from verified persisted swarm traces | No external renderer code copied; no physical, physics, live-Qwen, latency, reliability, arbitrary-map, or larger-swarm claim. |
 | 2026-06-15 | Swarm demo bundle builder | Authored for `accountable-swarm` | Apache-2.0 | One-command deterministic local demo bundle over reviewed swarm scenarios | Orchestrates repo-authored simulator and renderer only; no physical, cloud, live-Qwen, DimOS, Docker, latency, reliability, arbitrary-map, or larger-swarm claim. |
+| 2026-06-15 | Swarm demo server endpoints | Authored for `accountable-swarm` | Apache-2.0 | Read-only stdlib HTTP serving of generated swarm demo bundle artifacts | Serves existing files only; no bundle generation, physical, cloud, live-Qwen, DimOS, latency, reliability, arbitrary-map, or larger-swarm claim. |
 
 ## Pending Before Demo
 

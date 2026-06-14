@@ -282,6 +282,19 @@ included, every child simulation report `GO`, every child render summary `GO`,
 zero trace-derived replay violations, relative artifact paths, and deterministic
 index HTML.
 
+Serving the deterministic swarm demo bundle locally:
+
+```bash
+python3 scripts/build_swarm_demo_bundle.py
+python3 scripts/serve_demo.py --host 127.0.0.1 --port 8765
+curl -fsS http://127.0.0.1:8765/swarm-demo
+curl -fsS http://127.0.0.1:8765/swarm-demo/summary.json
+```
+
+The server must serve existing bundle artifacts only. It must not generate the
+bundle on request, and it must reject path traversal outside the configured
+bundle root.
+
 Do not commit API keys, raw secrets, or cloud credentials.
 
 Deterministic swarm suite:

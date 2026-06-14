@@ -79,6 +79,8 @@ What is checked locally:
   traces, static replays, and a deterministic index for every reviewed scenario
   registry name; checked index SHA is
   `8ed23bca34358627a9948b49d265c28cd7433997e39578c62b911e5ee333f688`.
+- read-only stdlib server endpoints serve existing swarm bundle artifacts at
+  `/swarm-demo` and `/swarm-demo/summary.json` with path traversal rejection.
 - exploratory deterministic N=4 integer-grid probe passes locally, but is not a
   physical, physics, latency, reliability, or larger-swarm claim.
 - local-guard-only deterministic N=4 center-block obstacle probe remains useful
@@ -100,11 +102,11 @@ What is not checked yet:
 - Issue #1: research ground truth and build hierarchy.
 - Issue #3: physical-node safety contract.
 - Issue #4: Alibaba/Qwen proof path.
-- Issue #41: one-command deterministic swarm demo bundle.
+- Issue #43: serve deterministic swarm demo bundle locally.
 - Issue #2, #6, #11, #13, #15, #17, #19, #21, #23, #25, #27, #29, #33, and
-  #35, #37, and #39 are closed as GO.
+  #35, #37, #39, and #41 are closed as GO.
 - PR #5, #7, #8, #9, #10, #12, #14, #16, #18, #20, #22, #24, #34, #36, and
-  #38, and #40 are merged.
+  #38, #40, and #42 are merged.
 
 Before creating new work, inspect the current PR and issues:
 
