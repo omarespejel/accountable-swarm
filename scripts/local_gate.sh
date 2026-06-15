@@ -45,6 +45,7 @@ required = [
     "docs/engineering/swarm-obstacle-gate-2026-06-15.md",
     "docs/engineering/swarm-reservation-planner-2026-06-15.md",
     "docs/engineering/swarm-mission-gate-2026-06-15.md",
+    "docs/engineering/swarm-mission-objective-hardening-2026-06-15.md",
     "docs/engineering/swarm-mission-suite-2026-06-15.md",
     "docs/engineering/swarm-mission-suite-tamper-2026-06-15.md",
     "docs/engineering/swarm-trace-visualization-2026-06-15.md",

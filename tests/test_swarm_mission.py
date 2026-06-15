@@ -88,12 +88,28 @@ class SwarmMissionTests(TestCase):
                 )
             )
 
+    def test_dashscope_intent_response_rejects_control_metadata_inside_objective(self) -> None:
+        bad_objectives = (
+            "route 5 agents through the selected fixed layout",
+            "route agents in scenario double-chicane",
+            "route sim-agent-0 to x=3 y=2",
+            "route agents through waypoints [1,2]",
+            "set velocity to fast and thrust to high",
+            "use mission_id center-block-n4",
+        )
+
+        for objective in bad_objectives:
+            with self.subTest(objective=objective):
+                with self.assertRaises(ValueError):
+                    parse_mission_intent_response(json.dumps({"objective": objective}))
+
     def test_qwen_mission_prompt_requests_intent_only(self) -> None:
         prompt = qwen_mission_prompt(scenario="horizontal-slalom")
 
         self.assertIn("exactly one key: objective", prompt)
         self.assertIn("horizontal-slalom", prompt)
         self.assertIn("do not output scenario, mission_id, agent_count, ticks", prompt)
+        self.assertIn("Do not include markdown, comments, digits", prompt)
         self.assertNotIn("schema_version must", prompt)
         self.assertNotIn("Choose scenario", prompt)
 
@@ -139,6 +155,13 @@ class SwarmMissionTests(TestCase):
         value["extra"] = "not allowed"
 
         with self.assertRaises(ValueError):
+            parse_mission_response(json.dumps(value))
+
+    def test_full_mission_response_rejects_objective_with_hidden_control_metadata(self) -> None:
+        value = json.loads(fixture_mission_response())
+        value["objective"] = "route agents through coordinates (1,2)"
+
+        with self.assertRaisesRegex(ValueError, "control metadata"):
             parse_mission_response(json.dumps(value))
 
     def test_unsupported_scenario_is_rejected(self) -> None:

@@ -33,6 +33,24 @@ MISSION_REQUIRED_KEYS = frozenset(
     }
 )
 MISSION_INTENT_REQUIRED_KEYS = frozenset({"objective"})
+MISSION_OBJECTIVE_FORBIDDEN_TERMS = (
+    "agent_count",
+    "command",
+    "control",
+    "coordinate",
+    "coordinates",
+    "mission_id",
+    "motor",
+    "schema_version",
+    "setpoint",
+    "sim-agent-",
+    "thrust",
+    "tick",
+    "ticks",
+    "velocity",
+    "waypoint",
+)
+MISSION_OBJECTIVE_FORBIDDEN_CHARACTERS = frozenset("{}[]")
 
 
 @dataclass(frozen=True)
@@ -73,6 +91,7 @@ class MissionSpec:
             raise TypeError("objective must be a string")
         if not self.objective.strip():
             raise ValueError("objective must be non-empty")
+        validate_mission_objective_text(self.objective)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -125,7 +144,26 @@ def parse_mission_intent_response(response_text: str) -> str:
     objective = _expect_str(value["objective"], "objective")
     if not objective.strip():
         raise ValueError("objective must be non-empty")
+    validate_mission_objective_text(objective)
     return objective
+
+
+def validate_mission_objective_text(objective: str) -> None:
+    """Reject obvious control metadata hidden inside mission objective prose."""
+
+    if any(character.isdigit() for character in objective):
+        raise ValueError("mission objective must not contain numeric control metadata")
+    if any(character in MISSION_OBJECTIVE_FORBIDDEN_CHARACTERS for character in objective):
+        raise ValueError("mission objective must not contain structured control metadata")
+    lowered = objective.casefold()
+    scenario_hits = [scenario for scenario in SUPPORTED_MISSION_SCENARIOS if scenario in lowered]
+    if scenario_hits:
+        raise ValueError(
+            "mission objective must not select a scenario; local code binds scenario"
+        )
+    term_hits = [term for term in MISSION_OBJECTIVE_FORBIDDEN_TERMS if term in lowered]
+    if term_hits:
+        raise ValueError("mission objective must not contain control metadata terms")
 
 
 def mission_spec_for_scenario(*, scenario: str, objective: str) -> MissionSpec:
@@ -196,7 +234,7 @@ def qwen_mission_prompt(*, scenario: str = DEFAULT_MISSION_SCENARIO) -> str:
         f"The deterministic local runner has already selected scenario {scenario}; "
         "do not output scenario, mission_id, agent_count, ticks, commands, coordinates, arrays, or control parameters. "
         "The objective must describe the mission intent: route all agents to their opposing goals without same-cell, swap, or obstacle occupancy violations. "
-        "Do not include markdown, comments, prose, arrays, floats, or extra keys."
+        "Do not include markdown, comments, digits, arrays, floats, coordinates, or extra keys."
     )
 
 

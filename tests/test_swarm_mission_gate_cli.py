@@ -145,6 +145,16 @@ class SwarmMissionGateCliTests(TestCase):
         self.assertEqual(spec.agent_count, 4)
         self.assertEqual(spec.ticks, 16)
 
+    def test_dashscope_spec_rejects_hidden_control_metadata_inside_objective(self) -> None:
+        module = _load_mission_gate_module()
+
+        with self.assertRaisesRegex(ValueError, "numeric control metadata"):
+            module._mission_spec_from_response(
+                response_text='{"objective":"route 5 agents through the selected fixed layout"}',
+                mode="dashscope",
+                requested_scenario="horizontal-slalom",
+            )
+
     def test_fixture_spec_rejects_mismatched_requested_scenario(self) -> None:
         module = _load_mission_gate_module()
 

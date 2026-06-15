@@ -382,6 +382,8 @@ NARROW_CLAIM matrix. The short version:
   rejected before trace/report artifacts are written.
 - Low-rate fixture mission assignment into N=4 center-block and
   horizontal-slalom swarm gates: GO.
+- Mission objective text hardening: intent strings with hidden counts,
+  coordinates, scenarios, arrays, or control terms are rejected.
 - Live `qwen-plus` mission intent into the reviewed N=4 center-block swarm
   gate: GO.
 - Prior live `qwen-plus` mission suite across the then-reviewed four-scenario
