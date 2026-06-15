@@ -176,6 +176,23 @@ outcome DEGRADED
 degraded_hold_selected true
 ```
 
+Live DashScope hazard formation gate:
+
+```text
+python3 scripts/qwen_model_ping.py --models qwen-plus
+qwen-plus: OK
+python3 scripts/make_hazard_fixture.py runs/go_gate/hazard_marker.png
+wrote runs/go_gate/hazard_marker.png
+python3 -m scripts.run_hazard_formation_gate --image runs/go_gate/hazard_marker.png --mode dashscope --model qwen3-vl-flash --formation x --trace-dir runs/hazard_formation/live_dashscope_x --report-out runs/hazard_formation/live_dashscope_x_report.json
+outcome GO
+mode dashscope
+formation x
+hazard_bbox_norm [241,238,756,759]
+hazard_cell {"x": 3, "y": 2}
+hazard_trace_summary_sha b4f6b341aeb470afebcf79f245c8521e8bf06e42f58c3fa071af245f8aefd53d
+agent_trace_summary_shas cff7a9164c1ede4cba8f168338b6280393685990d5dcd7f58e8d4537dea757c3 98eb01a518b1ba53302a1f9cfe7a0d25922482c7a6d5bf646f7de1fd541d132b 9717f9f5e377ce12bd8d913c3795f12eafdd4ae6a0b064d5fd65ff590b8d421d bb67df480a4648d0ee752803546f037b4ff52b2c2876cd8a2902109793938ad6
+```
+
 Live Qwen camera/static-frame gate:
 
 ```text

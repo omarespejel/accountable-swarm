@@ -380,6 +380,25 @@ python3 -m scripts.run_hazard_formation_gate \
 This is not physical robot behavior, 3D grounding, DimOS integration, latency,
 reliability, safety, or Qwen real-time control.
 
+Live DashScope keyframe hazard perception can be recorded when
+`ALIBABA_API_KEY` is available in the local environment:
+
+```bash
+python3 scripts/make_hazard_fixture.py runs/go_gate/hazard_marker.png
+python3 -m scripts.run_hazard_formation_gate \
+  --image runs/go_gate/hazard_marker.png \
+  --mode dashscope \
+  --model qwen3-vl-flash \
+  --formation x \
+  --trace-dir runs/hazard_formation/live_dashscope_x \
+  --report-out runs/hazard_formation/live_dashscope_x_report.json
+```
+
+The checked 2026-06-16 live run produced `outcome GO`, quantized Qwen's hazard
+bbox to grid cell `{"x": 3, "y": 2}`, compiled an `x` formation, and verified
+the hazard plus four agent traces. See
+`docs/engineering/live-dashscope-hazard-formation-2026-06-16.md`.
+
 ## Swarm Scenario Suite
 
 The suite reruns the deterministic swarm cases and includes one intentional
