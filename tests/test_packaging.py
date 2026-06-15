@@ -13,6 +13,7 @@ class PackagingTests(TestCase):
         self.assertIn('run-go-gate = "scripts.run_go_gate:main"', text)
         self.assertIn('run-camera-go-gate = "scripts.run_camera_go_gate:main"', text)
         self.assertIn('prepare-demo-recording-pack = "scripts.prepare_demo_recording_pack:main"', text)
+        self.assertIn('prepare-ecs-operator-pack = "scripts.prepare_ecs_operator_pack:main"', text)
         self.assertIn('collect-ecs-smoke-report = "scripts.collect_ecs_smoke_report:main"', text)
         self.assertIn('verify-trace = "scripts.verify_trace:main"', text)
 
@@ -26,4 +27,8 @@ class PackagingTests(TestCase):
         self.assertEqual(
             scripts["prepare-demo-recording-pack"],
             "scripts.prepare_demo_recording_pack:main",
+        )
+        self.assertEqual(
+            scripts["prepare-ecs-operator-pack"],
+            "scripts.prepare_ecs_operator_pack:main",
         )
