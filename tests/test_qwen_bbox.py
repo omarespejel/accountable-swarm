@@ -46,3 +46,7 @@ class QwenBBoxTests(TestCase):
                 image_width=100,
                 image_height=50,
             )
+
+    def test_rejects_empty_detection_array(self) -> None:
+        with self.assertRaises(ValueError):
+            parse_qwen_bbox_response("[]", image_width=100, image_height=50)

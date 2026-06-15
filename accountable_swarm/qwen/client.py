@@ -49,6 +49,7 @@ class DashScopeQwenClient:
                 }
             ],
             "max_tokens": 256,
+            "temperature": 0,
         }
         return _extract_text_content(self._post_chat_completion(payload))
 

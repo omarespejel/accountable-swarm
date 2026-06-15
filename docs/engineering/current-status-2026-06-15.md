@@ -7,10 +7,15 @@ This is the current repo state after the first 10-hour execution block began at
 
 - Research-lab operating model is merged on `main`.
 - Fixture image to `DecisionTrace` replay works.
+- Fixture GO-gate now runs hazard and clear frames end-to-end inside
+  `scripts/local_gate.sh`: hazard emits `VETO`, clear emits `MOVE`, and both
+  traces verify through `scripts/verify_trace.py`.
 - Live `qwen3-vl-flash` generated-PNG keyframe to `DecisionTrace` works.
 - `qwen-plus` and `qwen3.5-plus` model pings work through
   `scripts/qwen_model_ping.py`.
 - Trace canonical JSON rejects raw floats.
+- DashScope bbox calls pin `temperature: 0`; malformed bbox text is retried
+  once before failing with a controlled error.
 - Camera/static-frame GO gate reports five binary pass conditions.
 - Degraded/offline mode emits local `HOLD` trace without Qwen.
 - Minimal stdlib HTTP server works locally.
@@ -119,6 +124,8 @@ This is the current repo state after the first 10-hour execution block began at
 
 - CodeRabbit status check fails because credits are exhausted, not because of a
   new code finding.
+- Issue #54 P2/P3 remain open: package metadata/entrypoints, quantized
+  confidence, and tiny-bbox policy are not closed by the P1 hardening.
 - True webcam capture now depends on local camera permission and `imagesnap`;
   this is machine state, not a judge-facing dependency.
 - Local Docker CLI exists, but the Colima/Docker daemon socket is not running,

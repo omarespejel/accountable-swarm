@@ -32,6 +32,7 @@ data sources, and external assets from day one.
 | 2026-06-15 | Larger-swarm boundary gate | Authored for `accountable-swarm` | Apache-2.0 | Explicit rejection of unsupported N=5/N=6 simulated swarm counts before trace/report artifacts | No larger-swarm success claim; no external planner code copied; no physical, physics, DimOS, live-Qwen, latency, or reliability claim. |
 | 2026-06-15 | Mission objective text hardening | Authored for `accountable-swarm` | Apache-2.0 | Deterministic rejection of hidden counts, scenarios, coordinates, arrays, and control terms inside mission objective text | No live-Qwen, physical, semantic-understanding, safety, latency, reliability, physics, or DimOS claim. |
 | 2026-06-15 | Post-hardening live DashScope swarm mission suite | Alibaba Cloud Model Studio / DashScope `qwen-plus` | Service terms apply | Low-rate live mission-intent evidence across the current five-scenario deterministic swarm registry after objective-text hardening | API key loaded from local environment only; no key committed; no Qwen real-time control, hardware, physics, latency, reliability, arbitrary-map, larger-swarm, or ECS deployment claim. |
+| 2026-06-15 | GO-gate P1 hardening and clear fixture | Authored for `accountable-swarm` | Apache-2.0 | Fixture-mode hazard/clear decision traces, local-gate end-to-end replay, and DashScope malformed-output retry test | No physical, webcam, SO-101, cloud deployment, latency, reliability, or real-time-control claim. |
 
 ## Pending Before Demo
 

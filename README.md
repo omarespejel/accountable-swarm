@@ -49,8 +49,10 @@ one image/frame -> qwen3-vl-flash bbox JSON -> normalized-coordinate rescale
 -> DecisionTrace JSON -> deterministic hash-chain replay
 ```
 
-No swarm, SO-101, Qwen latency, reliability, or production-readiness claim is
-made until this gate passes with checked-in evidence.
+Fixture-mode local gate now runs this spine for two deterministic frames:
+`fixtures/hazard_marker.ppm` emits `VETO`, and `fixtures/clear_frame.ppm` emits
+`MOVE`. No swarm, SO-101, Qwen latency, reliability, or production-readiness
+claim follows from that fixture evidence.
 
 ## Camera / Static-Frame Gate
 
@@ -368,6 +370,8 @@ NARROW_CLAIM matrix. The short version:
 
 - Qwen and DecisionTrace spine: GO.
 - Camera/static-frame live Qwen gate: GO for generated static frame.
+- Fixture GO-gate P1 hardening: local gate runs hazard->`VETO` and
+  clear->`MOVE`, then verifies both traces.
 - Deterministic N=2 integer-grid simulated swarm: GO.
 - Deterministic N=2 center-block obstacle scenario: GO.
 - Deterministic N=4 center-block obstacle scenario: GO for the scoped

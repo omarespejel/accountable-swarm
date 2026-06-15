@@ -39,6 +39,7 @@ required = [
     "scripts/serve_demo.py",
     "docs/engineering/reproducibility.md",
     "docs/engineering/hardening-policy.md",
+    "docs/engineering/go-gate-p1-hardening-2026-06-15.md",
     "docs/engineering/swarm-demo-bundle-2026-06-15.md",
     "docs/engineering/swarm-demo-server-2026-06-15.md",
     "docs/engineering/swarm-sim-n2-2026-06-15.md",
@@ -101,6 +102,18 @@ except ModuleNotFoundError:
 with Path(".coderabbit.yaml").open() as f:
     yaml.safe_load(f)
 PY
+
+python3 scripts/run_go_gate.py \
+    --image fixtures/hazard_marker.ppm \
+    --mode fixture \
+    --out runs/go_gate/local_gate_hazard_trace.json
+python3 scripts/verify_trace.py runs/go_gate/local_gate_hazard_trace.json
+
+python3 scripts/run_go_gate.py \
+    --image fixtures/clear_frame.ppm \
+    --mode fixture \
+    --out runs/go_gate/local_gate_clear_trace.json
+python3 scripts/verify_trace.py runs/go_gate/local_gate_clear_trace.json
 
 python3 -m unittest discover -s tests
 
