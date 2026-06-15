@@ -33,6 +33,13 @@ What is checked locally:
 - minimal `qwen-plus` and `qwen3.5-plus` Commander/text pings.
 - trace canonical JSON rejects raw floats; future measurements must use integer
   units or decimal strings.
+- package metadata now exposes installable `run-go-gate` and `verify-trace`
+  commands with zero runtime third-party dependencies. The local gate validates
+  those installed entry points in a temporary virtual environment, and the
+  GO-gate command path no longer depends on script-local `sys.path.insert(...)`
+  mutation or `PYTHONPATH` injection.
+- `DecisionEvent.command` explicitly rejects raw floats before command hashing;
+  command measurements must use declared integer units or decimal strings.
 - camera/static-frame GO gate passes live `qwen3-vl-flash` with all five binary
   pass conditions and summary
   `214d4edb89537ecf6c8060b2e4fcd6053497aa20439b65cca8641ef8d0e011c8`.
@@ -130,9 +137,10 @@ What is not checked yet:
 - Issue #4: Alibaba/Qwen proof path.
 - Issue #2, #6, #11, #13, #15, #17, #19, #21, #23, #25, #27, #29, #33,
   #35, #37, #39, #41, #43, #45, #48, #50, and #52 are closed as GO.
-- Issue #54 is active for GO-gate follow-up hardening. P1 is in progress on
-  branch `codex/go-gate-p1-hardening-20260615`; P2/P3 remain out of scope for
-  that branch.
+- Issue #54 is active for GO-gate follow-up hardening. P1 is merged as GO.
+  P2 packaging and command-float hardening is in progress on branch
+  `codex/go-gate-p2-packaging-20260615`; P3 confidence and tiny-bbox policy
+  remain out of scope for that branch.
 - PR #5, #7, #8, #9, #10, #12, #14, #16, #18, #20, #22, #24, #34, #36, and
   #38, #40, #42, #44, #46, #47, #49, and #51 are merged.
 

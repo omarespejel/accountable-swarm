@@ -40,6 +40,18 @@ Start every non-trivial task from:
 Use GitHub issues as hypotheses with explicit GO/NO-GO gates. Public claims need
 checked artifacts, exact commands, and explicit non-claims before promotion.
 
+Optional installable CLI setup:
+
+```bash
+python3 -m pip install --upgrade pip
+python3 -m pip install -e .
+run-go-gate --image fixtures/hazard_marker.ppm --mode fixture --out runs/go_gate/trace.json
+verify-trace runs/go_gate/trace.json
+```
+
+`./scripts/local_gate.sh` also creates a temporary virtual environment and
+checks those installed entry points directly.
+
 ## Submission Manifest
 
 The current judge-facing swarm path is collected in
@@ -72,7 +84,7 @@ python3 scripts/run_camera_go_gate.py \
   --mode fixture \
   --trace-out runs/go_gate/camera_trace.json \
   --report-out runs/go_gate/camera_report.json
-python3 scripts/verify_trace.py runs/go_gate/camera_trace.json
+python3 -m scripts.verify_trace runs/go_gate/camera_trace.json
 ```
 
 Live Qwen mode requires a local `ALIBABA_API_KEY`:
@@ -102,8 +114,8 @@ python3 scripts/run_swarm_sim.py \
   --ticks 8 \
   --trace-dir runs/swarm/n2 \
   --report-out runs/swarm/n2_report.json
-python3 scripts/verify_trace.py runs/swarm/n2/sim-agent-0.json
-python3 scripts/verify_trace.py runs/swarm/n2/sim-agent-1.json
+python3 -m scripts.verify_trace runs/swarm/n2/sim-agent-0.json
+python3 -m scripts.verify_trace runs/swarm/n2/sim-agent-1.json
 ```
 
 The report includes a trace-derived replay section with final positions and

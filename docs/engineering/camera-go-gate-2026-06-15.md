@@ -21,7 +21,7 @@ python3 scripts/run_camera_go_gate.py \
   --mode dashscope \
   --trace-out runs/go_gate/camera_qwen_trace.json \
   --report-out runs/go_gate/camera_qwen_report.json
-python3 scripts/verify_trace.py runs/go_gate/camera_qwen_trace.json
+python3 -m scripts.verify_trace runs/go_gate/camera_qwen_trace.json
 ```
 
 The generated `runs/**` outputs are intentionally ignored. This doc records the

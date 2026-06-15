@@ -3,6 +3,11 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
+gate_tmp="$(mktemp -d /tmp/accountable-swarm-local-gate.XXXXXX)"
+cleanup() {
+    rm -rf "$gate_tmp"
+}
+trap cleanup EXIT
 
 git diff --check
 
@@ -13,6 +18,7 @@ import sys
 required = [
     "README.md",
     "LICENSE",
+    "pyproject.toml",
     "AGENTS.md",
     ".codex/START_HERE.md",
     ".codex/HANDOFF.md",
@@ -40,6 +46,7 @@ required = [
     "docs/engineering/reproducibility.md",
     "docs/engineering/hardening-policy.md",
     "docs/engineering/go-gate-p1-hardening-2026-06-15.md",
+    "docs/engineering/go-gate-p2-packaging-2026-06-15.md",
     "docs/engineering/swarm-demo-bundle-2026-06-15.md",
     "docs/engineering/swarm-demo-server-2026-06-15.md",
     "docs/engineering/swarm-sim-n2-2026-06-15.md",
@@ -105,18 +112,22 @@ with Path(".coderabbit.yaml").open() as f:
     yaml.safe_load(f)
 PY
 
-python3 scripts/run_go_gate.py \
+python3 -m venv "$gate_tmp/venv"
+"$gate_tmp/venv/bin/python" -m pip install --upgrade pip
+"$gate_tmp/venv/bin/python" -m pip install -e .
+
+"$gate_tmp/venv/bin/run-go-gate" \
     --image fixtures/hazard_marker.ppm \
     --mode fixture \
     --out runs/go_gate/local_gate_hazard_trace.json
-python3 scripts/verify_trace.py runs/go_gate/local_gate_hazard_trace.json
+"$gate_tmp/venv/bin/verify-trace" runs/go_gate/local_gate_hazard_trace.json
 
-python3 scripts/run_go_gate.py \
+"$gate_tmp/venv/bin/run-go-gate" \
     --image fixtures/clear_frame.ppm \
     --mode fixture \
     --out runs/go_gate/local_gate_clear_trace.json
-python3 scripts/verify_trace.py runs/go_gate/local_gate_clear_trace.json
+"$gate_tmp/venv/bin/verify-trace" runs/go_gate/local_gate_clear_trace.json
 
-python3 -m unittest discover -s tests
+"$gate_tmp/venv/bin/python" -m unittest discover -s tests
 
 echo "local gate passed"

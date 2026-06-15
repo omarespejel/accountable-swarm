@@ -7,8 +7,6 @@ import argparse
 from pathlib import Path
 import sys
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
 from accountable_swarm.images import image_size
 from accountable_swarm.qwen.bbox import QwenGrounding, parse_qwen_bbox_optional_response
 from accountable_swarm.qwen.client import DashScopeQwenClient, DashScopeResponseError, MissingAlibabaApiKey
