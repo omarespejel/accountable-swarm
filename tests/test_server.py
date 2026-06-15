@@ -33,6 +33,25 @@ class ServerTests(TestCase):
                 _get_json(f"{base_url}/qwen-ping?model=qwen-plus")
             self.assertEqual(ctx.exception.code, 503)
 
+    def test_qwen_ping_rejects_unexpected_content(self) -> None:
+        class FakeClient:
+            def __init__(self, *, model: str) -> None:
+                self.model = model
+
+            def chat_text(self, *, prompt: str, max_tokens: int) -> str:
+                return "NOPE"
+
+        with (
+            patch.dict(os.environ, {"ALIBABA_API_KEY": "test-key"}),
+            patch("accountable_swarm.server.DashScopeQwenClient", FakeClient),
+            _test_server() as base_url,
+        ):
+            with self.assertRaises(HTTPError) as ctx:
+                _get_json(f"{base_url}/qwen-ping?model=qwen-plus")
+            self.assertEqual(ctx.exception.code, 502)
+            payload = json.loads(ctx.exception.read().decode("utf-8"))
+            self.assertEqual(payload["status"], "failed")
+
     def test_swarm_demo_bundle_files_are_served_from_configured_root(self) -> None:
         with TemporaryDirectory() as tmpdir:
             bundle_dir = Path(tmpdir) / "bundle"

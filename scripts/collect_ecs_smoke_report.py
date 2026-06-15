@@ -18,6 +18,7 @@ from accountable_swarm.trace.models import canonical_json
 
 
 REPORT_SCHEMA_VERSION = "ecs-smoke-report.v1"
+SWARM_BUNDLE_SCHEMA_VERSION = "swarm-demo-bundle-report.v1"
 DEFAULT_OUT = Path("runs/ecs/ecs_smoke_report.json")
 DEFAULT_MODEL = "qwen-plus"
 TEXT_PREVIEW_LIMIT = 128
@@ -102,7 +103,7 @@ def collect_report(*, base_url: str, qwen_model: str, deployed_commit: str, time
         ),
     ]
     pass_conditions = {check["name"]: check["ok"] for check in checks}
-    pass_conditions["deployed_commit_recorded"] = bool(deployed_commit.strip()) and deployed_commit != "unknown"
+    pass_conditions["deployed_commit_recorded"] = _is_git_oid(deployed_commit)
     outcome = "GO" if all(pass_conditions.values()) else "NARROW_CLAIM"
     return {
         "schema_version": REPORT_SCHEMA_VERSION,
@@ -272,11 +273,18 @@ def _validate_swarm_demo_html(response: dict[str, Any]) -> dict[str, Any]:
 def _validate_swarm_summary(payload: dict[str, Any]) -> dict[str, Any]:
     index_sha = str(payload.get("index_sha256", ""))
     scenario_count = _int_or_zero(payload.get("scenario_count"))
-    ok = payload.get("outcome") == "GO" and scenario_count >= 1 and _is_hex_64(index_sha)
+    schema_version = str(payload.get("schema_version", ""))
+    ok = (
+        payload.get("outcome") == "GO"
+        and scenario_count >= 1
+        and _is_hex_64(index_sha)
+        and schema_version == SWARM_BUNDLE_SCHEMA_VERSION
+    )
     return _validation(
         ok=ok,
         reason="swarm demo summary reports GO",
         evidence={
+            "schema_version": schema_version,
             "outcome": payload.get("outcome"),
             "scenario_count": scenario_count,
             "index_sha256": index_sha,
@@ -285,11 +293,16 @@ def _validate_swarm_summary(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def _validate_qwen_ping(payload: dict[str, Any], *, qwen_model: str) -> dict[str, Any]:
-    ok = payload.get("status") == "ok" and payload.get("model") == qwen_model
+    content_prefix = str(payload.get("content_prefix", ""))
+    ok = payload.get("status") == "ok" and payload.get("model") == qwen_model and content_prefix.startswith("OK")
     return _validation(
         ok=ok,
         reason="DashScope Qwen ping returned ok",
-        evidence={"status": payload.get("status"), "model": payload.get("model")},
+        evidence={
+            "status": payload.get("status"),
+            "model": payload.get("model"),
+            "content_prefix": content_prefix[:8],
+        },
     )
 
 
@@ -310,6 +323,16 @@ def _normalize_base_url(base_url: str) -> str:
 
 def _is_hex_64(value: str) -> bool:
     if len(value) != 64:
+        return False
+    try:
+        int(value, 16)
+    except ValueError:
+        return False
+    return True
+
+
+def _is_git_oid(value: str) -> bool:
+    if len(value) not in {40, 64}:
         return False
     try:
         int(value, 16)
@@ -339,7 +362,7 @@ def _git_head() -> str:
     if result.returncode != 0:
         return "unknown"
     head = result.stdout.strip()
-    return head if _is_hex_64(head) else "unknown"
+    return head if _is_git_oid(head) else "unknown"
 
 
 if __name__ == "__main__":
