@@ -47,6 +47,30 @@ http://127.0.0.1:8000/swarm-demo/summary.json
 
 9. Show the non-claims in `runs/demo/recording-pack/shotlist.md`.
 
+## Optional DimOS Bridge Insert
+
+Only include this if `prepare-dimos-bridge-pack` has already produced a local
+manifest:
+
+```bash
+python3 scripts/build_swarm_demo_bundle.py --out-dir runs/demo/dimos-bridge-source
+python3 scripts/prepare_dimos_bridge_pack.py \
+  --source-bundle runs/demo/dimos-bridge-source \
+  --out-dir runs/dimos/bridge-pack \
+  --dimos-checkout /path/to/local/dimos
+```
+
+The `--dimos-checkout` value is optional and must be adjusted to a local DimOS
+source checkout when available.
+
+Show `runs/dimos/bridge-pack/manifest.json` and
+`runs/dimos/bridge-pack/timeline.ndjson`, then say:
+
+```text
+This is a DimOS-ready replay export from verified DecisionTrace files. It does
+not prove DimOS executed the swarm yet.
+```
+
 ## Optional Live Qwen Insert
 
 Only include this if the operator has already run the live command and checked

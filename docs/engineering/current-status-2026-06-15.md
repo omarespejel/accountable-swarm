@@ -97,6 +97,9 @@ This is the current repo state after the first 10-hour execution block began at
   traces, and replays zero same-cell, swap, or obstacle occupancy violations.
 - Hazard formation degraded mode emits local hold traces when cloud perception
   is unavailable or invalid, without claiming live Qwen or physical behavior.
+- DimOS bridge pack exports verified swarm `DecisionTrace` events into an
+  integer-only NDJSON timeline with event hashes and records DimOS
+  source/runtime availability as a separate probe.
 
 ## NARROW_CLAIM
 
@@ -132,6 +135,9 @@ This is the current repo state after the first 10-hour execution block began at
 - The swarm demo server endpoints serve existing local files only. They are not
   Alibaba ECS deployment proof and do not generate, mutate, or validate a
   bundle on request.
+- The DimOS bridge pack is a replay/export artifact only. It is not evidence
+  that DimOS ran a blueprint, consumed the artifact, opened Rerun, simulated
+  physics, or controlled any robot.
 
 ## Open Blockers
 

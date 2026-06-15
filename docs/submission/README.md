@@ -70,6 +70,8 @@ Primary deterministic swarm evidence:
 - `docs/engineering/swarm-suite-2026-06-15.md`
 - `docs/engineering/swarm-scenario-registry-2026-06-15.md`
 - `docs/engineering/swarm-trace-visualization-2026-06-15.md`
+- `docs/engineering/dimos-bridge-probe-2026-06-16.md` (optional bridge
+  export only; no DimOS execution claim)
 - `docs/engineering/current-status-2026-06-15.md`
 
 The reviewed scenario registry is:
@@ -236,7 +238,9 @@ shotlist runs/demo/recording-pack/shotlist.md
    counters.
 6. Show `docs/submission/architecture.md` and point out that Qwen is not in the
    real-time loop.
-7. Optional, if ECS proof exists: show the public `/swarm-demo` endpoint and
+7. Optional, if the DimOS bridge pack exists: show its manifest and state that
+   it is a verified replay export, not DimOS execution.
+8. Optional, if ECS proof exists: show the public `/swarm-demo` endpoint and
    `/readyz` response.
 
 ## Submission Text Draft
@@ -256,7 +260,8 @@ for the reviewed scenario registry.
 - No 3D physics simulation.
 - No latency claim.
 - No reliability claim.
-- No DimOS integration.
+- DimOS is not executed or integrated; bridge-export artifacts are optional and
+  do not prove DimOS consumed the trace.
 - No Alibaba ECS deployment proof until the operator checklist is completed.
 - No Qwen real-time control.
 - No Qwen onboard execution.
