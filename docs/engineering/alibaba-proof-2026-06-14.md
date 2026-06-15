@@ -11,6 +11,7 @@ not contain API keys, cloud-console state, or committed provider responses.
 - `scripts/run_go_gate.py`
 - `scripts/run_camera_go_gate.py`
 - `scripts/qwen_model_ping.py`
+- `scripts/collect_ecs_smoke_report.py`
 - `accountable_swarm/server.py`
 - `docs/engineering/alibaba-ecs-manual-deploy-2026-06-15.md`
 
