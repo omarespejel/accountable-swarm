@@ -56,8 +56,11 @@ GET /swarm-demo
 GET /swarm-demo/summary.json
 ```
 
-The server serves existing bundle artifacts only. It does not generate traces
-or mutate state on request.
+The `/swarm-demo` routes serve existing bundle artifacts read-only and do not
+generate traces or mutate bundle state on request. Auxiliary smoke endpoints
+also exist: `/camera-fixture` builds and verifies an in-memory fixture
+`DecisionTrace`, and `/qwen-ping` may call DashScope when `ALIBABA_API_KEY` is
+configured.
 
 ## Checked Local Evidence
 
