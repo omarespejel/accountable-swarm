@@ -128,6 +128,13 @@ python3 -m venv "$gate_tmp/venv"
     --out runs/go_gate/local_gate_clear_trace.json
 "$gate_tmp/venv/bin/verify-trace" runs/go_gate/local_gate_clear_trace.json
 
+"$gate_tmp/venv/bin/run-camera-go-gate" \
+    --image fixtures/hazard_marker.ppm \
+    --mode fixture \
+    --trace-out runs/go_gate/local_gate_camera_trace.json \
+    --report-out runs/go_gate/local_gate_camera_report.json
+"$gate_tmp/venv/bin/verify-trace" runs/go_gate/local_gate_camera_trace.json
+
 "$gate_tmp/venv/bin/python" -m unittest discover -s tests
 
 echo "local gate passed"

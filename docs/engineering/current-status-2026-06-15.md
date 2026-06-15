@@ -125,13 +125,14 @@ This is the current repo state after the first 10-hour execution block began at
 
 ## Open Blockers
 
-- CodeRabbit status check fails because credits are exhausted, not because of a
-  new code finding.
-- Issue #54 P2 packaging/entrypoints and command-float hardening are in
-  progress on branch `codex/go-gate-p2-packaging-20260615`; P3 quantized
-  confidence and tiny-bbox policy remain open.
-- True webcam capture now depends on local camera permission and `imagesnap`;
-  this is machine state, not a judge-facing dependency.
+- CodeRabbit may rate-limit or report billing exhaustion on future PRs; treat
+  that as reviewer availability, not a code finding.
+- Issue #54 P2 packaging/entrypoints and command-float hardening merged as GO
+  in PR #58; P3 quantized confidence and tiny-bbox policy remain open.
+- True webcam capture passed locally through `imagesnap` with live
+  `qwen3-vl-flash`, but the private frame/trace are intentionally untracked.
+  This is a sensor-frame proof only, not SO-101 operation or physical robot
+  behavior.
 - Local Docker CLI exists, but the Colima/Docker daemon socket is not running,
   so Docker image build was not executed locally.
 - Alibaba ECS instance is not provisioned from this repo; the operator must run
@@ -480,19 +481,16 @@ case mission-double-chicane-dashscope-qwen-plus-n4-go actual GO verified True
 ## Next Work
 
 1. Run the ECS manual deployment path on Alibaba Cloud and record proof.
-2. Continue swarm-first work before physical hardware with richer simulated
-   scenario fixtures, trace visualization, or suite-level negative live-model
-   parser hardening.
-3. Keep SO-101 and physical-node work pending until the simulated-swarm GO/NO-GO
-   gates are stronger.
-4. Convert webcam evidence into a redacted/fixture-safe artifact only if it is
-   useful for the hackathon story.
+2. Record the true sensor-frame outcome on issue #3 and decide whether the demo
+   video can use the webcam segment as the physical-device fallback.
+3. Keep SO-101 and physical-node motion pending until hardware is available and
+   a separate safety gate is opened.
+4. Do not add new sim scenarios until #59 is GO or explicitly narrowed.
 
 ## Non-Claims
 
 Do not claim:
 
-- true webcam capture;
 - SO-101 operation;
 - physical safety;
 - latency or reliability;

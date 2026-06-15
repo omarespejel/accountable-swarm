@@ -86,7 +86,6 @@ This result does not prove:
 
 - physical robot motion;
 - SO-101 connectivity;
-- true webcam capture;
 - safety;
 - latency or reliability;
 - swarm behavior;
@@ -97,4 +96,5 @@ This result does not prove:
 Use `--capture-webcam runs/go_gate/webcam_frame.png` on a machine with
 `imagesnap` or `opencv-python` camera access, then rerun the same gate and
 record whether a real sensor frame preserves the same schema and pass
-conditions.
+conditions. Webcam images and traces may be kept untracked if they include
+private environment details.

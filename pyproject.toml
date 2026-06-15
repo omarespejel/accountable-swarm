@@ -16,6 +16,7 @@ dependencies = []
 
 [project.scripts]
 run-go-gate = "scripts.run_go_gate:main"
+run-camera-go-gate = "scripts.run_camera_go_gate:main"
 verify-trace = "scripts.verify_trace:main"
 
 [tool.setuptools.packages.find]

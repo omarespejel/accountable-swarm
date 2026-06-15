@@ -8,9 +8,6 @@ import json
 from pathlib import Path
 import shutil
 import subprocess
-import sys
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from accountable_swarm.images import image_size
 from accountable_swarm.qwen.bbox import parse_qwen_bbox_response
