@@ -60,6 +60,12 @@ This is the current repo state after the first 10-hour execution block began at
   `DecisionTrace` artifacts, runs deterministic N=4 local swarm gates, verifies
   persisted mission and agent traces from disk, and reports zero same-cell,
   swap, or obstacle occupancy violations for each case.
+- Post-hardening live `qwen-plus` DashScope mission suite validates intent-only
+  objectives for all five current reviewed scenario-registry names, including
+  `double-chicane`, emits mission `DecisionTrace` artifacts, runs deterministic
+  N=4 local swarm gates, verifies persisted mission and agent traces from disk,
+  and reports zero same-cell, swap, or obstacle occupancy violations for each
+  case.
 - Fixture swarm mission suite runs the mission binding path for every reviewed
   scenario-registry name, with persisted mission and agent traces replayed from
   disk. Child mission-gate or artifact failures now emit a suite
@@ -91,12 +97,10 @@ This is the current repo state after the first 10-hour execution block began at
 - The reservation planner result is scoped to the listed fixed integer-grid
   scenarios; it is not evidence for arbitrary maps, larger swarms,
   physics-backed behavior, latency, or reliability.
-- The prior live mission assignment evidence is scoped to `qwen-plus` and the
-  four-scenario registry before `double-chicane` was added: `corridor`,
-  `center-block`, `vertical-slalom`, and `horizontal-slalom`. The current
-  five-scenario registry has local fixture/sim evidence for `double-chicane`;
-  rerun the live suite before making a five-scenario live-Qwen claim. It is not
-  an arbitrary mission, arbitrary-map, or real-time-control claim.
+- The live mission-suite evidence is scoped to `qwen-plus` and the reviewed
+  five-scenario registry: `corridor`, `center-block`, `vertical-slalom`,
+  `horizontal-slalom`, and `double-chicane`. It is not an arbitrary mission,
+  arbitrary-map, larger-swarm, or real-time-control claim.
 - The tamper gate is local hash-chain verification only. It is not a
   cryptographic authenticity, remote attestation, or compromised-filesystem
   claim.
@@ -413,7 +417,7 @@ python3 scripts/verify_trace.py runs/swarm/live-mission-center-block/mission.jso
 summary_sha 5fb552f8dd758c71085cc1a1dfcc9db6f62ab35d39551d97211e306a600ebdb1
 ```
 
-Live DashScope mission suite:
+Live DashScope mission suite, four-scenario historical run:
 
 ```text
 python3 scripts/run_swarm_mission_suite.py --mode dashscope --model qwen-plus --trace-root runs/swarm/live-mission-suite --report-out runs/swarm/live_mission_suite_report.json
@@ -433,6 +437,33 @@ case mission-corridor-dashscope-qwen-plus-n4-go actual GO verified True
 case mission-center-block-dashscope-qwen-plus-n4-go actual GO verified True
 case mission-vertical-slalom-dashscope-qwen-plus-n4-go actual GO verified True
 case mission-horizontal-slalom-dashscope-qwen-plus-n4-go actual GO verified True
+```
+
+Live DashScope mission suite, post-hardening five-scenario run:
+
+```text
+python3 scripts/qwen_model_ping.py --models qwen-plus
+qwen-plus: OK
+
+python3 scripts/run_swarm_mission_suite.py --mode dashscope --model qwen-plus --trace-root runs/swarm/live-mission-suite-after-objective-hardening --report-out runs/swarm/live_mission_suite_after_objective_hardening_report.json
+outcome GO
+mode dashscope
+model qwen-plus
+case_count 5
+case mission-corridor-dashscope-qwen-plus-n4-go scenario corridor expected GO actual GO
+case mission-center-block-dashscope-qwen-plus-n4-go scenario center-block expected GO actual GO
+case mission-vertical-slalom-dashscope-qwen-plus-n4-go scenario vertical-slalom expected GO actual GO
+case mission-horizontal-slalom-dashscope-qwen-plus-n4-go scenario horizontal-slalom expected GO actual GO
+case mission-double-chicane-dashscope-qwen-plus-n4-go scenario double-chicane expected GO actual GO
+
+python3 scripts/verify_swarm_mission_suite.py --trace-root runs/swarm/live-mission-suite-after-objective-hardening --report runs/swarm/live_mission_suite_after_objective_hardening_report.json --report-out runs/swarm/live_mission_suite_after_objective_hardening_verify_report.json
+outcome GO
+case_count 5
+case mission-corridor-dashscope-qwen-plus-n4-go actual GO verified True
+case mission-center-block-dashscope-qwen-plus-n4-go actual GO verified True
+case mission-vertical-slalom-dashscope-qwen-plus-n4-go actual GO verified True
+case mission-horizontal-slalom-dashscope-qwen-plus-n4-go actual GO verified True
+case mission-double-chicane-dashscope-qwen-plus-n4-go actual GO verified True
 ```
 
 ## Next Work
@@ -455,7 +486,7 @@ Do not claim:
 - physical safety;
 - latency or reliability;
 - physics-backed or physical swarm behavior;
-- live Qwen mission assignment beyond the scoped `qwen-plus` reviewed-scenario
-  suite evidence;
+- live Qwen mission assignment beyond the scoped `qwen-plus` reviewed
+  five-scenario suite evidence;
 - Alibaba ECS deployment complete;
 - Qwen onboard execution.

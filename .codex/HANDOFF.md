@@ -70,6 +70,11 @@ What is checked locally:
   `DecisionTrace` artifacts, then verifies persisted mission and agent traces
   from disk with trace-replayed zero same-cell, swap, and obstacle occupancy
   counts.
+- post-hardening live `qwen-plus` DashScope mission suite validates intent-only
+  objectives for all five current reviewed scenario-registry names, including
+  `double-chicane`, emits mission `DecisionTrace` artifacts, then verifies
+  persisted mission and agent traces from disk with trace-replayed zero
+  same-cell, swap, and obstacle occupancy counts.
 - mission scenario selection is bounded to reviewed simulator scenario-registry
   names; this is not an arbitrary-map interface.
 - fixture swarm mission suite runs the mission binding path for every reviewed
@@ -107,10 +112,8 @@ What is not checked yet:
 - DimOS integration;
 - physics-backed multi-agent swarm behavior;
 - latency, reliability, or safety claims.
-- live Qwen mission assignment beyond the scoped prior `qwen-plus`
-  four-scenario suite evidence; the current five-scenario registry has local
-  fixture/sim evidence for `double-chicane`, but no fresh five-scenario live
-  Qwen suite has been recorded.
+- live Qwen mission assignment beyond the scoped `qwen-plus` five-scenario
+  suite evidence.
 
 ## Active GitHub Work
 
@@ -118,7 +121,8 @@ What is not checked yet:
 - Issue #3: physical-node safety contract.
 - Issue #4: Alibaba/Qwen proof path.
 - Issue #2, #6, #11, #13, #15, #17, #19, #21, #23, #25, #27, #29, #33,
-  #35, #37, #39, #41, #43, #45, #48, and #50 are closed as GO.
+  #35, #37, #39, #41, #43, #45, #48, and #50 are closed as GO. Issue #52 is
+  open for post-hardening live Qwen five-scenario evidence.
 - PR #5, #7, #8, #9, #10, #12, #14, #16, #18, #20, #22, #24, #34, #36, and
   #38, #40, #42, #44, #46, #47, #49, and #51 are merged.
 
