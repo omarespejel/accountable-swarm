@@ -29,11 +29,11 @@ python3 scripts/run_swarm_mission_gate.py \
   --mission-scenario center-block \
   --trace-dir runs/swarm/live-mission-center-block \
   --report-out runs/swarm/live_mission_center_block_report.json
-python3 scripts/verify_trace.py runs/swarm/live-mission-center-block/mission.json
-python3 scripts/verify_trace.py runs/swarm/live-mission-center-block/agents/sim-agent-0.json
-python3 scripts/verify_trace.py runs/swarm/live-mission-center-block/agents/sim-agent-1.json
-python3 scripts/verify_trace.py runs/swarm/live-mission-center-block/agents/sim-agent-2.json
-python3 scripts/verify_trace.py runs/swarm/live-mission-center-block/agents/sim-agent-3.json
+python3 -m scripts.verify_trace runs/swarm/live-mission-center-block/mission.json
+python3 -m scripts.verify_trace runs/swarm/live-mission-center-block/agents/sim-agent-0.json
+python3 -m scripts.verify_trace runs/swarm/live-mission-center-block/agents/sim-agent-1.json
+python3 -m scripts.verify_trace runs/swarm/live-mission-center-block/agents/sim-agent-2.json
+python3 -m scripts.verify_trace runs/swarm/live-mission-center-block/agents/sim-agent-3.json
 env -u ALIBABA_API_KEY ./scripts/local_gate.sh
 set -a; . ./.env; set +a; ./scripts/local_gate.sh
 ```

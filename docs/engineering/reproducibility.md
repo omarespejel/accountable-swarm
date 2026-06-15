@@ -49,21 +49,21 @@ pose, latency, or other measured values to traces.
 Fixture mode:
 
 ```bash
-python3 scripts/run_go_gate.py \
+python3 -m scripts.run_go_gate \
   --image fixtures/hazard_marker.ppm \
   --mode fixture \
   --out runs/go_gate/trace.json
-python3 scripts/verify_trace.py runs/go_gate/trace.json
+python3 -m scripts.verify_trace runs/go_gate/trace.json
 ```
 
 DashScope mode requires an environment variable:
 
 ```bash
-ALIBABA_API_KEY=... python3 scripts/run_go_gate.py \
+ALIBABA_API_KEY=... python3 -m scripts.run_go_gate \
   --image runs/go_gate/hazard_marker.png \
   --mode dashscope \
   --out runs/go_gate/qwen_trace.json
-python3 scripts/verify_trace.py runs/go_gate/qwen_trace.json
+python3 -m scripts.verify_trace runs/go_gate/qwen_trace.json
 ```
 
 Camera/static-frame gate:
@@ -74,7 +74,7 @@ python3 scripts/run_camera_go_gate.py \
   --mode fixture \
   --trace-out runs/go_gate/camera_trace.json \
   --report-out runs/go_gate/camera_report.json
-python3 scripts/verify_trace.py runs/go_gate/camera_trace.json
+python3 -m scripts.verify_trace runs/go_gate/camera_trace.json
 ```
 
 Deterministic N=2 swarm gate:
@@ -85,8 +85,8 @@ python3 scripts/run_swarm_sim.py \
   --ticks 8 \
   --trace-dir runs/swarm/n2 \
   --report-out runs/swarm/n2_report.json
-python3 scripts/verify_trace.py runs/swarm/n2/sim-agent-0.json
-python3 scripts/verify_trace.py runs/swarm/n2/sim-agent-1.json
+python3 -m scripts.verify_trace runs/swarm/n2/sim-agent-0.json
+python3 -m scripts.verify_trace runs/swarm/n2/sim-agent-1.json
 ```
 
 The swarm report includes trace-derived replay fields so another agent can
@@ -213,8 +213,8 @@ python3 scripts/run_swarm_mission_gate.py \
   --mission-scenario center-block \
   --trace-dir runs/swarm/live-mission-center-block \
   --report-out runs/swarm/live_mission_center_block_report.json
-python3 scripts/verify_trace.py runs/swarm/live-mission-center-block/mission.json
-python3 scripts/verify_trace.py runs/swarm/live-mission-center-block/agents/sim-agent-0.json
+python3 -m scripts.verify_trace runs/swarm/live-mission-center-block/mission.json
+python3 -m scripts.verify_trace runs/swarm/live-mission-center-block/agents/sim-agent-0.json
 ```
 
 This report must show mode `dashscope`, model `qwen-plus`, scenario

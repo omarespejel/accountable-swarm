@@ -127,8 +127,9 @@ This is the current repo state after the first 10-hour execution block began at
 
 - CodeRabbit status check fails because credits are exhausted, not because of a
   new code finding.
-- Issue #54 P2/P3 remain open: package metadata/entrypoints, quantized
-  confidence, and tiny-bbox policy are not closed by the P1 hardening.
+- Issue #54 P2 packaging/entrypoints and command-float hardening are in
+  progress on branch `codex/go-gate-p2-packaging-20260615`; P3 quantized
+  confidence and tiny-bbox policy remain open.
 - True webcam capture now depends on local camera permission and `imagesnap`;
   this is machine state, not a judge-facing dependency.
 - Local Docker CLI exists, but the Colima/Docker daemon socket is not running,
@@ -423,7 +424,7 @@ same_cell_collision_count 0
 swap_collision_count 0
 obstacle_occupancy_violation_count 0
 
-python3 scripts/verify_trace.py runs/swarm/live-mission-center-block/mission.json
+python3 -m scripts.verify_trace runs/swarm/live-mission-center-block/mission.json
 summary_sha 5fb552f8dd758c71085cc1a1dfcc9db6f62ab35d39551d97211e306a600ebdb1
 ```
 

@@ -109,6 +109,19 @@ class DecisionTraceTests(TestCase):
         with self.assertRaises(TypeError):
             canonical_json({"latency_seconds": 0.1})
 
+    def test_decision_event_rejects_raw_float_in_command_before_hash(self) -> None:
+        perception = _perception()
+        with self.assertRaisesRegex(TypeError, r"\$\.command\.vx"):
+            build_single_event_trace(
+                run_id="trace-float-command",
+                actor_id="agent-0",
+                perception=perception,
+                intent="move in fixed units",
+                decision="MOVE",
+                reason="test raw float rejection",
+                command={"type": "move", "vx": 0.15},
+            )
+
     def test_reject_raw_floats_allows_integer_units(self) -> None:
         reject_raw_floats({"latency_ms": 100, "confidence_ppm": 950000})
 

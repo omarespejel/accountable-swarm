@@ -21,7 +21,8 @@ class GoGateCliTests(TestCase):
             result = subprocess.run(
                 [
                     sys.executable,
-                    "scripts/run_go_gate.py",
+                    "-m",
+                    "scripts.run_go_gate",
                     "--image",
                     "fixtures/hazard_marker.ppm",
                     "--mode",
@@ -47,7 +48,8 @@ class GoGateCliTests(TestCase):
             result = subprocess.run(
                 [
                     sys.executable,
-                    "scripts/run_go_gate.py",
+                    "-m",
+                    "scripts.run_go_gate",
                     "--image",
                     "fixtures/clear_frame.ppm",
                     "--mode",
@@ -123,7 +125,8 @@ class GoGateCliTests(TestCase):
         result = subprocess.run(
             [
                 sys.executable,
-                "scripts/run_go_gate.py",
+                "-m",
+                "scripts.run_go_gate",
                 "--image",
                 "fixtures",
                 "--mode",
@@ -146,7 +149,8 @@ class GoGateCliTests(TestCase):
         result = subprocess.run(
             [
                 sys.executable,
-                "scripts/run_go_gate.py",
+                "-m",
+                "scripts.run_go_gate",
                 "--image",
                 "fixtures/hazard_marker.ppm",
                 "--mode",

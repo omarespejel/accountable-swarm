@@ -102,6 +102,7 @@ class DecisionEvent:
             raise ValueError("prev_sha must be a 64-character hex string")
         if self.sha256 and not _is_hex_64(self.sha256):
             raise ValueError("sha256 must be a 64-character hex string")
+        reject_raw_floats(self.command, "$.command")
 
     def body_for_hash(self) -> dict[str, Any]:
         body = self.to_dict()

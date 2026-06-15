@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "accountable-swarm"
+version = "0.1.0"
+description = "Accountable edge-cloud robotics demo with deterministic DecisionTrace replay."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "Apache-2.0" }
+authors = [
+  { name = "Omar Espejel" }
+]
+dependencies = []
+
+[project.scripts]
+run-go-gate = "scripts.run_go_gate:main"
+verify-trace = "scripts.verify_trace:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["accountable_swarm*", "scripts*"]

@@ -23,13 +23,16 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Install editable package
+        run: python3 -m pip install -e .
+
       - name: Run local gate
         run: ./scripts/local_gate.sh
 
       - name: Run fixture GO gate
         run: |
-          python3 scripts/run_go_gate.py \
+          run-go-gate \
             --image fixtures/hazard_marker.ppm \
             --mode fixture \
             --out runs/go_gate/trace.json
-          python3 scripts/verify_trace.py runs/go_gate/trace.json
+          verify-trace runs/go_gate/trace.json

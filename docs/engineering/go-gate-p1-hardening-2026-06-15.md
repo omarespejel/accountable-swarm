@@ -31,16 +31,16 @@ entrypoints, score fields, and tiny-bbox policy.
 ```bash
 git diff --check
 python3 -m unittest tests.test_go_gate_cli tests.test_qwen_client tests.test_qwen_bbox tests.test_trace
-python3 scripts/run_go_gate.py \
+python3 -m scripts.run_go_gate \
   --image fixtures/hazard_marker.ppm \
   --mode fixture \
   --out runs/go_gate/p1_hazard_trace.json
-python3 scripts/verify_trace.py runs/go_gate/p1_hazard_trace.json
-python3 scripts/run_go_gate.py \
+python3 -m scripts.verify_trace runs/go_gate/p1_hazard_trace.json
+python3 -m scripts.run_go_gate \
   --image fixtures/clear_frame.ppm \
   --mode fixture \
   --out runs/go_gate/p1_clear_trace.json
-python3 scripts/verify_trace.py runs/go_gate/p1_clear_trace.json
+python3 -m scripts.verify_trace runs/go_gate/p1_clear_trace.json
 ```
 
 ## Observed Output
