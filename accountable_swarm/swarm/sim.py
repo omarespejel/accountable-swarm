@@ -395,6 +395,80 @@ def run_swarm_sim(
     )
 
 
+def run_swarm_custom(
+    *,
+    configs: tuple[AgentConfig, ...],
+    obstacles: tuple[GridPoint, ...] = (),
+    ticks: int = 16,
+    grid_width: int = 7,
+    grid_height: int = 5,
+    scenario: str = "custom-formation",
+    run_id: str | None = None,
+    planner_max_expansions: int = RESERVATION_PLANNER_MAX_EXPANSIONS,
+) -> SwarmSimulationResult:
+    """Run a reviewed custom-goal swarm scenario with the reservation planner."""
+
+    if ticks <= 0:
+        raise ValueError("ticks must be positive")
+    if len(configs) not in SUPPORTED_AGENT_COUNTS:
+        allowed = ", ".join(str(count) for count in SUPPORTED_AGENT_COUNTS)
+        raise ValueError(f"config count must be one of {allowed}")
+    if planner_max_expansions < 0:
+        raise ValueError("planner_max_expansions must be non-negative")
+    _validate_custom_configs(configs, grid_width=grid_width, grid_height=grid_height)
+    obstacle_set = _normalize_obstacles(obstacles)
+    _validate_obstacles_in_bounds(obstacle_set, grid_width=grid_width, grid_height=grid_height)
+    _validate_configs_against_obstacles(configs, obstacle_set)
+
+    positions = {config.agent_id: config.start for config in configs}
+    records: list[TickRecord] = []
+    for tick in range(ticks):
+        before = dict(positions)
+        steps = _choose_tick_steps(
+            tick=tick,
+            configs=configs,
+            positions=before,
+            grid_width=grid_width,
+            grid_height=grid_height,
+            obstacles=obstacle_set,
+            use_reservation_planner=True,
+            reservation_planner_max_expansions=planner_max_expansions,
+        )
+        positions = {step.agent_id: step.accepted for step in steps}
+        same_cell, swap = _collision_counts(before, positions)
+        obstacle_violations = _obstacle_occupancy_violations(positions, obstacle_set)
+        records.append(
+            TickRecord(
+                tick=tick,
+                steps=tuple(steps),
+                same_cell_collisions=same_cell,
+                swap_collisions=swap,
+                obstacle_occupancy_violations=obstacle_violations,
+            )
+        )
+    return SwarmSimulationResult(
+        run_id=run_id or f"swarm-custom-{scenario}-n{len(configs)}",
+        grid_width=grid_width,
+        grid_height=grid_height,
+        scenario=scenario,
+        obstacles=tuple(sorted(obstacle_set)),
+        configs=tuple(sorted(configs, key=lambda config: config.agent_id)),
+        ticks=tuple(records),
+        final_positions=positions,
+    )
+
+
+def default_agent_configs(
+    agent_count: int,
+    *,
+    grid_width: int = 7,
+    grid_height: int = 5,
+) -> tuple[AgentConfig, ...]:
+    """Return the reviewed default starts and goals for deterministic swarm runs."""
+
+    return _default_configs(agent_count, grid_width=grid_width, grid_height=grid_height)
+
+
 def build_agent_traces(result: SwarmSimulationResult) -> dict[str, DecisionTrace]:
     """Build one hash-chained DecisionTrace per simulated agent."""
 
@@ -878,6 +952,39 @@ def _validate_configs_against_obstacles(
             raise ValueError(f"{config.agent_id} starts inside an obstacle")
         if config.goal in obstacles:
             raise ValueError(f"{config.agent_id} goal is inside an obstacle")
+
+
+def _validate_custom_configs(
+    configs: tuple[AgentConfig, ...],
+    *,
+    grid_width: int,
+    grid_height: int,
+) -> None:
+    agent_ids = [config.agent_id for config in configs]
+    if len(set(agent_ids)) != len(agent_ids):
+        raise ValueError("agent ids must be unique")
+    starts = [config.start for config in configs]
+    goals = [config.goal for config in configs]
+    if len(frozenset(starts)) != len(starts):
+        raise ValueError("custom agent starts must be unique")
+    if len(frozenset(goals)) != len(goals):
+        raise ValueError("custom agent goals must be unique")
+    for config in configs:
+        if not _in_bounds(config.start, grid_width=grid_width, grid_height=grid_height):
+            raise ValueError(f"{config.agent_id} start is outside the grid")
+        if not _in_bounds(config.goal, grid_width=grid_width, grid_height=grid_height):
+            raise ValueError(f"{config.agent_id} goal is outside the grid")
+
+
+def _validate_obstacles_in_bounds(
+    obstacles: frozenset[GridPoint],
+    *,
+    grid_width: int,
+    grid_height: int,
+) -> None:
+    for obstacle in obstacles:
+        if not _in_bounds(obstacle, grid_width=grid_width, grid_height=grid_height):
+            raise ValueError("obstacle is outside the grid")
 
 
 def _normalize_obstacles(obstacles: tuple[Any, ...]) -> frozenset[GridPoint]:

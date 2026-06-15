@@ -31,6 +31,10 @@ flowchart LR
     M --> N["Single-frame DecisionTrace"]
     N --> H
 
+    L --> Q["Integer-grid hazard cell"]
+    Q --> R["Formation compiler"]
+    R --> E
+
     O["Alibaba ECS manual proof"] -. "pending operator checklist" .-> P["Public /healthz /readyz /swarm-demo endpoints"]
     J -. "served read-only" .-> P
 ```
@@ -42,6 +46,8 @@ flowchart LR
 | Qwen mission intent | Produces a bounded natural-language objective in the live mission suite | Checked for `qwen-plus` across the reviewed five-scenario registry |
 | Mission validator | Rejects hidden counts, scenario names, coordinates, arrays, and control terms inside objective text | Checked by unit tests and issue #52 evidence |
 | Scenario registry | Restricts execution to reviewed local scenarios | Checked for `corridor`, `center-block`, `vertical-slalom`, `horizontal-slalom`, `double-chicane` |
+| Hazard-cell quantizer | Converts a validated 2D bbox center into an integer-grid hazard cell | Checked in fixture mode for center hazard cell `{"x": 3, "y": 2}` |
+| Formation compiler | Assigns four local agents to `surround`, `x`, `line`, or `diamond` slots around the hazard | Checked for deterministic slot assignment and replayable planner traces |
 | Swarm planner | Deterministic integer-grid planner with local collision and obstacle guards | Checked for four agents in the reviewed scenarios |
 | DecisionTrace | Hash-chained event evidence for mission and agent decisions | Checked by replay verifiers |
 | Static replay bundle | Judge-facing HTML/SVG and JSON summary generated from persisted traces | Checked by `scripts/build_swarm_demo_bundle.py` evidence |
@@ -53,10 +59,12 @@ flowchart LR
 2. The local mission validator accepts only an intent-style `objective`.
 3. Local code binds the reviewed scenario, mission id, agent count, and tick
    budget.
-4. The deterministic integer-grid simulator runs local planner commands.
-5. Each agent writes a `DecisionTrace`.
-6. Verifiers reload persisted traces from disk and recompute summary hashes.
-7. Reports and static replay pages are generated from verified artifacts.
+4. Optionally, a validated keyframe bbox is quantized into an integer-grid
+   hazard cell and compiled into reviewed formation slots.
+5. The deterministic integer-grid simulator runs local planner commands.
+6. Each agent writes a `DecisionTrace`.
+7. Verifiers reload persisted traces from disk and recompute summary hashes.
+8. Reports and static replay pages are generated from verified artifacts.
 
 ## Real-Time Boundary
 
@@ -79,6 +87,7 @@ trace artifacts.
 - `docs/engineering/live-dashscope-swarm-mission-suite-post-hardening-2026-06-15.md`
 - `docs/engineering/swarm-mission-objective-hardening-2026-06-15.md`
 - `docs/engineering/swarm-mission-suite-tamper-2026-06-15.md`
+- `docs/engineering/hazard-formation-gate-2026-06-16.md`
 - `docs/engineering/alibaba-ecs-manual-deploy-2026-06-15.md`
 - `docs/engineering/current-status-2026-06-15.md`
 
@@ -91,6 +100,7 @@ trace artifacts.
 - No DimOS integration.
 - No completed Alibaba ECS deployment proof.
 - No Qwen real-time control.
+- No validated 3D grounding.
 - No arbitrary-map planner claim.
 - No larger-swarm claim beyond the reviewed deterministic four-agent
   integer-grid cases.

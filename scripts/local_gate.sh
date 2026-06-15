@@ -36,6 +36,7 @@ required = [
     ".dockerignore",
     "scripts/build_swarm_demo_bundle.py",
     "scripts/run_camera_go_gate.py",
+    "scripts/run_hazard_formation_gate.py",
     "scripts/run_swarm_mission_gate.py",
     "scripts/run_swarm_mission_suite.py",
     "scripts/run_swarm_sim.py",
@@ -69,6 +70,7 @@ required = [
     "docs/engineering/swarm-larger-boundary-2026-06-15.md",
     "docs/engineering/swarm-scenario-registry-2026-06-15.md",
     "docs/engineering/camera-go-gate-2026-06-15.md",
+    "docs/engineering/hazard-formation-gate-2026-06-16.md",
     "docs/engineering/alibaba-ecs-manual-deploy-2026-06-15.md",
     "docs/engineering/current-status-2026-06-15.md",
     "docs/submission/README.md",
@@ -136,6 +138,14 @@ python3 -m venv "$gate_tmp/venv"
     --trace-out runs/go_gate/local_gate_camera_trace.json \
     --report-out runs/go_gate/local_gate_camera_report.json
 "$gate_tmp/venv/bin/verify-trace" runs/go_gate/local_gate_camera_trace.json
+
+"$gate_tmp/venv/bin/run-hazard-formation-gate" \
+    --image fixtures/hazard_marker.ppm \
+    --mode fixture \
+    --formation x \
+    --trace-dir runs/hazard_formation/local_gate_x \
+    --report-out runs/hazard_formation/local_gate_x_report.json
+"$gate_tmp/venv/bin/verify-trace" runs/hazard_formation/local_gate_x/hazard.json
 
 "$gate_tmp/venv/bin/python" -m unittest discover -s tests
 

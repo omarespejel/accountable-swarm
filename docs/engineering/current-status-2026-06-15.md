@@ -91,6 +91,12 @@ This is the current repo state after the first 10-hour execution block began at
 - One-command deterministic swarm demo bundle generates scenario reports,
   verified agent traces, static HTML/SVG replays, and a deterministic index
   for every reviewed scenario-registry name.
+- Hazard formation gate converts a fixture Qwen-style bbox into integer-grid
+  hazard cell `{"x": 3, "y": 2}`, assigns four agents to an `x` formation
+  around that hazard, runs the deterministic planner, persists hazard and agent
+  traces, and replays zero same-cell, swap, or obstacle occupancy violations.
+- Hazard formation degraded mode emits local hold traces when cloud perception
+  is unavailable or invalid, without claiming live Qwen or physical behavior.
 
 ## NARROW_CLAIM
 
@@ -119,6 +125,10 @@ This is the current repo state after the first 10-hour execution block began at
   It is not evidence for physical robot behavior, SO-101 operation, 3D
   physics, live Qwen reasoning, latency, reliability, DimOS integration,
   arbitrary maps, or larger swarms.
+- The hazard formation gate is a 2D bbox-center to integer-grid planner
+  bridge. It is not validated 3D grounding, physical swarm behavior,
+  arbitrary-map planning, latency, reliability, DimOS integration, or safety
+  evidence.
 - The swarm demo server endpoints serve existing local files only. They are not
   Alibaba ECS deployment proof and do not generate, mutate, or validate a
   bundle on request.
@@ -144,9 +154,26 @@ Latest local gates during this block:
 
 ```text
 ./scripts/local_gate.sh
-Ran 107 tests
+Ran 146 tests
 OK
 local gate passed
+```
+
+Hazard formation fixture gate:
+
+```text
+python3 -m scripts.run_hazard_formation_gate --image fixtures/hazard_marker.ppm --mode fixture --formation x --trace-dir runs/hazard_formation/smoke_x --report-out runs/hazard_formation/smoke_x_report.json
+outcome GO
+hazard_cell {"x": 3, "y": 2}
+sim_report_outcome GO
+```
+
+Hazard formation degraded gate:
+
+```text
+python3 -m scripts.run_hazard_formation_gate --image fixtures/hazard_marker.ppm --mode degraded --trace-dir runs/hazard_formation/smoke_degraded --report-out runs/hazard_formation/smoke_degraded_report.json
+outcome DEGRADED
+degraded_hold_selected true
 ```
 
 Live Qwen camera/static-frame gate:
