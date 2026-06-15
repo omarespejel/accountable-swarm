@@ -56,7 +56,8 @@ docker run --rm --env-file .env -p 8000:8000 accountable-swarm:ecs
 The Docker image builds the deterministic swarm demo bundle during
 `docker build`, so a fresh container can serve `/swarm-demo` and
 `/swarm-demo/summary.json` without depending on untracked local `runs/`
-artifacts.
+artifacts. The image pins `SWARM_DEMO_BUNDLE_DIR=/app/runs/demo/swarm` and
+builds the bundle to that same path.
 
 7. In another shell, run smoke checks:
 
