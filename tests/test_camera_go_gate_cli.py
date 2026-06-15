@@ -68,3 +68,30 @@ class CameraGoGateCliTests(TestCase):
         self.assertEqual(report["outcome"], "DEGRADED")
         self.assertEqual(trace["events"][0]["decision"], "HOLD")
         self.assertFalse(report["pass_conditions"]["model_responded"])
+
+    def test_dashscope_without_key_returns_controlled_error(self) -> None:
+        trace_path = ROOT / "runs/go_gate/test_camera_missing_key_trace.json"
+        report_path = ROOT / "runs/go_gate/test_camera_missing_key_report.json"
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "scripts.run_camera_go_gate",
+                "--image",
+                "fixtures/hazard_marker.ppm",
+                "--mode",
+                "dashscope",
+                "--trace-out",
+                str(trace_path),
+                "--report-out",
+                str(report_path),
+            ],
+            cwd=ROOT,
+            env={},
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 3)
+        self.assertIn("ALIBABA_API_KEY", result.stderr)
+        self.assertNotIn("NameError", result.stderr)
