@@ -25,6 +25,7 @@ flowchart LR
     G --> H["Replay verifier"]
     H --> I["Scenario report"]
     H --> J["Static HTML/SVG replay bundle"]
+    H --> S["Optional DimOS bridge pack (timeline export only)"]
 
     K["Qwen keyframe bbox path"] --> L["Optional semantic grounding"]
     L --> M["Local VETO or MOVE decision"]
@@ -51,6 +52,7 @@ flowchart LR
 | Swarm planner | Deterministic integer-grid planner with local collision and obstacle guards | Checked for four agents in the reviewed scenarios |
 | DecisionTrace | Hash-chained event evidence for mission and agent decisions | Checked by replay verifiers |
 | Static replay bundle | Judge-facing HTML/SVG and JSON summary generated from persisted traces | Checked by `scripts/build_swarm_demo_bundle.py` evidence |
+| DimOS bridge pack | Optional integer-only timeline export from verified traces plus DimOS source/runtime availability probe | Checked as a bridge artifact only; no DimOS execution claim |
 | Minimal server | Serves `/swarm-demo` bundle artifacts read-only; auxiliary smoke endpoints can compute a fixture trace or ping Qwen | Checked locally; ECS proof pending |
 
 ## Data Flow
@@ -65,6 +67,8 @@ flowchart LR
 6. Each agent writes a `DecisionTrace`.
 7. Verifiers reload persisted traces from disk and recompute summary hashes.
 8. Reports and static replay pages are generated from verified artifacts.
+9. Optionally, verified traces are exported as a DimOS bridge timeline for a
+   future DimOS/Rerun consumer; no DimOS process is started in this step.
 
 ## Real-Time Boundary
 
@@ -84,6 +88,7 @@ trace artifacts.
 
 - `docs/submission/README.md`
 - `docs/engineering/swarm-demo-bundle-2026-06-15.md`
+- `docs/engineering/dimos-bridge-probe-2026-06-16.md`
 - `docs/engineering/live-dashscope-swarm-mission-suite-post-hardening-2026-06-15.md`
 - `docs/engineering/live-dashscope-hazard-formation-2026-06-16.md`
 - `docs/engineering/swarm-mission-objective-hardening-2026-06-15.md`

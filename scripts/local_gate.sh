@@ -44,6 +44,7 @@ required = [
     "scripts/render_swarm_trace_html.py",
     "scripts/prepare_demo_recording_pack.py",
     "scripts/prepare_ecs_operator_pack.py",
+    "scripts/prepare_dimos_bridge_pack.py",
     "scripts/verify_swarm_mission_suite.py",
     "scripts/serve_demo.py",
     "docs/engineering/reproducibility.md",
@@ -65,6 +66,7 @@ required = [
     "docs/engineering/animated-swarm-replay-2026-06-16.md",
     "docs/engineering/demo-recording-pack-2026-06-16.md",
     "docs/engineering/ecs-operator-proof-pack-2026-06-16.md",
+    "docs/engineering/dimos-bridge-probe-2026-06-16.md",
     "docs/engineering/live-dashscope-hazard-formation-2026-06-16.md",
     "docs/engineering/live-dashscope-swarm-mission-2026-06-15.md",
     "docs/engineering/live-dashscope-swarm-mission-suite-2026-06-15.md",
@@ -156,6 +158,12 @@ python3 -m venv "$gate_tmp/venv"
 
 "$gate_tmp/venv/bin/prepare-ecs-operator-pack" \
     --out-dir runs/ecs/local_gate_operator_pack
+
+"$gate_tmp/venv/bin/python" scripts/build_swarm_demo_bundle.py \
+    --out-dir runs/demo/local_gate_dimos_source
+"$gate_tmp/venv/bin/prepare-dimos-bridge-pack" \
+    --source-bundle runs/demo/local_gate_dimos_source \
+    --out-dir runs/dimos/local_gate_bridge_pack
 
 "$gate_tmp/venv/bin/python" -m unittest discover -s tests
 

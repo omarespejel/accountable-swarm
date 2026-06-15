@@ -51,8 +51,14 @@ What is checked locally:
 - minimal stdlib HTTP server and Dockerfile exist for manual Alibaba ECS proof;
   operator still needs to provision ECS and run the smoke checks.
 - ECS operator proof pack generator prepares a non-secret runbook, command
-  script, empty `.env` template, and manifest for the operator-run Alibaba ECS
-  proof session; this is not itself deployment proof.
+  script, `.env.template` with blank secret fields/defaults, and manifest for
+  the operator-run Alibaba ECS proof session; this is not itself deployment
+  proof.
+- DimOS bridge pack generator consumes a verified swarm demo bundle, verifies
+  every referenced agent `DecisionTrace`, exports an integer-only timeline
+  NDJSON with event hashes, and records DimOS source/runtime availability as a
+  separate probe. This is a DimOS-ready replay artifact, not DimOS execution or
+  integration proof.
 - deterministic N=2 integer-grid simulated swarm emits one DecisionTrace per
   agent, reaches goals, and reports zero same-cell or swap collisions.
 - deterministic N=2 center-block obstacle scenario reaches goals, reports zero
@@ -135,7 +141,7 @@ What is not checked yet:
 
 - Alibaba Cloud deployment proof from an actual ECS instance;
 - SO-101 physical frame source;
-- DimOS integration;
+- DimOS execution/integration; current work only exports a bridge pack;
 - physics-backed multi-agent swarm behavior;
 - latency, reliability, or safety claims.
 - live Qwen mission assignment beyond the scoped `qwen-plus` five-scenario
