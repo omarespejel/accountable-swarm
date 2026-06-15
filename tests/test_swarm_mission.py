@@ -91,8 +91,11 @@ class SwarmMissionTests(TestCase):
     def test_dashscope_intent_response_rejects_control_metadata_inside_objective(self) -> None:
         bad_objectives = (
             "route 5 agents through the selected fixed layout",
+            "route five agents through the selected fixed layout",
             "route agents in scenario double-chicane",
+            "route agents in scenario double chicane",
             "route sim-agent-0 to x=3 y=2",
+            "route sim agent to x=left y=right",
             "route agents through waypoints [1,2]",
             "set velocity to fast and thrust to high",
             "use mission_id center-block-n4",
@@ -102,6 +105,14 @@ class SwarmMissionTests(TestCase):
             with self.subTest(objective=objective):
                 with self.assertRaises(ValueError):
                     parse_mission_intent_response(json.dumps({"objective": objective}))
+
+    def test_dashscope_intent_response_allows_benign_tick_substrings(self) -> None:
+        objective = "stick together while routing agents through the selected fixed layout"
+
+        self.assertEqual(
+            parse_mission_intent_response(json.dumps({"objective": objective})),
+            objective,
+        )
 
     def test_qwen_mission_prompt_requests_intent_only(self) -> None:
         prompt = qwen_mission_prompt(scenario="horizontal-slalom")
