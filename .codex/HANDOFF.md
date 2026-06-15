@@ -58,6 +58,9 @@ What is checked locally:
   mission `DecisionTrace`, then runs deterministic N=4 center-block and
   horizontal-slalom swarm gates with trace-replayed zero same-cell, swap, and
   obstacle occupancy counts.
+- mission objective text hardening rejects hidden counts, selected scenario
+  names, coordinates, arrays, and control terms inside the otherwise
+  single-key `objective` string.
 - live `qwen-plus` DashScope mission assignment validates an intent-only
   objective for the reviewed `center-block` scenario, emits a mission
   `DecisionTrace`, then runs the deterministic N=4 center-block swarm gate with
@@ -115,9 +118,9 @@ What is not checked yet:
 - Issue #3: physical-node safety contract.
 - Issue #4: Alibaba/Qwen proof path.
 - Issue #2, #6, #11, #13, #15, #17, #19, #21, #23, #25, #27, #29, #33,
-  #35, #37, #39, #41, #43, and #45 are closed as GO.
+  #35, #37, #39, #41, #43, #45, and #48 are closed as GO.
 - PR #5, #7, #8, #9, #10, #12, #14, #16, #18, #20, #22, #24, #34, #36, and
-  #38, #40, #42, #44, and #46 are merged.
+  #38, #40, #42, #44, #46, #47, and #49 are merged.
 
 Before creating new work, inspect the current PR and issues:
 

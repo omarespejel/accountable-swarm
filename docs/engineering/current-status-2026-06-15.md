@@ -48,6 +48,9 @@ This is the current repo state after the first 10-hour execution block began at
   emits a mission `DecisionTrace`, then runs deterministic N=4 center-block and
   horizontal-slalom swarm gates with zero same-cell, swap, or obstacle occupancy
   violations.
+- Mission objective text hardening rejects hidden counts, selected scenario
+  names, coordinates, arrays, and control terms inside the otherwise
+  single-key `objective` string.
 - Live `qwen-plus` DashScope mission assignment validates an intent-only
   objective for the reviewed `center-block` scenario, emits a mission
   `DecisionTrace`, then runs the deterministic N=4 center-block swarm gate with
