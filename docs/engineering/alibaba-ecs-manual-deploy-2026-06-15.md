@@ -70,6 +70,17 @@ curl -fsS http://127.0.0.1:8000/swarm-demo/summary.json
 curl -fsS 'http://127.0.0.1:8000/qwen-ping?model=qwen-plus'
 ```
 
+Then collect the sanitized machine-readable proof report:
+
+```bash
+mkdir -p runs/ecs
+python3 -m scripts.collect_ecs_smoke_report \
+  --base-url http://127.0.0.1:8000 \
+  --commit "$(git rev-parse HEAD)" \
+  --out runs/ecs/ecs_smoke_report.json
+python3 -m json.tool runs/ecs/ecs_smoke_report.json
+```
+
 ## Expected Proof
 
 The deployment proof is complete only when the operator records:
@@ -81,6 +92,7 @@ The deployment proof is complete only when the operator records:
 - `curl /camera-fixture` output with a 64-character `trace_summary_sha`;
 - `curl /swarm-demo/summary.json` output with `outcome: GO`;
 - `curl /qwen-ping?model=qwen-plus` output with `status: ok`;
+- `runs/ecs/ecs_smoke_report.json` with top-level `outcome: GO`;
 - screenshot or terminal log showing this ran on ECS.
 
 ## Local Server Smoke
@@ -120,6 +132,6 @@ This manual path does not prove:
 - public production hosting;
 - physical robot safety;
 - SO-101 connectivity;
-- swarm behavior;
+- physical swarm behavior;
 - latency or reliability;
 - Qwen onboard execution.

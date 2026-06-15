@@ -12,4 +12,5 @@ class PackagingTests(TestCase):
         self.assertIn("dependencies = []", text)
         self.assertIn('run-go-gate = "scripts.run_go_gate:main"', text)
         self.assertIn('run-camera-go-gate = "scripts.run_camera_go_gate:main"', text)
+        self.assertIn('collect-ecs-smoke-report = "scripts.collect_ecs_smoke_report:main"', text)
         self.assertIn('verify-trace = "scripts.verify_trace:main"', text)
