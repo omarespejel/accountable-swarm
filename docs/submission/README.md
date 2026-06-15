@@ -104,10 +104,20 @@ python3 scripts/verify_swarm_mission_suite.py \
   --report-out runs/swarm/mission_suite_verify_report.json
 ```
 
-Replay live DashScope evidence only when `ALIBABA_API_KEY` is available:
+Replay live DashScope evidence only when `ALIBABA_API_KEY` is available. Obtain
+the key from the operator's Alibaba Cloud DashScope console, then either export
+it in the shell or place it in a local untracked `.env` file as
+`ALIBABA_API_KEY=...`.
+
+If using `.env`, load it before running the live commands:
 
 ```bash
 set -a; . ./.env; set +a
+```
+
+Then run:
+
+```bash
 python3 scripts/qwen_model_ping.py --models qwen-plus
 python3 scripts/run_swarm_mission_suite.py \
   --mode dashscope \
