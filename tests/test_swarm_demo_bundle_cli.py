@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import importlib.util
 import json
 from pathlib import Path
 import subprocess
 import sys
 from tempfile import TemporaryDirectory
 from unittest import TestCase
+from unittest.mock import patch
 
 from accountable_swarm.swarm import scenario_names
 
@@ -125,6 +127,71 @@ class SwarmDemoBundleCliTests(TestCase):
             self.assertEqual(summary["scenarios"][0]["sim_report"]["outcome"], "NARROW_CLAIM")
             self.assertTrue((out_dir / "index.html").exists())
 
+    def test_child_renderer_command_retries_transient_spawn_error(self) -> None:
+        module = _load_bundle_module()
+        calls = []
+
+        def fake_run(*args, **kwargs):
+            calls.append((args, kwargs))
+            if len(calls) == 1:
+                raise BlockingIOError(35, "Resource temporarily unavailable")
+            return subprocess.CompletedProcess(args=args[0], returncode=0, stdout="", stderr="")
+
+        with (
+            patch.object(module.subprocess, "run", side_effect=fake_run),
+            patch.object(module.time, "sleep"),
+        ):
+            result = module._run_child_command(
+                ["python3", "scripts/render_swarm_trace_html.py"],
+                cwd=ROOT,
+                timeout=1,
+            )
+
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(len(calls), 2)
+
+    def test_child_renderer_command_does_not_retry_non_retryable_spawn_error(self) -> None:
+        module = _load_bundle_module()
+        calls = []
+
+        def fake_run(*args, **kwargs):
+            calls.append((args, kwargs))
+            raise OSError(2, "No such file or directory")
+
+        with (
+            patch.object(module.subprocess, "run", side_effect=fake_run),
+            patch.object(module.time, "sleep"),
+        ):
+            with self.assertRaises(OSError):
+                module._run_child_command(
+                    ["python3", "scripts/render_swarm_trace_html.py"],
+                    cwd=ROOT,
+                    timeout=1,
+                )
+
+        self.assertEqual(len(calls), 1)
+
+    def test_child_renderer_command_raises_after_retry_budget(self) -> None:
+        module = _load_bundle_module()
+        calls = []
+
+        def fake_run(*args, **kwargs):
+            calls.append((args, kwargs))
+            raise BlockingIOError(35, "Resource temporarily unavailable")
+
+        with (
+            patch.object(module.subprocess, "run", side_effect=fake_run),
+            patch.object(module.time, "sleep"),
+        ):
+            with self.assertRaises(BlockingIOError):
+                module._run_child_command(
+                    ["python3", "scripts/render_swarm_trace_html.py"],
+                    cwd=ROOT,
+                    timeout=1,
+                )
+
+        self.assertEqual(len(calls), module.SUBPROCESS_SPAWN_ATTEMPTS)
+
 
 def _run_bundle(out_dir: Path, *extra_args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
@@ -140,3 +207,19 @@ def _run_bundle(out_dir: Path, *extra_args: str) -> subprocess.CompletedProcess[
         capture_output=True,
         check=False,
     )
+
+
+def _load_bundle_module():
+    spec = importlib.util.spec_from_file_location(
+        "build_swarm_demo_bundle_under_test",
+        ROOT / "scripts" / "build_swarm_demo_bundle.py",
+    )
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    original_sys_path = list(sys.path)
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        sys.path[:] = original_sys_path
+    return module

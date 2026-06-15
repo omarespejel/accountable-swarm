@@ -184,6 +184,29 @@ class SwarmMissionSuiteCliTests(TestCase):
         self.assertEqual(result["mode"], "dashscope")
         self.assertEqual(result["model"], "qwen-plus")
 
+    def test_child_mission_gate_command_retries_transient_spawn_error(self) -> None:
+        module = _load_mission_suite_module()
+        calls = []
+
+        def fake_run(*args, **kwargs):
+            calls.append((args, kwargs))
+            if len(calls) == 1:
+                raise BlockingIOError(35, "Resource temporarily unavailable")
+            return subprocess.CompletedProcess(args=args[0], returncode=7, stdout="", stderr="")
+
+        with (
+            patch.object(module.subprocess, "run", side_effect=fake_run),
+            patch.object(module.time, "sleep"),
+        ):
+            result = module._run_child_command(
+                ["python3", "scripts/run_swarm_mission_gate.py"],
+                cwd=ROOT,
+                timeout=1,
+            )
+
+        self.assertEqual(result.returncode, 7)
+        self.assertEqual(len(calls), 2)
+
     def test_run_case_rejects_child_mode_model_mismatch(self) -> None:
         module = _load_mission_suite_module()
         case = {
@@ -358,6 +381,52 @@ class SwarmMissionSuiteCliTests(TestCase):
             self.assertEqual(case["error_message"], "child mission gate command timed out")
             self.assertFalse(case["pass_conditions"]["mission_gate_command_succeeded"])
 
+    def test_mission_suite_writes_narrow_report_when_child_gate_spawn_fails(self) -> None:
+        module = _load_mission_suite_module()
+        one_case = (
+            {
+                "case_id": "mission-corridor-fixture-n4-go",
+                "mode": "fixture",
+                "model": MISSION_MODEL_FIXTURE_ID,
+                "mission_scenario": "corridor",
+                "expected_outcome": "GO",
+                "purpose": "fixture mission binding for reviewed scenario corridor",
+            },
+        )
+
+        def spawn_error(*args, **kwargs):
+            raise BlockingIOError(35, "Resource temporarily unavailable")
+
+        with TemporaryDirectory() as tmpdir:
+            trace_root = Path(tmpdir) / "mission-suite"
+            report_path = Path(tmpdir) / "mission_suite_report.json"
+            argv = [
+                "run_swarm_mission_suite.py",
+                "--trace-root",
+                str(trace_root),
+                "--report-out",
+                str(report_path),
+            ]
+            with (
+                patch.object(module, "DEFAULT_CASES", one_case),
+                patch.object(module, "_run_child_command", side_effect=spawn_error),
+                patch.object(sys, "argv", argv),
+                contextlib.redirect_stdout(io.StringIO()),
+            ):
+                returncode = module.main()
+
+            self.assertEqual(returncode, 4)
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+            self.assertEqual(report["outcome"], "NARROW_CLAIM")
+            self.assertFalse(report["pass_conditions"]["all_mission_gate_commands_succeeded"])
+            case = report["cases"][0]
+            self.assertEqual(case["actual_outcome"], "NARROW_CLAIM")
+            self.assertEqual(case["mission_gate_returncode"], 125)
+            self.assertEqual(case["error_type"], "mission_gate_spawn_error")
+            self.assertEqual(case["error_message"], "child mission gate command could not be spawned")
+            self.assertEqual(case["error_class"], "BlockingIOError")
+            self.assertFalse(case["pass_conditions"]["mission_gate_command_succeeded"])
+
     def test_mission_suite_writes_narrow_report_when_trace_artifact_is_invalid(self) -> None:
         module = _load_mission_suite_module()
         one_case = (
@@ -445,5 +514,9 @@ def _load_mission_suite_module():
     if spec is None or spec.loader is None:
         raise RuntimeError("could not load mission suite script")
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    original_sys_path = list(sys.path)
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        sys.path[:] = original_sys_path
     return module

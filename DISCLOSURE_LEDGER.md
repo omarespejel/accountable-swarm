@@ -36,6 +36,7 @@ data sources, and external assets from day one.
 | 2026-06-15 | GO-gate P1 hardening and clear fixture | Authored for `accountable-swarm` | Apache-2.0 | Fixture-mode hazard/clear decision traces, local-gate end-to-end replay, and DashScope malformed-output retry test | No physical, webcam, SO-101, cloud deployment, latency, reliability, or real-time-control claim. |
 | 2026-06-15 | ECS smoke proof collector | Authored for `accountable-swarm` | Apache-2.0 | Sanitized Alibaba ECS endpoint proof collection into `runs/ecs/ecs_smoke_report.json` | No secrets or raw provider responses committed; not an ECS deployment proof until run on an actual Alibaba ECS instance; no production, public availability, latency, reliability, physical robot, SO-101, or Qwen-onboard claim. |
 | 2026-06-16 | Hazard formation gate | Authored for `accountable-swarm` | Apache-2.0 | Fixture/Qwen-style bbox to integer-grid hazard cell, deterministic formation slot assignment, local swarm planner traces, and degraded hold fallback | No physical, SO-101, DimOS, 3D physics, arbitrary-map, latency, reliability, safety, or Qwen real-time-control claim. |
+| 2026-06-16 | Live DashScope hazard formation gate | Alibaba Cloud Model Studio / DashScope `qwen3-vl-flash` | Service terms apply | Live keyframe hazard perception feeding deterministic local `x` formation planning | API key loaded from local untracked `.env`; no key committed; no Qwen real-time control, physical robot, SO-101, DimOS, 3D physics, latency, reliability, arbitrary-map, or ECS deployment claim. |
 
 ## Pending Before Demo
 

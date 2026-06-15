@@ -85,6 +85,7 @@ trace artifacts.
 - `docs/submission/README.md`
 - `docs/engineering/swarm-demo-bundle-2026-06-15.md`
 - `docs/engineering/live-dashscope-swarm-mission-suite-post-hardening-2026-06-15.md`
+- `docs/engineering/live-dashscope-hazard-formation-2026-06-16.md`
 - `docs/engineering/swarm-mission-objective-hardening-2026-06-15.md`
 - `docs/engineering/swarm-mission-suite-tamper-2026-06-15.md`
 - `docs/engineering/hazard-formation-gate-2026-06-16.md`

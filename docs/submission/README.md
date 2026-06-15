@@ -89,6 +89,7 @@ from the same verified persisted traces.
 Primary hazard-to-formation evidence:
 
 - `docs/engineering/hazard-formation-gate-2026-06-16.md`
+- `docs/engineering/live-dashscope-hazard-formation-2026-06-16.md`
 
 Replay the fixture hazard-to-X gate:
 
@@ -106,11 +107,18 @@ assigns four agents to formation slots, and verifies persisted hazard and agent
 traces from disk. It is not 3D grounding, physical behavior, or Qwen real-time
 control.
 
+When `ALIBABA_API_KEY` is available, the live hazard-to-formation proof uses
+`qwen3-vl-flash` on a generated PNG keyframe. The checked 2026-06-16 run
+returned `outcome GO`, bbox `[241,238,756,759]`, hazard cell `{"x":3,"y":2}`,
+and replay-verified hazard plus four agent traces. It remains a keyframe
+perception proof feeding deterministic local planning, not live Qwen control.
+
 ## Checked Live-Qwen Evidence
 
 Primary live Qwen mission evidence:
 
 - `docs/engineering/live-dashscope-swarm-mission-suite-post-hardening-2026-06-15.md`
+- `docs/engineering/live-dashscope-hazard-formation-2026-06-16.md`
 - `docs/engineering/swarm-mission-objective-hardening-2026-06-15.md`
 - `docs/engineering/swarm-mission-suite-tamper-2026-06-15.md`
 

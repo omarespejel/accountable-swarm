@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import errno
 import hashlib
 import html
 import json
@@ -11,6 +12,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import time
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -30,6 +32,8 @@ DEFAULT_AGENT_COUNT = 4
 DEFAULT_TICKS = max(scenario_default_ticks(scenario) for scenario in scenario_names())
 DEFAULT_OUT_DIR = Path("runs/demo/swarm")
 RENDER_TIMEOUT_SECONDS = 60
+SUBPROCESS_SPAWN_ATTEMPTS = 5
+SUBPROCESS_SPAWN_RETRY_DELAY_SECONDS = 0.5
 
 
 def main() -> int:
@@ -207,12 +211,9 @@ def _build_scenario_case(
     for obstacle in result.obstacles:
         render_args.extend(["--obstacle", f"{obstacle.x},{obstacle.y}"])
     try:
-        render_result = subprocess.run(
+        render_result = _run_child_command(
             render_args,
             cwd=Path(__file__).resolve().parents[1],
-            text=True,
-            capture_output=True,
-            check=False,
             timeout=RENDER_TIMEOUT_SECONDS,
         )
     except subprocess.TimeoutExpired as exc:
@@ -251,6 +252,33 @@ def _build_scenario_case(
             ),
         },
     }
+
+
+def _run_child_command(
+    args: list[str],
+    *,
+    cwd: Path,
+    timeout: int,
+) -> subprocess.CompletedProcess[str]:
+    for attempt in range(SUBPROCESS_SPAWN_ATTEMPTS):
+        try:
+            return subprocess.run(
+                args,
+                cwd=cwd,
+                text=True,
+                capture_output=True,
+                check=False,
+                timeout=timeout,
+            )
+        except OSError as exc:
+            if not _is_retryable_spawn_error(exc) or attempt + 1 >= SUBPROCESS_SPAWN_ATTEMPTS:
+                raise
+            time.sleep(SUBPROCESS_SPAWN_RETRY_DELAY_SECONDS)
+    raise RuntimeError("unreachable child command retry state")
+
+
+def _is_retryable_spawn_error(exc: OSError) -> bool:
+    return isinstance(exc, BlockingIOError) or exc.errno == errno.EAGAIN
 
 
 def _relative_posix(path: Path, base: Path) -> str:

@@ -61,6 +61,7 @@ required = [
     "docs/engineering/swarm-mission-suite-tamper-2026-06-15.md",
     "docs/engineering/swarm-trace-visualization-2026-06-15.md",
     "docs/engineering/animated-swarm-replay-2026-06-16.md",
+    "docs/engineering/live-dashscope-hazard-formation-2026-06-16.md",
     "docs/engineering/live-dashscope-swarm-mission-2026-06-15.md",
     "docs/engineering/live-dashscope-swarm-mission-suite-2026-06-15.md",
     "docs/engineering/live-dashscope-swarm-mission-suite-post-hardening-2026-06-15.md",

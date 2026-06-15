@@ -4,10 +4,12 @@
 from __future__ import annotations
 
 import argparse
+import errno
 import json
 from pathlib import Path
 import subprocess
 import sys
+import time
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -24,6 +26,8 @@ SWARM_MISSION_SUITE_SCHEMA_VERSION = "swarm-mission-suite-report.v2"
 MISSION_GATE_SCRIPT = Path("scripts/run_swarm_mission_gate.py")
 DEFAULT_DASHSCOPE_MISSION_MODEL = "qwen-plus"
 MISSION_GATE_TIMEOUT_SECONDS = 120
+SUBPROCESS_SPAWN_ATTEMPTS = 5
+SUBPROCESS_SPAWN_RETRY_DELAY_SECONDS = 0.5
 
 
 def _default_cases_for_mode(*, mode: str, model: str) -> tuple[dict[str, Any], ...]:
@@ -168,7 +172,7 @@ def _run_case(*, case: dict[str, Any], trace_root: Path, repo_root: Path) -> dic
     case_dir.mkdir(parents=True, exist_ok=True)
 
     try:
-        result = subprocess.run(
+        result = _run_child_command(
             [
                 sys.executable,
                 str(MISSION_GATE_SCRIPT),
@@ -184,9 +188,6 @@ def _run_case(*, case: dict[str, Any], trace_root: Path, repo_root: Path) -> dic
                 str(case_report_path),
             ],
             cwd=repo_root,
-            text=True,
-            capture_output=True,
-            check=False,
             timeout=MISSION_GATE_TIMEOUT_SECONDS,
         )
     except subprocess.TimeoutExpired:
@@ -196,6 +197,15 @@ def _run_case(*, case: dict[str, Any], trace_root: Path, repo_root: Path) -> dic
             returncode=124,
             error_type="mission_gate_timeout",
             error_message="child mission gate command timed out",
+        )
+    except OSError as exc:
+        return _failed_case_report(
+            case=case,
+            case_id=case_id,
+            returncode=125,
+            error_type="mission_gate_spawn_error",
+            error_message="child mission gate command could not be spawned",
+            error_class=exc.__class__.__name__,
         )
 
     if result.returncode != 0:
@@ -359,6 +369,33 @@ def _safe_id_segment(value: str) -> str:
     if not result:
         raise ValueError(f"suite model has no safe identifier characters: {value}")
     return result
+
+
+def _run_child_command(
+    args: list[str],
+    *,
+    cwd: Path,
+    timeout: int,
+) -> subprocess.CompletedProcess[str]:
+    for attempt in range(SUBPROCESS_SPAWN_ATTEMPTS):
+        try:
+            return subprocess.run(
+                args,
+                cwd=cwd,
+                text=True,
+                capture_output=True,
+                check=False,
+                timeout=timeout,
+            )
+        except OSError as exc:
+            if not _is_retryable_spawn_error(exc) or attempt + 1 >= SUBPROCESS_SPAWN_ATTEMPTS:
+                raise
+            time.sleep(SUBPROCESS_SPAWN_RETRY_DELAY_SECONDS)
+    raise RuntimeError("unreachable child command retry state")
+
+
+def _is_retryable_spawn_error(exc: OSError) -> bool:
+    return isinstance(exc, BlockingIOError) or exc.errno == errno.EAGAIN
 
 
 if __name__ == "__main__":
