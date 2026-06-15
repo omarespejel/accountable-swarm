@@ -84,6 +84,26 @@ The current bundle claim is limited to four agents on deterministic integer
 grids, with zero same-cell, swap, and obstacle-occupancy violations in the
 trace-derived replay for the listed scenarios.
 
+Primary hazard-to-formation evidence:
+
+- `docs/engineering/hazard-formation-gate-2026-06-16.md`
+
+Replay the fixture hazard-to-X gate:
+
+```bash
+python3 -m scripts.run_hazard_formation_gate \
+  --image fixtures/hazard_marker.ppm \
+  --mode fixture \
+  --formation x \
+  --trace-dir runs/hazard_formation/smoke_x \
+  --report-out runs/hazard_formation/smoke_x_report.json
+```
+
+This checked path maps a Qwen-style 2D bbox to an integer-grid hazard cell,
+assigns four agents to formation slots, and verifies persisted hazard and agent
+traces from disk. It is not 3D grounding, physical behavior, or Qwen real-time
+control.
+
 ## Checked Live-Qwen Evidence
 
 Primary live Qwen mission evidence:

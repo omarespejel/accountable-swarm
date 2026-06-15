@@ -344,6 +344,37 @@ Qwen, SO-101, webcam access, DimOS, Docker, or cloud credentials.
 Use `--out-dir` only when you want to override the default `runs/demo/swarm`
 output location.
 
+## Hazard Formation Gate
+
+The hazard formation gate links the perception and swarm surfaces without
+putting Qwen in the control loop:
+
+```bash
+python3 -m scripts.run_hazard_formation_gate \
+  --image fixtures/hazard_marker.ppm \
+  --mode fixture \
+  --formation x \
+  --trace-dir runs/hazard_formation/smoke_x \
+  --report-out runs/hazard_formation/smoke_x_report.json
+```
+
+The checked fixture path converts a Qwen-style bbox into an integer-grid hazard
+cell, assigns four agents to an `x` formation around it, routes them with the
+local reservation planner, and verifies persisted hazard and agent traces from
+disk. Degraded mode emits local `HOLD` traces when cloud perception is
+unavailable or invalid:
+
+```bash
+python3 -m scripts.run_hazard_formation_gate \
+  --image fixtures/hazard_marker.ppm \
+  --mode degraded \
+  --trace-dir runs/hazard_formation/degraded \
+  --report-out runs/hazard_formation/degraded_report.json
+```
+
+This is not physical robot behavior, 3D grounding, DimOS integration, latency,
+reliability, safety, or Qwen real-time control.
+
 ## Swarm Scenario Suite
 
 The suite reruns the deterministic swarm cases and includes one intentional
@@ -425,4 +456,6 @@ NARROW_CLAIM matrix. The short version:
   registry: GO.
 - Read-only stdlib server endpoints for the deterministic swarm demo bundle:
   GO.
+- Hazard bbox to formation planner gate: GO in fixture mode, with degraded
+  local hold fallback.
 - SO-101, physics/DimOS swarm, and Alibaba ECS deployment: not yet proven.
