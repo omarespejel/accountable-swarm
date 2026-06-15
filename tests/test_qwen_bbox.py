@@ -1,6 +1,10 @@
 from unittest import TestCase
 
-from accountable_swarm.qwen.bbox import parse_qwen_bbox_response, rescale_norm_1000_bbox
+from accountable_swarm.qwen.bbox import (
+    parse_qwen_bbox_optional_response,
+    parse_qwen_bbox_response,
+    rescale_norm_1000_bbox,
+)
 
 
 class QwenBBoxTests(TestCase):
@@ -50,3 +54,20 @@ class QwenBBoxTests(TestCase):
     def test_rejects_empty_detection_array(self) -> None:
         with self.assertRaises(ValueError):
             parse_qwen_bbox_response("[]", image_width=100, image_height=50)
+
+    def test_optional_response_accepts_empty_detection_array_with_whitespace(self) -> None:
+        self.assertIsNone(parse_qwen_bbox_optional_response("[ ]", image_width=100, image_height=50))
+
+    def test_optional_response_accepts_prose_wrapped_empty_detection_array(self) -> None:
+        self.assertIsNone(parse_qwen_bbox_optional_response("no hazard: []", image_width=100, image_height=50))
+
+    def test_optional_response_still_parses_non_empty_detection(self) -> None:
+        parsed = parse_qwen_bbox_optional_response(
+            '[{"bbox_2d":[0,100,1000,900],"label":"marked hazard"}]',
+            image_width=100,
+            image_height=50,
+        )
+        self.assertIsNotNone(parsed)
+        assert parsed is not None
+        self.assertEqual(parsed.label, "marked hazard")
+        self.assertEqual(parsed.bbox_2d_px, (0, 5, 100, 45))
