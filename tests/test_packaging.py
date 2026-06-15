@@ -12,5 +12,18 @@ class PackagingTests(TestCase):
         self.assertIn("dependencies = []", text)
         self.assertIn('run-go-gate = "scripts.run_go_gate:main"', text)
         self.assertIn('run-camera-go-gate = "scripts.run_camera_go_gate:main"', text)
+        self.assertIn('prepare-demo-recording-pack = "scripts.prepare_demo_recording_pack:main"', text)
         self.assertIn('collect-ecs-smoke-report = "scripts.collect_ecs_smoke_report:main"', text)
         self.assertIn('verify-trace = "scripts.verify_trace:main"', text)
+
+        try:
+            import tomllib
+        except ModuleNotFoundError:
+            return
+
+        parsed = tomllib.loads(text)
+        scripts = parsed["project"]["scripts"]
+        self.assertEqual(
+            scripts["prepare-demo-recording-pack"],
+            "scripts.prepare_demo_recording_pack:main",
+        )

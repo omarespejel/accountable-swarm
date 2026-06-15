@@ -60,6 +60,18 @@ The current judge-facing swarm path is collected in
 bundle, live-Qwen evidence, Alibaba ECS proof checklist, demo-video shot list,
 and final non-claims.
 
+Prepare the current local recording artifacts without provider credentials:
+
+```bash
+python3 scripts/prepare_demo_recording_pack.py
+```
+
+This writes `runs/demo/recording-pack/manifest.json` and
+`runs/demo/recording-pack/shotlist.md`, then points to the generated animated
+swarm replay and hazard-to-X-formation report. It is a recording convenience
+over checked deterministic paths, not DimOS, SO-101, 3D physics, ECS proof, or
+Qwen real-time control evidence.
+
 ## Current Build Gate
 
 The first useful success is:

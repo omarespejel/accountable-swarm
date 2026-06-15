@@ -201,7 +201,22 @@ Proof checklist for the operator:
 
 ## Demo Video Shot List
 
-Use a short screen-recorded video. Keep it factual.
+Use a short screen-recorded video. Keep it factual. The detailed recording
+guide is `docs/submission/demo-video-shotlist-2026-06-16.md`.
+
+Prepare the local recording pack:
+
+```bash
+python3 scripts/prepare_demo_recording_pack.py
+```
+
+Expected high-level output:
+
+```text
+outcome GO
+manifest runs/demo/recording-pack/manifest.json
+shotlist runs/demo/recording-pack/shotlist.md
+```
 
 1. Show the repository root, `LICENSE`, and this manifest.
 2. Run `python3 scripts/build_swarm_demo_bundle.py`.
