@@ -15,7 +15,8 @@ class CameraGoGateCliTests(TestCase):
         result = subprocess.run(
             [
                 sys.executable,
-                "scripts/run_camera_go_gate.py",
+                "-m",
+                "scripts.run_camera_go_gate",
                 "--image",
                 "fixtures/hazard_marker.ppm",
                 "--mode",
@@ -45,7 +46,8 @@ class CameraGoGateCliTests(TestCase):
         result = subprocess.run(
             [
                 sys.executable,
-                "scripts/run_camera_go_gate.py",
+                "-m",
+                "scripts.run_camera_go_gate",
                 "--image",
                 "fixtures/hazard_marker.ppm",
                 "--mode",

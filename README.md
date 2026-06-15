@@ -87,10 +87,14 @@ python3 scripts/run_camera_go_gate.py \
 python3 -m scripts.verify_trace runs/go_gate/camera_trace.json
 ```
 
+After `python3 -m pip install -e .`, the same gate is available as
+`run-camera-go-gate`. `./scripts/local_gate.sh` validates that installed
+entry point on the fixture frame.
+
 Live Qwen mode requires a local `ALIBABA_API_KEY`:
 
 ```bash
-python3 scripts/run_camera_go_gate.py \
+run-camera-go-gate \
   --image runs/go_gate/hazard_marker.png \
   --mode dashscope \
   --trace-out runs/go_gate/camera_qwen_trace.json \

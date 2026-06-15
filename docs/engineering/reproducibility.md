@@ -69,12 +69,24 @@ python3 -m scripts.verify_trace runs/go_gate/qwen_trace.json
 Camera/static-frame gate:
 
 ```bash
-python3 scripts/run_camera_go_gate.py \
+python3 -m scripts.run_camera_go_gate \
   --image fixtures/hazard_marker.ppm \
   --mode fixture \
   --trace-out runs/go_gate/camera_trace.json \
   --report-out runs/go_gate/camera_report.json
 python3 -m scripts.verify_trace runs/go_gate/camera_trace.json
+```
+
+Installed camera/static-frame gate after editable install:
+
+```bash
+python3 -m pip install -e .
+run-camera-go-gate \
+  --image fixtures/hazard_marker.ppm \
+  --mode fixture \
+  --trace-out runs/go_gate/camera_trace.json \
+  --report-out runs/go_gate/camera_report.json
+verify-trace runs/go_gate/camera_trace.json
 ```
 
 Deterministic N=2 swarm gate:

@@ -181,9 +181,12 @@ Use a short screen-recorded video. Keep it factual.
    scenarios.
 5. Show `runs/demo/swarm/summary.json` with scenario outcomes and replay
    counters.
-6. Show `docs/submission/architecture.md` and point out that Qwen is not in the
+6. If using the webcam/sensor-frame fallback, run `run-camera-go-gate` or show
+   the untracked `webcam_qwen_report.json` summary with all five pass
+   conditions true. State explicitly: no robot motion and no SO-101 claim.
+7. Show `docs/submission/architecture.md` and point out that Qwen is not in the
    real-time loop.
-7. Optional, if ECS proof exists: show the public `/swarm-demo` endpoint and
+8. Optional, if ECS proof exists: show the public `/swarm-demo` endpoint and
    `/readyz` response.
 
 ## Submission Text Draft
