@@ -54,6 +54,7 @@ required = [
     "docs/engineering/swarm-vertical-slalom-2026-06-15.md",
     "docs/engineering/swarm-horizontal-slalom-2026-06-15.md",
     "docs/engineering/swarm-double-chicane-2026-06-15.md",
+    "docs/engineering/swarm-larger-boundary-2026-06-15.md",
     "docs/engineering/swarm-scenario-registry-2026-06-15.md",
     "docs/engineering/camera-go-gate-2026-06-15.md",
     "docs/engineering/alibaba-ecs-manual-deploy-2026-06-15.md",

@@ -26,6 +26,7 @@ from accountable_swarm.swarm.sim import (
     scenario_default_ticks,
     scenario_names,
     scenario_spec,
+    supported_agent_counts,
 )
 
 __all__ = [
@@ -52,4 +53,5 @@ __all__ = [
     "scenario_default_ticks",
     "scenario_names",
     "scenario_spec",
+    "supported_agent_counts",
 ]

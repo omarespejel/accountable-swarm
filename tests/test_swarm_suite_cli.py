@@ -12,6 +12,36 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class SwarmSuiteCliTests(TestCase):
+    def test_swarm_sim_cli_rejects_unreviewed_larger_agent_count(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            trace_dir = Path(tmpdir) / "traces"
+            report_path = Path(tmpdir) / "report.json"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "scripts/run_swarm_sim.py",
+                    "--agents",
+                    "5",
+                    "--ticks",
+                    "20",
+                    "--scenario",
+                    "center-block",
+                    "--trace-dir",
+                    str(trace_dir),
+                    "--report-out",
+                    str(report_path),
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("invalid choice: 5", result.stderr)
+            self.assertFalse(report_path.exists())
+            self.assertFalse(trace_dir.exists())
+
     def test_swarm_suite_writes_expected_go_and_narrow_cases(self) -> None:
         with TemporaryDirectory() as tmpdir:
             trace_root = Path(tmpdir) / "traces"

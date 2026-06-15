@@ -41,6 +41,9 @@ This is the current repo state after the first 10-hour execution block began at
   same-cell collisions, zero swap collisions, zero obstacle occupancy
   violations, and replay recomputes those counts from traces. The same
   scenario at 16 ticks remains `NARROW_CLAIM`.
+- Larger simulated swarm counts are intentionally outside the current reviewed
+  surface. N=5/N=6 are not success claims; `--agents 5` is rejected before trace
+  or report artifacts are written.
 - Low-rate fixture mission assignment validates a strict mission JSON,
   emits a mission `DecisionTrace`, then runs deterministic N=4 center-block and
   horizontal-slalom swarm gates with zero same-cell, swap, or obstacle occupancy

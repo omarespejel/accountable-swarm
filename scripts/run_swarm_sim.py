@@ -9,13 +9,19 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from accountable_swarm.swarm import build_agent_traces, replay_swarm_traces, run_swarm_sim, scenario_names
+from accountable_swarm.swarm import (
+    build_agent_traces,
+    replay_swarm_traces,
+    run_swarm_sim,
+    scenario_names,
+    supported_agent_counts,
+)
 from accountable_swarm.trace.models import canonical_json, verify_trace
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--agents", type=int, default=2)
+    parser.add_argument("--agents", type=int, choices=supported_agent_counts(), default=2)
     parser.add_argument("--ticks", type=int, default=8)
     parser.add_argument("--grid-width", type=int, default=7)
     parser.add_argument("--grid-height", type=int, default=5)

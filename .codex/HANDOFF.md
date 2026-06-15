@@ -51,6 +51,9 @@ What is checked locally:
   same-cell collisions, zero swap collisions, zero obstacle occupancy, and
   replay recomputes those counts from traces. The same scenario at 16 ticks
   remains `NARROW_CLAIM`.
+- larger simulated swarm counts are intentionally outside the current reviewed
+  surface; N=5/N=6 are not success claims, and `--agents 5` is rejected before
+  trace or report artifacts are written.
 - low-rate fixture mission assignment validates strict mission JSON, emits a
   mission `DecisionTrace`, then runs deterministic N=4 center-block and
   horizontal-slalom swarm gates with trace-replayed zero same-cell, swap, and
