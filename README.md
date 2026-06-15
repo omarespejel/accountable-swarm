@@ -251,11 +251,11 @@ python3 scripts/verify_swarm_mission_suite.py \
 ```
 
 The prior checked 2026-06-15 evidence shows `GO` for live `qwen-plus` mission
-intent across the then-reviewed four scenario-registry names. The current
-five-scenario registry has local fixture/sim evidence for `double-chicane`;
-rerun the live suite before making a five-scenario live-Qwen claim. This is
-still not a real-time Qwen control claim, arbitrary-map claim, larger-swarm
-claim, or physical robot claim.
+intent across the then-reviewed four scenario-registry names. The refreshed
+post-hardening 2026-06-15 evidence also shows `GO` for live `qwen-plus` mission
+intent across the current five-scenario registry, including `double-chicane`.
+This is still not a real-time Qwen control claim, arbitrary-map claim,
+larger-swarm claim, or physical robot claim.
 
 Mission-suite trace verification:
 
@@ -386,8 +386,8 @@ NARROW_CLAIM matrix. The short version:
   coordinates, scenarios, arrays, or control terms are rejected.
 - Live `qwen-plus` mission intent into the reviewed N=4 center-block swarm
   gate: GO.
-- Prior live `qwen-plus` mission suite across the then-reviewed four-scenario
-  registry: GO. Rerun before claiming live-Qwen coverage for `double-chicane`.
+- Live `qwen-plus` mission suite across the reviewed five-scenario registry:
+  GO, including `double-chicane`, after objective-text hardening.
 - Deterministic swarm scenario suite with expected-NARROW canary: GO.
 - Deterministic swarm trace visualization from verified persisted traces: GO.
 - One-command deterministic swarm demo bundle across the reviewed scenario
