@@ -122,7 +122,7 @@ What is not checked yet:
 - Issue #4: Alibaba/Qwen proof path.
 - Issue #2, #6, #11, #13, #15, #17, #19, #21, #23, #25, #27, #29, #33,
   #35, #37, #39, #41, #43, #45, #48, and #50 are closed as GO. Issue #52 is
-  open for post-hardening live Qwen five-scenario evidence.
+  addressed by PR #53 and will close on merge.
 - PR #5, #7, #8, #9, #10, #12, #14, #16, #18, #20, #22, #24, #34, #36, and
   #38, #40, #42, #44, #46, #47, #49, and #51 are merged.
 
