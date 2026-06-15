@@ -50,6 +50,9 @@ What is checked locally:
   SO-101 operation or physical motion evidence.
 - minimal stdlib HTTP server and Dockerfile exist for manual Alibaba ECS proof;
   operator still needs to provision ECS and run the smoke checks.
+- ECS operator proof pack generator prepares a non-secret runbook, command
+  script, empty `.env` template, and manifest for the operator-run Alibaba ECS
+  proof session; this is not itself deployment proof.
 - deterministic N=2 integer-grid simulated swarm emits one DecisionTrace per
   agent, reaches goals, and reports zero same-cell or swap collisions.
 - deterministic N=2 center-block obstacle scenario reaches goals, reports zero
@@ -117,6 +120,9 @@ What is checked locally:
   traces, static replays, and a deterministic index for every reviewed scenario
   registry name; checked index SHA is
   `b929f77827e69b9100e9883f78e7b882e7b161d67350a31a129d452f99c63368`.
+- demo recording pack generator builds the deterministic swarm bundle, runs the
+  fixture hazard-to-X formation gate, and emits a judge-facing manifest plus
+  shotlist with fixture/live-Qwen boundaries separated.
 - read-only stdlib server endpoints serve existing swarm bundle artifacts at
   `/swarm-demo` and `/swarm-demo/summary.json` with path traversal rejection.
 - exploratory deterministic N=4 integer-grid probe passes locally, but is not a
@@ -144,6 +150,9 @@ What is not checked yet:
   #35, #37, #39, #41, #43, #45, #48, #50, and #52 are closed as GO.
 - Issue #54 is active for GO-gate follow-up hardening. P1 and P2 are merged as
   GO; P3 confidence and tiny-bbox policy remain open.
+- Issue #59 is active for submission readiness. PR #66 merged the demo
+  recording pack; Alibaba ECS proof (#4) and physical/SO-101 or acceptable
+  real sensor proof (#3) remain open.
 - PR #5, #7, #8, #9, #10, #12, #14, #16, #18, #20, #22, #24, #34, #36, and
   #38, #40, #42, #44, #46, #47, #49, and #51 are merged.
 

@@ -43,6 +43,7 @@ required = [
     "scripts/run_swarm_suite.py",
     "scripts/render_swarm_trace_html.py",
     "scripts/prepare_demo_recording_pack.py",
+    "scripts/prepare_ecs_operator_pack.py",
     "scripts/verify_swarm_mission_suite.py",
     "scripts/serve_demo.py",
     "docs/engineering/reproducibility.md",
@@ -63,6 +64,7 @@ required = [
     "docs/engineering/swarm-trace-visualization-2026-06-15.md",
     "docs/engineering/animated-swarm-replay-2026-06-16.md",
     "docs/engineering/demo-recording-pack-2026-06-16.md",
+    "docs/engineering/ecs-operator-proof-pack-2026-06-16.md",
     "docs/engineering/live-dashscope-hazard-formation-2026-06-16.md",
     "docs/engineering/live-dashscope-swarm-mission-2026-06-15.md",
     "docs/engineering/live-dashscope-swarm-mission-suite-2026-06-15.md",
@@ -151,6 +153,9 @@ python3 -m venv "$gate_tmp/venv"
     --trace-dir runs/hazard_formation/local_gate_x \
     --report-out runs/hazard_formation/local_gate_x_report.json
 "$gate_tmp/venv/bin/verify-trace" runs/hazard_formation/local_gate_x/hazard.json
+
+"$gate_tmp/venv/bin/prepare-ecs-operator-pack" \
+    --out-dir runs/ecs/local_gate_operator_pack
 
 "$gate_tmp/venv/bin/python" -m unittest discover -s tests
 

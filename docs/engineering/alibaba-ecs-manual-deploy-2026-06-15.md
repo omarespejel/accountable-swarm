@@ -23,20 +23,33 @@ and runs the commands.
 
 ## ECS Operator Checklist
 
+1. Prepare a non-secret operator proof pack from the commit you intend to
+   deploy:
+
+```bash
+python3 scripts/prepare_ecs_operator_pack.py --commit "$(git rev-parse HEAD)"
+```
+
+This writes `runs/ecs/operator-pack/README.md`,
+`runs/ecs/operator-pack/operator_commands.sh`,
+`runs/ecs/operator-pack/.env.template`, and
+`runs/ecs/operator-pack/manifest.json`. The pack is not itself proof; it is the
+operator checklist and pinned command set for the ECS run.
+
 1. Create an ECS Linux instance.
-2. Install Docker using Alibaba's current ECS Docker guide.
-3. Configure a security group:
+1. Install Docker using Alibaba's current ECS Docker guide.
+1. Configure a security group:
    - allow SSH only from the operator IP;
    - allow TCP `8000` only from the operator IP for smoke testing;
    - do not open the demo port publicly for the first proof.
-4. Clone the public repo:
+1. Clone the public repo:
 
 ```bash
 git clone https://github.com/omarespejel/accountable-swarm.git
 cd accountable-swarm
 ```
 
-5. Create a local `.env` on the ECS host. Do not commit it:
+1. Create a local `.env` on the ECS host. Do not commit it:
 
 ```bash
 umask 077
@@ -46,7 +59,7 @@ QWEN_VL_MODEL=qwen3-vl-flash
 EOF
 ```
 
-6. Build and run:
+1. Build and run:
 
 ```bash
 docker build -t accountable-swarm:ecs .
@@ -59,7 +72,7 @@ The Docker image builds the deterministic swarm demo bundle during
 artifacts. The image pins `SWARM_DEMO_BUNDLE_DIR=/app/runs/demo/swarm` and
 builds the bundle to that same path.
 
-7. In another shell, run smoke checks:
+1. In another shell, run smoke checks:
 
 ```bash
 curl -fsS http://127.0.0.1:8000/healthz
@@ -79,6 +92,13 @@ python3 -m scripts.collect_ecs_smoke_report \
   --commit "$(git rev-parse HEAD)" \
   --out runs/ecs/ecs_smoke_report.json
 python3 -m json.tool runs/ecs/ecs_smoke_report.json
+```
+
+Alternatively, after generating the operator pack, run its command script from
+the repository root on the ECS host:
+
+```bash
+runs/ecs/operator-pack/operator_commands.sh
 ```
 
 ## Expected Proof

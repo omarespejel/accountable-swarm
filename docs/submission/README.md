@@ -182,6 +182,14 @@ Status: pending operator action.
 Manual deployment checklist:
 
 - `docs/engineering/alibaba-ecs-manual-deploy-2026-06-15.md`
+- `docs/engineering/ecs-operator-proof-pack-2026-06-16.md`
+
+Prepare the non-secret operator pack before provisioning or while preparing the
+ECS session:
+
+```bash
+python3 scripts/prepare_ecs_operator_pack.py --commit "$(git rev-parse HEAD)"
+```
 
 The repo already contains the minimal stdlib backend and Dockerfile. The
 submission must not claim completed Alibaba ECS deployment until the operator

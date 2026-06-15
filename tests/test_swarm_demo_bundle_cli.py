@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import importlib.util
+import errno
 import json
 from pathlib import Path
 import subprocess
 import sys
+import time
 from tempfile import TemporaryDirectory
 from unittest import TestCase
 from unittest.mock import patch
@@ -194,19 +196,40 @@ class SwarmDemoBundleCliTests(TestCase):
 
 
 def _run_bundle(out_dir: Path, *extra_args: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        [
-            sys.executable,
-            "scripts/build_swarm_demo_bundle.py",
-            "--out-dir",
-            str(out_dir),
-            *extra_args,
-        ],
-        cwd=ROOT,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
+    args = [
+        sys.executable,
+        "scripts/build_swarm_demo_bundle.py",
+        "--out-dir",
+        str(out_dir),
+        *extra_args,
+    ]
+    for attempt in range(5):
+        try:
+            result = subprocess.run(
+                args,
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            if (
+                result.returncode == 4
+                and f"Errno {errno.EAGAIN}" in result.stderr
+                and "Resource temporarily unavailable" in result.stderr
+                and attempt < 4
+            ):
+                time.sleep(0.5)
+                continue
+            return result
+        except OSError as exc:
+            if not _is_retryable_spawn_error(exc) or attempt == 4:
+                raise
+            time.sleep(0.5)
+    raise RuntimeError("unreachable bundle retry state")
+
+
+def _is_retryable_spawn_error(exc: OSError) -> bool:
+    return isinstance(exc, BlockingIOError) or exc.errno == errno.EAGAIN
 
 
 def _load_bundle_module():
