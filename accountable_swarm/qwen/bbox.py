@@ -62,6 +62,17 @@ def parse_qwen_bbox_response(response_text: str, *, image_width: int, image_heig
     )
 
 
+def parse_qwen_bbox_optional_response(
+    response_text: str, *, image_width: int, image_height: int
+) -> QwenGrounding | None:
+    """Parse Qwen bbox JSON where an empty array explicitly means no detection."""
+
+    parsed = _extract_first_json(response_text)
+    if isinstance(parsed, list) and not parsed:
+        return None
+    return parse_qwen_bbox_response(response_text, image_width=image_width, image_height=image_height)
+
+
 def rescale_norm_1000_bbox(
     bbox: tuple[int, int, int, int], *, image_width: int, image_height: int
 ) -> tuple[int, int, int, int]:

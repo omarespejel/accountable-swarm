@@ -19,6 +19,8 @@ This PR closes the P1 surface of issue #54:
 - fixture clear frame emits `MOVE`;
 - DashScope bbox calls send `temperature: 0`;
 - DashScope bbox parsing retries once after malformed model text before failing;
+- optional GO-gate grounding treats extracted empty arrays, including `[ ]` and
+  prose-wrapped `[]`, as a clear frame while keeping the strict parser strict;
 - trace hashing still rejects raw floats rather than quantizing arbitrary floats.
 
 The P2/P3 items from issue #54 remain out of scope: package metadata,
@@ -44,7 +46,7 @@ python3 scripts/verify_trace.py runs/go_gate/p1_clear_trace.json
 ## Observed Output
 
 ```text
-Ran 22 tests in 0.437s
+Ran 25 tests in 0.462s
 OK
 
 wrote runs/go_gate/p1_hazard_trace.json
@@ -67,6 +69,8 @@ summary_sha 73cf106f7d52e864f2de6f2db4e49cbb093dcd5d15daf12737613446aa1e9269
 - `scripts/local_gate.sh` runs both fixture traces and `verify_trace.py`;
 - DashScope request payload pins `temperature` to `0`;
 - malformed DashScope bbox text is retried exactly once in tests;
+- empty optional Qwen detection arrays with whitespace or surrounding prose are
+  interpreted as clear frames;
 - repeated malformed DashScope bbox text fails with a controlled `ValueError`;
 - no raw floats are introduced into hashed trace payloads.
 

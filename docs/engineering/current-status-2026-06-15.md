@@ -16,6 +16,9 @@ This is the current repo state after the first 10-hour execution block began at
 - Trace canonical JSON rejects raw floats.
 - DashScope bbox calls pin `temperature: 0`; malformed bbox text is retried
   once before failing with a controlled error.
+- The GO-gate optional-grounding wrapper maps extracted empty arrays, including
+  `[ ]` and prose-wrapped `[]`, to clear frames; the strict bbox parser still
+  rejects empty arrays.
 - Camera/static-frame GO gate reports five binary pass conditions.
 - Degraded/offline mode emits local `HOLD` trace without Qwen.
 - Minimal stdlib HTTP server works locally.

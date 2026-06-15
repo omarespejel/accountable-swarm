@@ -10,7 +10,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from accountable_swarm.images import image_size
-from accountable_swarm.qwen.bbox import QwenGrounding, parse_qwen_bbox_response
+from accountable_swarm.qwen.bbox import QwenGrounding, parse_qwen_bbox_optional_response
 from accountable_swarm.qwen.client import DashScopeQwenClient, DashScopeResponseError, MissingAlibabaApiKey
 from accountable_swarm.trace.models import PerceptionEvent, build_single_event_trace, verify_trace
 
@@ -152,9 +152,7 @@ def _get_grounding(
 def _parse_optional_grounding(
     response_text: str, *, image_width: int, image_height: int
 ) -> QwenGrounding | None:
-    if response_text.strip() == "[]":
-        return None
-    return parse_qwen_bbox_response(response_text, image_width=image_width, image_height=image_height)
+    return parse_qwen_bbox_optional_response(response_text, image_width=image_width, image_height=image_height)
 
 
 if __name__ == "__main__":
