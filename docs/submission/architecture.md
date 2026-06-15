@@ -45,7 +45,7 @@ flowchart LR
 | Swarm planner | Deterministic integer-grid planner with local collision and obstacle guards | Checked for four agents in the reviewed scenarios |
 | DecisionTrace | Hash-chained event evidence for mission and agent decisions | Checked by replay verifiers |
 | Static replay bundle | Judge-facing HTML/SVG and JSON summary generated from persisted traces | Checked by `scripts/build_swarm_demo_bundle.py` evidence |
-| Minimal server | Serves existing artifacts and smoke endpoints | Checked locally; ECS proof pending |
+| Minimal server | Serves `/swarm-demo` bundle artifacts read-only; auxiliary smoke endpoints can compute a fixture trace or ping Qwen | Checked locally; ECS proof pending |
 
 ## Data Flow
 

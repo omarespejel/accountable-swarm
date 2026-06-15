@@ -366,8 +366,11 @@ GET /swarm-demo/summary.json
 ```
 
 Run `python3 scripts/build_swarm_demo_bundle.py` before opening
-`/swarm-demo`. The server serves existing bundle artifacts only; it does not
-generate or mutate them on request.
+`/swarm-demo`. The `/swarm-demo` routes serve existing bundle artifacts
+read-only and do not generate or mutate bundle state on request. Auxiliary
+smoke endpoints also exist: `/camera-fixture` builds and verifies an in-memory
+fixture `DecisionTrace`, and `/qwen-ping` may call DashScope when
+`ALIBABA_API_KEY` is configured.
 
 See `docs/engineering/alibaba-ecs-manual-deploy-2026-06-15.md`.
 
