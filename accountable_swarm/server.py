@@ -102,7 +102,11 @@ class AccountableSwarmHandler(BaseHTTPRequestHandler):
         except (DashScopeResponseError, ValueError) as exc:
             self._send_json({"status": "failed", "model": model, "error": str(exc)}, status=502)
             return
-        self._send_json({"status": "ok", "model": model, "content_prefix": content.strip()[:16]})
+        content_prefix = content.strip()[:16]
+        if not content_prefix.startswith("OK"):
+            self._send_json({"status": "failed", "model": model, "content_prefix": content_prefix}, status=502)
+            return
+        self._send_json({"status": "ok", "model": model, "content_prefix": content_prefix})
 
     def _handle_swarm_demo_file(self, rel_url_path: str) -> None:
         root = _swarm_demo_bundle_root()

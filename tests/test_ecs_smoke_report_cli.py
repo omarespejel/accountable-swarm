@@ -9,7 +9,7 @@ from unittest import TestCase
 
 
 ROOT = Path(__file__).resolve().parents[1]
-COMMIT = "a" * 64
+COMMIT = "a" * 40
 
 
 class EcsSmokeReportCliTests(TestCase):
@@ -66,6 +66,81 @@ class EcsSmokeReportCliTests(TestCase):
             self.assertEqual(report["outcome"], "NARROW_CLAIM")
             self.assertFalse(report["pass_conditions"]["qwen-ping_model_qwen-plus"])
 
+    def test_fails_closed_when_qwen_content_is_unexpected(self) -> None:
+        with _fake_ecs_server(qwen_status="bad_content") as base_url, TemporaryDirectory() as tmpdir:
+            out = Path(tmpdir) / "ecs_report.json"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.collect_ecs_smoke_report",
+                    "--base-url",
+                    base_url,
+                    "--commit",
+                    COMMIT,
+                    "--out",
+                    str(out),
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 4)
+            report = json.loads(out.read_text(encoding="utf-8"))
+            self.assertEqual(report["outcome"], "NARROW_CLAIM")
+            self.assertFalse(report["pass_conditions"]["qwen-ping_model_qwen-plus"])
+
+    def test_fails_closed_when_commit_is_malformed(self) -> None:
+        with _fake_ecs_server(qwen_status="ok") as base_url, TemporaryDirectory() as tmpdir:
+            out = Path(tmpdir) / "ecs_report.json"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.collect_ecs_smoke_report",
+                    "--base-url",
+                    base_url,
+                    "--commit",
+                    "not-a-sha",
+                    "--out",
+                    str(out),
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 4)
+            report = json.loads(out.read_text(encoding="utf-8"))
+            self.assertEqual(report["outcome"], "NARROW_CLAIM")
+            self.assertFalse(report["pass_conditions"]["deployed_commit_recorded"])
+
+    def test_fails_closed_when_swarm_summary_schema_is_wrong(self) -> None:
+        with _fake_ecs_server(qwen_status="ok", summary_schema="wrong.v1") as base_url, TemporaryDirectory() as tmpdir:
+            out = Path(tmpdir) / "ecs_report.json"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.collect_ecs_smoke_report",
+                    "--base-url",
+                    base_url,
+                    "--commit",
+                    COMMIT,
+                    "--out",
+                    str(out),
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 4)
+            report = json.loads(out.read_text(encoding="utf-8"))
+            self.assertEqual(report["outcome"], "NARROW_CLAIM")
+            self.assertFalse(report["pass_conditions"]["swarm-demo_summary.json"])
+
     def test_allow_narrow_claim_writes_report_with_zero_exit(self) -> None:
         with _fake_ecs_server(qwen_status="missing_key") as base_url, TemporaryDirectory() as tmpdir:
             out = Path(tmpdir) / "ecs_report.json"
@@ -92,11 +167,13 @@ class EcsSmokeReportCliTests(TestCase):
 
 
 class _fake_ecs_server:
-    def __init__(self, *, qwen_status: str) -> None:
+    def __init__(self, *, qwen_status: str, summary_schema: str = "swarm-demo-bundle-report.v1") -> None:
         self.qwen_status = qwen_status
+        self.summary_schema = summary_schema
 
     def __enter__(self) -> str:
         qwen_status = self.qwen_status
+        summary_schema = self.summary_schema
 
         class Handler(BaseHTTPRequestHandler):
             def do_GET(self) -> None:  # noqa: N802
@@ -108,7 +185,7 @@ class _fake_ecs_server:
                         self,
                         {
                             "default_vl_model": "qwen3-vl-flash",
-                            "has_alibaba_api_key": qwen_status == "ok",
+                            "has_alibaba_api_key": qwen_status in {"ok", "bad_content"},
                             "status": "ok",
                         },
                     )
@@ -133,6 +210,7 @@ class _fake_ecs_server:
                         {
                             "index_sha256": "c" * 64,
                             "outcome": "GO",
+                            "schema_version": summary_schema,
                             "scenario_count": 5,
                         },
                     )
@@ -140,6 +218,8 @@ class _fake_ecs_server:
                 if self.path == "/qwen-ping?model=qwen-plus":
                     if qwen_status == "ok":
                         _send_json(self, {"content_prefix": "OK.", "model": "qwen-plus", "status": "ok"})
+                    elif qwen_status == "bad_content":
+                        _send_json(self, {"content_prefix": "NOPE", "model": "qwen-plus", "status": "ok"})
                     else:
                         _send_json(self, {"model": "qwen-plus", "status": qwen_status}, status=503)
                     return
