@@ -85,9 +85,9 @@ This is the current repo state after the first 10-hour execution block began at
   `NARROW_CLAIM` canary, and verifies persisted agent traces from disk.
 - Fixed swarm scenario registry centralizes current scenario names, obstacle
   policies, fixed-grid requirements, and reservation-planner use.
-- Deterministic swarm trace visualization emits a static HTML/SVG replay and
-  canonical summary from verified persisted N=4 center-block traces, with zero
-  same-cell, swap, and obstacle-occupancy violations.
+- Deterministic swarm trace visualization emits an animated browser replay,
+  static HTML/SVG tick frames, and canonical summary from verified persisted
+  N=4 traces, with zero same-cell, swap, and obstacle-occupancy violations.
 - One-command deterministic swarm demo bundle generates scenario reports,
   verified agent traces, static HTML/SVG replays, and a deterministic index
   for every reviewed scenario-registry name.
@@ -119,8 +119,8 @@ This is the current repo state after the first 10-hour execution block began at
   cryptographic authenticity, remote attestation, or compromised-filesystem
   claim.
 - The swarm trace visualization is an inspection artifact over persisted
-  integer-grid traces. It is not a physics, hardware, live-Qwen, latency,
-  reliability, arbitrary-map, or larger-swarm claim.
+  integer-grid traces. It is not a physics, hardware, live-Qwen, DimOS,
+  latency, reliability, arbitrary-map, or larger-swarm claim.
 - The swarm demo bundle is the current judge-friendly local simulation path.
   It is not evidence for physical robot behavior, SO-101 operation, 3D
   physics, live Qwen reasoning, latency, reliability, DimOS integration,

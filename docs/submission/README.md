@@ -35,7 +35,7 @@ wrote runs/demo/swarm/index.html
 wrote runs/demo/swarm/summary.json
 ```
 
-Open the generated static artifact:
+Open the generated replay artifact:
 
 ```text
 runs/demo/swarm/index.html
@@ -82,7 +82,9 @@ The reviewed scenario registry is:
 
 The current bundle claim is limited to four agents on deterministic integer
 grids, with zero same-cell, swap, and obstacle-occupancy violations in the
-trace-derived replay for the listed scenarios.
+trace-derived replay for the listed scenarios. Each scenario replay page now
+contains a recordable animated panel plus static per-tick SVG frames generated
+from the same verified persisted traces.
 
 Primary hazard-to-formation evidence:
 
