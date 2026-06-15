@@ -62,6 +62,8 @@ required = [
     "docs/engineering/camera-go-gate-2026-06-15.md",
     "docs/engineering/alibaba-ecs-manual-deploy-2026-06-15.md",
     "docs/engineering/current-status-2026-06-15.md",
+    "docs/submission/README.md",
+    "docs/submission/architecture.md",
     "docs/engineering/webcam-tooling-note-2026-06-15.md",
     "docs/engineering/trace-scalar-policy.md",
     "docs/engineering/review-bot-policy.md",

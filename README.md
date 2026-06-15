@@ -40,6 +40,14 @@ Start every non-trivial task from:
 Use GitHub issues as hypotheses with explicit GO/NO-GO gates. Public claims need
 checked artifacts, exact commands, and explicit non-claims before promotion.
 
+## Submission Manifest
+
+The current judge-facing swarm path is collected in
+`docs/submission/README.md`, with the architecture diagram in
+`docs/submission/architecture.md`. The manifest links the one-command swarm demo
+bundle, live-Qwen evidence, Alibaba ECS proof checklist, demo-video shot list,
+and final non-claims.
+
 ## Current Build Gate
 
 The first useful success is:
