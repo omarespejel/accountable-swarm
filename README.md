@@ -328,8 +328,8 @@ larger-swarm claim.
 ## One-Command Swarm Demo Bundle
 
 The demo bundle command generates scenario reports, verified agent traces,
-static replay pages, and a deterministic index from the reviewed local scenario
-registry:
+animated replay pages, static per-tick SVG frames, and a deterministic index
+from the reviewed local scenario registry:
 
 ```bash
 python3 scripts/build_swarm_demo_bundle.py
@@ -343,6 +343,11 @@ This command is the current swarm-first judge path. It does not require live
 Qwen, SO-101, webcam access, DimOS, Docker, or cloud credentials.
 Use `--out-dir` only when you want to override the default `runs/demo/swarm`
 output location.
+
+Each scenario replay page includes a browser canvas animation driven by the
+same verified `DecisionTrace` timeline as the static frames. It is recordable
+demo material, not a DimOS, 3D physics, live-Qwen-control, latency, or
+physical-robot claim.
 
 ## Hazard Formation Gate
 
@@ -451,7 +456,8 @@ NARROW_CLAIM matrix. The short version:
 - Live `qwen-plus` mission suite across the reviewed five-scenario registry:
   GO, including `double-chicane`, after objective-text hardening.
 - Deterministic swarm scenario suite with expected-NARROW canary: GO.
-- Deterministic swarm trace visualization from verified persisted traces: GO.
+- Deterministic animated/static swarm trace visualization from verified
+  persisted traces: GO.
 - One-command deterministic swarm demo bundle across the reviewed scenario
   registry: GO.
 - Read-only stdlib server endpoints for the deterministic swarm demo bundle:
