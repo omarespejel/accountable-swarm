@@ -53,12 +53,19 @@ docker build -t accountable-swarm:ecs .
 docker run --rm --env-file .env -p 8000:8000 accountable-swarm:ecs
 ```
 
+The Docker image builds the deterministic swarm demo bundle during
+`docker build`, so a fresh container can serve `/swarm-demo` and
+`/swarm-demo/summary.json` without depending on untracked local `runs/`
+artifacts.
+
 7. In another shell, run smoke checks:
 
 ```bash
 curl -fsS http://127.0.0.1:8000/healthz
 curl -fsS http://127.0.0.1:8000/readyz
 curl -fsS http://127.0.0.1:8000/camera-fixture
+curl -fsS http://127.0.0.1:8000/swarm-demo
+curl -fsS http://127.0.0.1:8000/swarm-demo/summary.json
 curl -fsS 'http://127.0.0.1:8000/qwen-ping?model=qwen-plus'
 ```
 
@@ -71,6 +78,7 @@ The deployment proof is complete only when the operator records:
 - Docker image build command;
 - `curl /healthz` output;
 - `curl /camera-fixture` output with a 64-character `trace_summary_sha`;
+- `curl /swarm-demo/summary.json` output with `outcome: GO`;
 - `curl /qwen-ping?model=qwen-plus` output with `status: ok`;
 - screenshot or terminal log showing this ran on ECS.
 
