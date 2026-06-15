@@ -111,11 +111,10 @@ What is not checked yet:
 - Issue #1: research ground truth and build hierarchy.
 - Issue #3: physical-node safety contract.
 - Issue #4: Alibaba/Qwen proof path.
-- Issue #45: deterministic double-chicane swarm scenario.
 - Issue #2, #6, #11, #13, #15, #17, #19, #21, #23, #25, #27, #29, #33,
-  #35, #37, #39, #41, and #43 are closed as GO.
+  #35, #37, #39, #41, #43, and #45 are closed as GO.
 - PR #5, #7, #8, #9, #10, #12, #14, #16, #18, #20, #22, #24, #34, #36, and
-  #38, #40, #42, and #44 are merged.
+  #38, #40, #42, #44, and #46 are merged.
 
 Before creating new work, inspect the current PR and issues:
 
