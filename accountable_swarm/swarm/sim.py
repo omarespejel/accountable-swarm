@@ -22,6 +22,7 @@ from accountable_swarm.trace.models import (
 
 SWARM_REPORT_SCHEMA_VERSION = "swarm-sim-report.v1"
 SWARM_MODEL_ID = "deterministic-grid-swarm-v1"
+SUPPORTED_AGENT_COUNTS = (2, 4)
 RESERVATION_PLANNER_MAX_DEPTH = 16
 RESERVATION_PLANNER_MAX_EXPANSIONS = 5_000
 VERTICAL_SLALOM_GRID_WIDTH = 7
@@ -159,6 +160,12 @@ def scenario_default_ticks(scenario: str) -> int:
     """Return the reviewed default tick budget for a supported scenario."""
 
     return scenario_spec(scenario).default_ticks
+
+
+def supported_agent_counts() -> tuple[int, ...]:
+    """Return reviewed agent counts for the deterministic integer-grid simulator."""
+
+    return SUPPORTED_AGENT_COUNTS
 
 
 @dataclass(frozen=True)
@@ -857,8 +864,9 @@ def _default_configs(agent_count: int, *, grid_width: int, grid_height: int) -> 
         AgentConfig("sim-agent-2", GridPoint(grid_width // 2, 0), GridPoint(grid_width // 2, grid_height - 1)),
         AgentConfig("sim-agent-3", GridPoint(grid_width // 2, grid_height - 1), GridPoint(grid_width // 2, 0)),
     )
-    if agent_count not in {2, 4}:
-        raise ValueError("agent_count must be 2 or 4 for the current checked scenarios")
+    if agent_count not in SUPPORTED_AGENT_COUNTS:
+        allowed = ", ".join(str(count) for count in SUPPORTED_AGENT_COUNTS)
+        raise ValueError(f"agent_count must be one of {allowed} for the current checked scenarios")
     return configs[:agent_count]
 
 

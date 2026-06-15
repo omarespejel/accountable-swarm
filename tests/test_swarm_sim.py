@@ -7,6 +7,7 @@ from accountable_swarm.swarm import (
     run_swarm_sim,
     scenario_names,
     scenario_spec,
+    supported_agent_counts,
 )
 from accountable_swarm.trace.models import canonical_json, trace_from_dict, verify_trace
 from accountable_swarm.swarm.sim import AgentConfig, _choose_tick_steps
@@ -18,6 +19,7 @@ class SwarmSimTests(TestCase):
             scenario_names(),
             ("corridor", "center-block", "vertical-slalom", "horizontal-slalom", "double-chicane"),
         )
+        self.assertEqual(supported_agent_counts(), (2, 4))
         self.assertFalse(scenario_spec("corridor").use_reservation_planner)
         self.assertTrue(scenario_spec("center-block").use_reservation_planner)
         self.assertTrue(scenario_spec("vertical-slalom").use_reservation_planner)
@@ -347,5 +349,9 @@ class SwarmSimTests(TestCase):
         self.assertGreaterEqual(report["reroute_count"], 1)
 
     def test_unsupported_agent_count_is_rejected(self) -> None:
-        with self.assertRaises(ValueError):
+        with self.assertRaisesRegex(ValueError, "agent_count must be one of 2, 4"):
             run_swarm_sim(agent_count=3, ticks=8)
+
+    def test_larger_swarm_count_is_rejected_before_claiming_support(self) -> None:
+        with self.assertRaisesRegex(ValueError, "agent_count must be one of 2, 4"):
+            run_swarm_sim(agent_count=5, ticks=20, scenario="center-block")

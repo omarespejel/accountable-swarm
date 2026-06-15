@@ -378,6 +378,8 @@ NARROW_CLAIM matrix. The short version:
   integer-grid reservation-planner gate.
 - Deterministic N=4 double-chicane obstacle scenario: GO at 17 ticks and
   NARROW_CLAIM at 16 ticks.
+- Larger simulated swarm counts: intentionally unsupported today; N=5 is
+  rejected before trace/report artifacts are written.
 - Low-rate fixture mission assignment into N=4 center-block and
   horizontal-slalom swarm gates: GO.
 - Live `qwen-plus` mission intent into the reviewed N=4 center-block swarm

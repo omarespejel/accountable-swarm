@@ -29,6 +29,7 @@ data sources, and external assets from day one.
 | 2026-06-15 | Swarm demo bundle builder | Authored for `accountable-swarm` | Apache-2.0 | One-command deterministic local demo bundle over reviewed swarm scenarios | Orchestrates repo-authored simulator and renderer only; no physical, cloud, live-Qwen, DimOS, Docker, latency, reliability, arbitrary-map, or larger-swarm claim. |
 | 2026-06-15 | Swarm demo server endpoints | Authored for `accountable-swarm` | Apache-2.0 | Read-only stdlib HTTP serving of generated swarm demo bundle artifacts | Serves existing files only; no bundle generation, physical, cloud, live-Qwen, DimOS, latency, reliability, arbitrary-map, or larger-swarm claim. |
 | 2026-06-15 | Double-chicane swarm scenario | Authored for `accountable-swarm` | Apache-2.0 | Five-obstacle deterministic N=4 integer-grid scenario and tick-boundary GO/NARROW evidence | No external planner code copied; no arbitrary-map, physics, hardware, cloud, live-Qwen, latency, reliability, or larger-swarm claim. |
+| 2026-06-15 | Larger-swarm boundary gate | Authored for `accountable-swarm` | Apache-2.0 | Explicit rejection of unsupported N=5/N=6 simulated swarm counts before trace/report artifacts | No larger-swarm success claim; no external planner code copied; no physical, physics, DimOS, live-Qwen, latency, or reliability claim. |
 
 ## Pending Before Demo
 
