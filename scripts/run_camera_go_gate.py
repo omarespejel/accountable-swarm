@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 
 from accountable_swarm.images import image_size
 from accountable_swarm.qwen.bbox import parse_qwen_bbox_response
