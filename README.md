@@ -11,7 +11,7 @@ edge sensor frame -> Qwen keyframe check -> local decision -> hash-chained trace
 The project is intentionally split into two tracks:
 
 - **Submission repo:** this repository, with a clean license, a runnable GO gate,
-  Alibaba Cloud proof artifacts, and judge-friendly setup.
+  an Alibaba Cloud proof checklist, and judge-friendly setup.
 - **Upstream work:** a separate DimOS fork branch for any `DroneFleetConnection`
   or multi-drone scene work that is useful to contribute back.
 
