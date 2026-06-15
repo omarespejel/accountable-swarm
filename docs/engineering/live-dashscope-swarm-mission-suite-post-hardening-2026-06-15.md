@@ -144,6 +144,6 @@ and the deterministic integer-grid simulator.
 - No latency or reliability claim.
 - No DimOS integration.
 - No Alibaba ECS deployment proof.
-- No Qwen real-time control.
+- No live Qwen mission assignment beyond the verified suite report.
 - No arbitrary-map planner claim.
 - No larger-swarm claim beyond the listed deterministic integer-grid cases.
