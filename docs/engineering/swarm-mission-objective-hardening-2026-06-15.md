@@ -18,11 +18,14 @@ misread the trace as Qwen choosing control parameters.
 `MissionSpec` now validates objective text in addition to strict JSON shape.
 The validator rejects:
 
-- digits or numeric counts;
+- digits and spelled-out control counts such as `five agents`;
 - structured-control markers such as `{}`, `[]`, coordinates, or waypoints;
-- registered scenario names used as selected targets;
+- registered scenario names used as selected targets, including whitespace or
+  underscore variants such as `double chicane`;
 - explicit control terms such as `agent_count`, `mission_id`, `setpoint`,
   `velocity`, `thrust`, `motor`, `command`, or `sim-agent-`.
+Forbidden control terms use word-boundary matching so benign substrings such as
+`stick` do not trip the `tick` rejection rule.
 
 The prompt also tells Qwen not to include digits. This keeps the only accepted
 DashScope mission output as a high-level objective string; local code still
@@ -39,8 +42,8 @@ env -u ALIBABA_API_KEY ./scripts/local_gate.sh
 ## GO Gate
 
 - Normal intent-only objective text still parses.
-- Hidden agent counts, scenario names, coordinates, arrays, and control terms
-  are rejected.
+- Hidden digit counts, word counts, scenario names, coordinates, arrays, and
+  control terms are rejected.
 - Full fixture mission JSON uses the same objective validator.
 - Existing fixture mission suite remains `GO`.
 - Local gate remains `GO`.

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 import json
+import re
 from typing import Any
 
 from accountable_swarm.trace.models import (
@@ -33,24 +34,52 @@ MISSION_REQUIRED_KEYS = frozenset(
     }
 )
 MISSION_INTENT_REQUIRED_KEYS = frozenset({"objective"})
-MISSION_OBJECTIVE_FORBIDDEN_TERMS = (
+MISSION_OBJECTIVE_FORBIDDEN_WORD_TERMS = (
     "agent_count",
     "command",
+    "commands",
     "control",
     "coordinate",
     "coordinates",
     "mission_id",
     "motor",
+    "motors",
     "schema_version",
     "setpoint",
-    "sim-agent-",
+    "setpoints",
     "thrust",
     "tick",
     "ticks",
     "velocity",
+    "velocities",
     "waypoint",
+    "waypoints",
 )
 MISSION_OBJECTIVE_FORBIDDEN_CHARACTERS = frozenset("{}[]")
+MISSION_OBJECTIVE_NUMBER_WORDS = (
+    "one",
+    "two",
+    "three",
+    "four",
+    "five",
+    "six",
+    "seven",
+    "eight",
+    "nine",
+    "ten",
+)
+MISSION_OBJECTIVE_COUNT_TARGETS = ("agent", "agents", "tick", "ticks")
+MISSION_OBJECTIVE_COUNT_WORD_RE = re.compile(
+    r"\b("
+    + "|".join(re.escape(word) for word in MISSION_OBJECTIVE_NUMBER_WORDS)
+    + r")\s+("
+    + "|".join(re.escape(target) for target in MISSION_OBJECTIVE_COUNT_TARGETS)
+    + r")\b"
+)
+MISSION_OBJECTIVE_SPECIAL_CONTROL_PATTERNS = (
+    re.compile(r"\bsim[-_\s]+agent\b"),
+    re.compile(r"\b[xyz]\s*[:=]"),
+)
 
 
 @dataclass(frozen=True)
@@ -156,14 +185,31 @@ def validate_mission_objective_text(objective: str) -> None:
     if any(character in MISSION_OBJECTIVE_FORBIDDEN_CHARACTERS for character in objective):
         raise ValueError("mission objective must not contain structured control metadata")
     lowered = objective.casefold()
-    scenario_hits = [scenario for scenario in SUPPORTED_MISSION_SCENARIOS if scenario in lowered]
+    if MISSION_OBJECTIVE_COUNT_WORD_RE.search(lowered):
+        raise ValueError("mission objective must not contain numeric control metadata")
+    scenario_hits = [
+        scenario
+        for scenario in SUPPORTED_MISSION_SCENARIOS
+        if re.search(_mission_objective_scenario_re(scenario), lowered)
+    ]
     if scenario_hits:
         raise ValueError(
             "mission objective must not select a scenario; local code binds scenario"
         )
-    term_hits = [term for term in MISSION_OBJECTIVE_FORBIDDEN_TERMS if term in lowered]
+    term_hits = [
+        term
+        for term in MISSION_OBJECTIVE_FORBIDDEN_WORD_TERMS
+        if re.search(rf"\b{re.escape(term)}\b", lowered)
+    ]
     if term_hits:
         raise ValueError("mission objective must not contain control metadata terms")
+    if any(pattern.search(lowered) for pattern in MISSION_OBJECTIVE_SPECIAL_CONTROL_PATTERNS):
+        raise ValueError("mission objective must not contain control metadata terms")
+
+
+def _mission_objective_scenario_re(scenario: str) -> str:
+    parts = [re.escape(part) for part in scenario.split("-")]
+    return r"\b" + r"[-_\s]+".join(parts) + r"\b"
 
 
 def mission_spec_for_scenario(*, scenario: str, objective: str) -> MissionSpec:
