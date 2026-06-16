@@ -81,8 +81,38 @@ class CollectDimosRuntimeSmokeReportCliTests(TestCase):
             self.assertTrue(all(report["pass_conditions"].values()))
             self.assertEqual(report["dimos_runtime_probe"]["checkout_name"], "dimos-checkout")
 
+    def test_tampered_bridge_manifest_is_rejected(self) -> None:
+        with TemporaryDirectory(dir=ROOT / "runs") as tmpdir:
+            tmp = Path(tmpdir)
+            bridge_pack = tmp / "bridge-pack"
+            checkout = tmp / "dimos-checkout"
+            report_path = tmp / "report.json"
+            _write_bridge_pack(bridge_pack, event_count_override=99)
+            _write_checkout_source_files(checkout)
 
-def _write_bridge_pack(bridge_pack: Path) -> None:
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.collect_dimos_runtime_smoke_report",
+                    "--bridge-pack",
+                    str(bridge_pack.relative_to(ROOT)),
+                    "--dimos-checkout",
+                    str(checkout),
+                    "--report-out",
+                    str(report_path.relative_to(ROOT)),
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 4)
+            self.assertIn("manifest event_count does not match timeline", result.stderr)
+
+
+def _write_bridge_pack(bridge_pack: Path, *, event_count_override: int | None = None) -> None:
     bridge_pack.mkdir(parents=True, exist_ok=True)
     timeline_lines = [
         json.dumps(
@@ -132,7 +162,7 @@ def _write_bridge_pack(bridge_pack: Path) -> None:
         },
         "scenario_count": 1,
         "scenarios": ["demo"],
-        "event_count": 2,
+        "event_count": 2 if event_count_override is None else event_count_override,
         "agent_count": 2,
         "dimos_probe": {
             "source": {"checkout_provided": False, "checkout_exists": False, "required_files_present": {}, "source_outcome": "NARROW_CLAIM", "source_name": None},

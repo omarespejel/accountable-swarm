@@ -13,6 +13,7 @@ import sys
 from typing import Any
 
 from accountable_swarm.trace.models import canonical_json
+from scripts.run_dimos_replay_consumer import _read_timeline, _validate_manifest_against_timeline
 
 
 PACK_SCHEMA_VERSION = "dimos-runtime-smoke-pack.v1"
@@ -45,11 +46,17 @@ def main() -> int:
         out_dir = _repo_path(repo_root, args.out_dir)
         bridge_pack = _repo_path(repo_root, args.bridge_pack)
         bridge_manifest = _read_bridge_manifest(repo_root=repo_root, bridge_pack=bridge_pack)
+        bridge_events = _read_timeline(bridge_pack / "timeline.ndjson")
+        _validate_manifest_against_timeline(
+            repo_root=repo_root,
+            bridge_pack=bridge_pack,
+            manifest=bridge_manifest,
+            events=bridge_events,
+        )
+        commit = args.commit or _git_head(repo_root)
     except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
         print(f"dimos runtime smoke pack failed: {exc}", file=sys.stderr)
         return 2
-
-    commit = args.commit or _git_head(repo_root)
     out_dir.mkdir(parents=True, exist_ok=True)
     files = {
         "runbook": out_dir / "README.md",
@@ -83,6 +90,7 @@ def main() -> int:
         "commands_script_written": files["commands"].is_file(),
         "bridge_pack_schema_valid": bridge_manifest.get("schema_version") == BRIDGE_SCHEMA_VERSION,
         "bridge_pack_outcome_go": bridge_manifest.get("bridge_outcome") == "GO",
+        "bridge_pack_timeline_valid": True,
         "bridge_paths_are_repo_relative": True,
         "generated_paths_are_repo_relative": str(repo_root.resolve()) not in generated_text,
         "generated_text_contains_no_secret_material": not _contains_secret_material(generated_text),
