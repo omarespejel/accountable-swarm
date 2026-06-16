@@ -51,6 +51,7 @@ required = [
     "docs/engineering/hardening-policy.md",
     "docs/engineering/go-gate-p1-hardening-2026-06-15.md",
     "docs/engineering/go-gate-p2-packaging-2026-06-15.md",
+    "docs/engineering/go-gate-p3-confidence-bbox-2026-06-16.md",
     "docs/engineering/alibaba-proof-2026-06-14.md",
     "docs/engineering/ecs-smoke-proof-collector-2026-06-15.md",
     "docs/engineering/swarm-demo-bundle-2026-06-15.md",

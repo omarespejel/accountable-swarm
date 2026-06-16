@@ -166,6 +166,7 @@ def _build_trace(
         bbox_2d_norm_1000=grounding.bbox_2d_norm_1000,
         bbox_2d_px=grounding.bbox_2d_px,
         model=model if mode == "dashscope" else "fixture-qwen3-vl-shape",
+        score_milli=grounding.score_milli,
     )
     trace = build_single_event_trace(
         run_id="camera-go-gate-0000",

@@ -81,6 +81,7 @@ class AccountableSwarmHandler(BaseHTTPRequestHandler):
             bbox_2d_norm_1000=grounding.bbox_2d_norm_1000,
             bbox_2d_px=grounding.bbox_2d_px,
             model="fixture-qwen3-vl-shape",
+            score_milli=grounding.score_milli,
         )
         trace = build_single_event_trace(
             run_id="ecs-fixture-go-gate-0000",

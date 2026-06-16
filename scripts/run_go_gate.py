@@ -13,7 +13,7 @@ from accountable_swarm.qwen.client import DashScopeQwenClient, DashScopeResponse
 from accountable_swarm.trace.models import PerceptionEvent, build_single_event_trace, verify_trace
 
 
-FIXTURE_RESPONSE = '[{"bbox_2d":[250,250,750,750],"label":"marked hazard"}]'
+FIXTURE_RESPONSE = '[{"bbox_2d":[250,250,750,750],"label":"marked hazard","score":0.875}]'
 CLEAR_FIXTURE_RESPONSE = "[]"
 MAX_DASHSCOPE_PARSE_ATTEMPTS = 2
 
@@ -106,6 +106,7 @@ def _perception_from_grounding(
         bbox_2d_norm_1000=grounding.bbox_2d_norm_1000,
         bbox_2d_px=grounding.bbox_2d_px,
         model=model,
+        score_milli=grounding.score_milli,
     )
 
 

@@ -136,7 +136,7 @@ GET /readyz
 {"default_vl_model":"qwen3-vl-flash","has_alibaba_api_key":true,"status":"ok"}
 
 GET /camera-fixture
-{"decision":"VETO","schema_version":"decisiontrace.v1","status":"ok","trace_summary_sha":"282a7982facaf066732b4a3dd1039529e0c8e5b8d54b2b1d458b0b8b7c6e5d2a"}
+{"decision":"VETO","schema_version":"decisiontrace.v2","status":"ok","trace_summary_sha":"35152f4411566df7d2f886b17793a5339d197ea5c33e75b6c4b9a8ea19bfd81d"}
 
 GET /qwen-ping?model=qwen-plus
 {"content_prefix":"OK.","model":"qwen-plus","status":"ok"}

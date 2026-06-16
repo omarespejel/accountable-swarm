@@ -41,6 +41,14 @@ What is checked locally:
   `PYTHONPATH` injection.
 - `DecisionEvent.command` explicitly rejects raw floats before command hashing;
   command measurements must use declared integer units or decimal strings.
+- Qwen bbox confidence-like fields are quantized into integer `score_milli`
+  before entering `PerceptionEvent`, and `PerceptionEvent` rejects raw float,
+  boolean, or out-of-range scores before hashing.
+- `DecisionTrace` schema is now `decisiontrace.v2`; v1 traces are rejected
+  instead of being rehashed with an injected confidence field.
+- tiny positive-area normalized bboxes now clamp to a positive-area pixel bbox
+  inside the image instead of collapsing into zero-area detections on small
+  frames.
 - camera/static-frame GO gate passes live `qwen3-vl-flash` with all five binary
   pass conditions and summary
   `214d4edb89537ecf6c8060b2e4fcd6053497aa20439b65cca8641ef8d0e011c8`.
@@ -159,7 +167,8 @@ What is not checked yet:
 - Issue #2, #6, #11, #13, #15, #17, #19, #21, #23, #25, #27, #29, #33,
   #35, #37, #39, #41, #43, #45, #48, #50, and #52 are closed as GO.
 - Issue #54 is active for GO-gate follow-up hardening. P1 and P2 are merged as
-  GO; P3 confidence and tiny-bbox policy remain open.
+  GO; P3 confidence and tiny-bbox policy are locally implemented on the current
+  branch pending PR review and merge.
 - Issue #59 is active for submission readiness. PR #66 merged the demo
   recording pack; PR #70 work is adding a first-class hazard formation replay
   artifact. Alibaba ECS proof (#4) and physical/SO-101 or acceptable real

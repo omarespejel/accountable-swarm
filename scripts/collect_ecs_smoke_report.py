@@ -242,7 +242,7 @@ def _validate_camera_fixture(payload: dict[str, Any]) -> dict[str, Any]:
     ok = (
         payload.get("status") == "ok"
         and payload.get("decision") == "VETO"
-        and payload.get("schema_version") == "decisiontrace.v1"
+        and payload.get("schema_version") == "decisiontrace.v2"
         and _is_hex_64(trace_sha)
     )
     return _validation(

@@ -195,7 +195,7 @@ class _fake_ecs_server:
                         self,
                         {
                             "decision": "VETO",
-                            "schema_version": "decisiontrace.v1",
+                            "schema_version": "decisiontrace.v2",
                             "status": "ok",
                             "trace_summary_sha": "b" * 64,
                         },
