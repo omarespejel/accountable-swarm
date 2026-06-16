@@ -14,6 +14,13 @@ This is the current repo state after the first 10-hour execution block began at
 - `qwen-plus` and `qwen3.5-plus` model pings work through
   `scripts/qwen_model_ping.py`.
 - Trace canonical JSON rejects raw floats.
+- Qwen bbox confidence-like fields are quantized to integer `score_milli`
+  before they enter `PerceptionEvent`, and raw float/boolean/out-of-range
+  confidence values are rejected before trace hashing.
+- `DecisionTrace` schema is now `decisiontrace.v2`; v1 artifacts are rejected
+  explicitly rather than silently rehashed with an injected score.
+- Tiny positive-area normalized bboxes are clamped to positive-area pixel boxes
+  inside the frame instead of becoming zero-area pixel detections.
 - DashScope bbox calls pin `temperature: 0`; malformed bbox text is retried
   once before failing with a controlled error.
 - The GO-gate optional-grounding wrapper maps extracted empty arrays, including
@@ -151,7 +158,8 @@ This is the current repo state after the first 10-hour execution block began at
 - CodeRabbit may rate-limit or report billing exhaustion on future PRs; treat
   that as reviewer availability, not a code finding.
 - Issue #54 P2 packaging/entrypoints and command-float hardening merged as GO
-  in PR #58; P3 quantized confidence and tiny-bbox policy remain open.
+  in PR #58; P3 quantized confidence and tiny-bbox policy are locally
+  implemented on the current branch pending PR review and merge.
 - True webcam capture passed locally through `imagesnap` with live
   `qwen3-vl-flash`, but the private frame/trace are intentionally untracked.
   This is a sensor-frame proof only, not SO-101 operation or physical robot
@@ -167,7 +175,7 @@ Latest local gates during this block:
 
 ```text
 ./scripts/local_gate.sh
-Ran 146 tests
+Ran 194 tests
 OK
 local gate passed
 ```

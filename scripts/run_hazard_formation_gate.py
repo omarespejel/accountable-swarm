@@ -326,6 +326,7 @@ def _perception_from_grounding(
         bbox_2d_norm_1000=grounding.bbox_2d_norm_1000,
         bbox_2d_px=grounding.bbox_2d_px,
         model=model,
+        score_milli=grounding.score_milli,
     )
 
 

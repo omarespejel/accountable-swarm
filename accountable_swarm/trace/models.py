@@ -13,7 +13,7 @@ import json
 from typing import Any
 
 GENESIS_SHA = "0" * 64
-TRACE_SCHEMA_VERSION = "decisiontrace.v1"
+TRACE_SCHEMA_VERSION = "decisiontrace.v2"
 
 
 def canonical_json(value: Any) -> str:
@@ -53,11 +53,16 @@ class PerceptionEvent:
     bbox_2d_norm_1000: tuple[int, int, int, int]
     bbox_2d_px: tuple[int, int, int, int]
     model: str
+    score_milli: int = 1000
     coordinate_frame: str = "qwen3_vl_norm_0_1000"
 
     def __post_init__(self) -> None:
         if self.image_width <= 0 or self.image_height <= 0:
             raise ValueError("image dimensions must be positive")
+        if isinstance(self.score_milli, bool) or not isinstance(self.score_milli, int):
+            raise TypeError("score_milli must be an integer")
+        if self.score_milli < 0 or self.score_milli > 1000:
+            raise ValueError("score_milli must be within 0-1000")
         if self.coordinate_frame != "qwen3_vl_norm_0_1000":
             raise ValueError(f"unsupported coordinate frame: {self.coordinate_frame}")
         _validate_bbox(self.bbox_2d_norm_1000, 0, 1000, "normalized bbox")
@@ -233,18 +238,25 @@ def verify_trace(trace: DecisionTrace) -> str:
 
 
 def trace_from_dict(value: dict[str, Any]) -> DecisionTrace:
+    schema_version = value.get("schema_version")
+    if schema_version != TRACE_SCHEMA_VERSION:
+        raise ValueError(f"unsupported schema version: {schema_version}")
     events = []
     for item in value["events"]:
+        perception_item = item["perception"]
+        if "score_milli" not in perception_item:
+            raise ValueError("perception score_milli missing")
         perception = PerceptionEvent(
-            event_id=item["perception"]["event_id"],
-            source=item["perception"]["source"],
-            image_width=item["perception"]["image_width"],
-            image_height=item["perception"]["image_height"],
-            label=item["perception"]["label"],
-            bbox_2d_norm_1000=tuple(item["perception"]["bbox_2d_norm_1000"]),
-            bbox_2d_px=tuple(item["perception"]["bbox_2d_px"]),
-            model=item["perception"]["model"],
-            coordinate_frame=item["perception"]["coordinate_frame"],
+            event_id=perception_item["event_id"],
+            source=perception_item["source"],
+            image_width=perception_item["image_width"],
+            image_height=perception_item["image_height"],
+            label=perception_item["label"],
+            bbox_2d_norm_1000=tuple(perception_item["bbox_2d_norm_1000"]),
+            bbox_2d_px=tuple(perception_item["bbox_2d_px"]),
+            model=perception_item["model"],
+            score_milli=perception_item["score_milli"],
+            coordinate_frame=perception_item["coordinate_frame"],
         )
         events.append(
             DecisionEvent(

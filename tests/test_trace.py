@@ -125,8 +125,51 @@ class DecisionTraceTests(TestCase):
     def test_reject_raw_floats_allows_integer_units(self) -> None:
         reject_raw_floats({"latency_ms": 100, "confidence_ppm": 950000})
 
+    def test_perception_event_rejects_raw_float_score(self) -> None:
+        with self.assertRaises(TypeError):
+            _perception(score_milli=0.5)  # type: ignore[arg-type]
 
-def _perception() -> PerceptionEvent:
+    def test_perception_event_rejects_out_of_range_score(self) -> None:
+        with self.assertRaises(ValueError):
+            _perception(score_milli=1001)
+
+    def test_trace_from_dict_rejects_legacy_v1_schema(self) -> None:
+        trace = build_single_event_trace(
+            run_id="run",
+            actor_id="physical-node-0",
+            mode="fixture",
+            perception=_perception(),
+            intent="hold on hazard",
+            decision="VETO",
+            reason="hazard detected",
+            command={"type": "hold", "duration_ticks": 1},
+        )
+        value = trace.to_dict()
+        value["schema_version"] = "decisiontrace.v1"
+        value["events"][0]["perception"].pop("score_milli")
+
+        with self.assertRaisesRegex(ValueError, "unsupported schema version: decisiontrace.v1"):
+            trace_from_dict(value)
+
+    def test_trace_from_dict_requires_score_for_v2_trace(self) -> None:
+        trace = build_single_event_trace(
+            run_id="run",
+            actor_id="physical-node-0",
+            mode="fixture",
+            perception=_perception(),
+            intent="hold on hazard",
+            decision="VETO",
+            reason="hazard detected",
+            command={"type": "hold", "duration_ticks": 1},
+        )
+        value = trace.to_dict()
+        value["events"][0]["perception"].pop("score_milli")
+
+        with self.assertRaisesRegex(ValueError, "perception score_milli missing"):
+            trace_from_dict(value)
+
+
+def _perception(*, score_milli: int = 1000) -> PerceptionEvent:
     return PerceptionEvent(
         event_id="perception-0000",
         source="image://hazard_marker.ppm",
@@ -136,4 +179,5 @@ def _perception() -> PerceptionEvent:
         bbox_2d_norm_1000=(250, 250, 750, 750),
         bbox_2d_px=(1, 1, 3, 3),
         model="fixture-qwen3-vl-shape",
+        score_milli=score_milli,
     )

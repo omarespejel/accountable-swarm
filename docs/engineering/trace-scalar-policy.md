@@ -9,10 +9,16 @@ Do not put raw floats in hashed trace payloads.
 Encode measurements as:
 
 - integers in declared units, for example `latency_ms`, `depth_mm`,
-  `confidence_ppm`, or `pose_x_mm`; or
+  `score_milli`, `confidence_ppm`, or `pose_x_mm`; or
 - decimal strings with an explicit quantization policy.
 
 The current trace gate enforces this by rejecting floats in `canonical_json()`.
+Qwen bbox confidence-like response fields are consumed at parse time and stored
+as integer `score_milli` values in `PerceptionEvent`.
+
+`score_milli` is part of `decisiontrace.v2` hashed payloads. Earlier
+`decisiontrace.v1` artifacts are not silently upgraded because that would change
+their event and summary hashes.
 
 ## Why
 

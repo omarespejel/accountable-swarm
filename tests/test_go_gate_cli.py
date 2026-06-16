@@ -40,6 +40,7 @@ class GoGateCliTests(TestCase):
             trace = trace_from_dict(json.loads(out.read_text(encoding="utf-8")))
             self.assertEqual(trace.events[0].decision, "VETO")
             self.assertEqual(trace.events[0].command["type"], "hold")
+            self.assertEqual(trace.events[0].perception.score_milli, 875)
             verify_trace(trace)
 
     def test_fixture_clear_frame_emits_move_trace(self) -> None:
@@ -81,7 +82,7 @@ class GoGateCliTests(TestCase):
                 FakeClient.calls += 1
                 if FakeClient.calls == 1:
                     return "not json"
-                return '[{"bbox_2d":[250,250,750,750],"label":"marked hazard"}]'
+                return '[{"bbox_2d":[250,250,750,750],"label":"marked hazard","confidence_milli":432}]'
 
         with patch.object(run_go_gate, "DashScopeQwenClient", FakeClient):
             grounding = run_go_gate._get_grounding(
@@ -96,6 +97,7 @@ class GoGateCliTests(TestCase):
         self.assertIsNotNone(grounding)
         self.assertEqual(FakeClient.calls, 2)
         self.assertEqual(grounding.label, "marked hazard")
+        self.assertEqual(grounding.score_milli, 432)
 
     def test_dashscope_grounding_fails_after_one_retry(self) -> None:
         class BadClient:
