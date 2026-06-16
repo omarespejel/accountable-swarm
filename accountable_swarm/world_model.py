@@ -98,6 +98,7 @@ class PredictedConflict:
     reason: str
 
     def __post_init__(self) -> None:
+        _require_nonbool_int(self.tick, "conflict tick")
         if self.tick < 0:
             raise ValueError("conflict tick must be non-negative")
         if self.conflict_type not in SUPPORTED_CONFLICT_TYPES:
@@ -107,7 +108,7 @@ class PredictedConflict:
         if len(set(self.agent_ids)) != len(self.agent_ids):
             raise ValueError("conflict agent_ids must be unique")
         for agent_id in self.agent_ids:
-            if not agent_id.strip():
+            if not isinstance(agent_id, str) or not agent_id.strip():
                 raise ValueError("conflict agent_id must be non-empty")
         if not self.reason.strip():
             raise ValueError("conflict reason must be non-empty")
@@ -137,6 +138,9 @@ class WorldModelState:
             raise ValueError(f"unsupported world model schema: {self.schema_version}")
         if self.model_id != WORLD_MODEL_ID:
             raise ValueError(f"unsupported world model id: {self.model_id}")
+        _require_nonbool_int(self.tick, "world model tick")
+        _require_nonbool_int(self.grid_width, "world model grid_width")
+        _require_nonbool_int(self.grid_height, "world model grid_height")
         if self.tick < 0:
             raise ValueError("world model tick must be non-negative")
         if self.grid_width <= 0 or self.grid_height <= 0:
@@ -244,6 +248,7 @@ def verify_world_model_state(state: WorldModelState) -> str:
 def world_model_from_dict(value: dict[str, Any]) -> WorldModelState:
     """Load a world model state from JSON-compatible data."""
 
+    value = _require_dict(value, "world model")
     schema_version = value.get("schema_version")
     if schema_version != WORLD_MODEL_SCHEMA_VERSION:
         raise ValueError(f"unsupported world model schema: {schema_version}")
@@ -260,9 +265,13 @@ def world_model_from_dict(value: dict[str, Any]) -> WorldModelState:
             else None,
             score_milli=item.get("score_milli", 1000),
         )
-        for item in value.get("observations", [])
+        for item in _require_list(value.get("observations", []), "observations")
+        for item in (_require_dict(item, "observation"),)
     )
-    hazards = tuple(GridPoint.from_dict(_require_dict(item, "hazard")) for item in value.get("hazards", []))
+    hazards = tuple(
+        GridPoint.from_dict(_require_dict(item, "hazard"))
+        for item in _require_list(value.get("hazards", []), "hazards")
+    )
     agents = tuple(
         WorldAgentState(
             agent_id=item["agent_id"],
@@ -271,7 +280,8 @@ def world_model_from_dict(value: dict[str, Any]) -> WorldModelState:
             decision_trace_sha=item["decision_trace_sha"],
             last_decision=item.get("last_decision", "HOLD"),
         )
-        for item in value.get("agents", [])
+        for item in _require_list(value.get("agents", []), "agents")
+        for item in (_require_dict(item, "agent"),)
     )
     reservations = tuple(
         WorldReservation(
@@ -279,17 +289,19 @@ def world_model_from_dict(value: dict[str, Any]) -> WorldModelState:
             agent_id=item["agent_id"],
             cell=GridPoint.from_dict(_require_dict(item["cell"], "reservation cell")),
         )
-        for item in value.get("reservations", [])
+        for item in _require_list(value.get("reservations", []), "reservations")
+        for item in (_require_dict(item, "reservation"),)
     )
     conflicts = tuple(
         PredictedConflict(
             tick=item["tick"],
             conflict_type=item["conflict_type"],
-            agent_ids=tuple(item["agent_ids"]),
+            agent_ids=_require_agent_ids(item["agent_ids"]),
             cell=GridPoint.from_dict(_require_dict(item["cell"], "conflict cell")),
             reason=item["reason"],
         )
-        for item in value.get("predicted_conflicts", [])
+        for item in _require_list(value.get("predicted_conflicts", []), "predicted_conflicts")
+        for item in (_require_dict(item, "predicted conflict"),)
     )
     return WorldModelState(
         tick=value["tick"],
@@ -343,10 +355,14 @@ def _validate_norm_bbox(bbox: tuple[int, int, int, int]) -> None:
 
 
 def _require_milli(value: int, name: str) -> None:
-    if isinstance(value, bool) or not isinstance(value, int):
-        raise TypeError(f"{name} must be an integer")
+    _require_nonbool_int(value, name)
     if value < 0 or value > 1000:
         raise ValueError(f"{name} must be within 0..1000")
+
+
+def _require_nonbool_int(value: Any, name: str) -> None:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise TypeError(f"{name} must be an integer")
 
 
 def _require_hex_64(value: str, name: str) -> None:
@@ -360,6 +376,22 @@ def _require_dict(value: Any, name: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ValueError(f"{name} must be an object")
     return value
+
+
+def _require_list(value: Any, name: str) -> list[Any]:
+    if not isinstance(value, list):
+        raise ValueError(f"{name} must be an array")
+    return value
+
+
+def _require_agent_ids(value: Any) -> tuple[str, ...]:
+    if not isinstance(value, list):
+        raise ValueError("conflict agent_ids must be an array")
+    agent_ids = tuple(value)
+    for agent_id in agent_ids:
+        if not isinstance(agent_id, str) or not agent_id.strip():
+            raise ValueError("conflict agent_ids must contain non-empty strings")
+    return agent_ids
 
 
 def _reject_raw_float_or_bool(value: Any, path: str) -> None:
