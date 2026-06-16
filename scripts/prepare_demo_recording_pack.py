@@ -177,6 +177,10 @@ def main() -> int:
         bundle_summary=bundle_summary,
         bundle_dir=bundle_dir,
     )
+    dimos_bridge_timeline_ok = _dimos_bridge_artifacts_exist(
+        repo_root=repo_root,
+        manifest=dimos_bridge_manifest,
+    )
     pass_conditions = {
         "bundle_command_succeeded": bundle_result.returncode == 0 or bundle_existing_artifacts_reused,
         "bundle_summary_go": bundle_summary.get("outcome") == "GO",
@@ -186,7 +190,7 @@ def main() -> int:
         "hazard_report_accepted_outcome": hazard_report.get("outcome") in {"GO", "DEGRADED"},
         "hazard_trace_exists": (hazard_trace_dir / "hazard.json").is_file(),
         "dimos_bridge_command_succeeded": dimos_bridge_result.returncode == 0,
-        "dimos_bridge_manifest_go": dimos_bridge_manifest.get("outcome") == "GO",
+        "dimos_bridge_manifest_go": dimos_bridge_manifest.get("outcome") == "GO" and dimos_bridge_timeline_ok,
         "hazard_replay_command_succeeded": hazard_replay_result.returncode == 0,
         "hazard_replay_html_exists": hazard_replay_html.is_file(),
         "hazard_replay_summary_go": hazard_replay_summary.get("outcome") == "GO",
@@ -438,6 +442,17 @@ def _existing_bundle_is_usable(
     if bundle_summary.get("outcome") != "GO":
         return False
     return (bundle_dir / "index.html").is_file()
+
+
+def _dimos_bridge_artifacts_exist(*, repo_root: Path, manifest: dict[str, Any]) -> bool:
+    artifacts = manifest.get("artifacts")
+    if not isinstance(artifacts, dict):
+        return False
+    timeline_value = artifacts.get("timeline_ndjson")
+    if not isinstance(timeline_value, str) or not timeline_value:
+        return False
+    timeline_path = _repo_path(repo_root, Path(timeline_value))
+    return timeline_path.is_file()
 
 
 def _looks_like_spawn_pressure(stderr: str) -> bool:
