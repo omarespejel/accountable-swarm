@@ -366,6 +366,23 @@ class DemoRecordingPackCliTests(TestCase):
         self.assertEqual(result.stdout, "ok")
         self.assertFalse(calls)
 
+    def test_run_command_returns_completed_process_on_persistent_spawn_error(self) -> None:
+        module = _load_module()
+
+        def failed_spawn(*args, **kwargs):
+            raise BlockingIOError(35, "Resource temporarily unavailable")
+
+        with (
+            patch.object(module.subprocess, "run", side_effect=failed_spawn),
+            patch.object(module.time, "sleep"),
+        ):
+            result = module._run_command(["python3", "child.py"], cwd=ROOT, timeout_seconds=7)
+
+        self.assertEqual(result.returncode, 125)
+        self.assertEqual(result.stdout, "")
+        self.assertIn("spawn failed", result.stderr)
+        self.assertIn("Resource temporarily unavailable", result.stderr)
+
     def test_installed_entrypoint_resolves_repo_from_current_working_tree(self) -> None:
         module = _load_module()
         self.assertEqual(module._find_repo_root(ROOT / "docs" / "submission"), ROOT)

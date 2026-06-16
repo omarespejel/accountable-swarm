@@ -143,6 +143,65 @@ class ServerTests(TestCase):
                 self.assertEqual(payload["status"], "missing_hazard_formation_replay")
                 self.assertEqual(payload["build_command"], "python3 scripts/prepare_demo_recording_pack.py")
 
+    def test_hazard_formation_empty_replay_dir_does_not_serve_cwd(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            old_cwd = Path.cwd()
+            tmp_path = Path(tmpdir)
+            default_replay_dir = tmp_path / "default-hazard-replay"
+            (tmp_path / "cwd-only.txt").write_text("must not be served", encoding="utf-8")
+            try:
+                os.chdir(tmp_path)
+                with (
+                    patch.dict(os.environ, {"HAZARD_FORMATION_REPLAY_DIR": ""}),
+                    patch("accountable_swarm.server.DEFAULT_HAZARD_FORMATION_REPLAY_DIR", default_replay_dir),
+                    _test_server() as base_url,
+                ):
+                    with self.assertRaises(HTTPError) as ctx:
+                        _get_text(f"{base_url}/hazard-formation/cwd-only.txt")
+                    self.assertEqual(ctx.exception.code, 404)
+                    payload = json.loads(ctx.exception.read().decode("utf-8"))
+                    self.assertEqual(payload["status"], "missing_hazard_formation_replay")
+            finally:
+                os.chdir(old_cwd)
+
+    def test_hazard_formation_root_without_replay_markers_fails_closed(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            replay_dir = Path(tmpdir) / "hazard-replay"
+            replay_dir.mkdir()
+            (replay_dir / "unexpected.txt").write_text("not a replay", encoding="utf-8")
+            with patch.dict(os.environ, {"HAZARD_FORMATION_REPLAY_DIR": str(replay_dir)}), _test_server() as base_url:
+                with self.assertRaises(HTTPError) as ctx:
+                    _get_text(f"{base_url}/hazard-formation/unexpected.txt")
+                self.assertEqual(ctx.exception.code, 404)
+                payload = json.loads(ctx.exception.read().decode("utf-8"))
+                self.assertEqual(payload["status"], "missing_hazard_formation_replay")
+
+    def test_hazard_formation_read_time_missing_file_returns_hazard_payload(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            replay_dir = Path(tmpdir) / "hazard-replay"
+            index_path = (replay_dir / "index.html").resolve()
+            replay_dir.mkdir()
+            index_path.write_text("<!doctype html><title>hazard replay</title>", encoding="utf-8")
+            (replay_dir / "summary.json").write_text('{"outcome":"GO"}\n', encoding="utf-8")
+            original_open = Path.open
+
+            def flaky_open(path: Path, *args: object, **kwargs: object):
+                if path == index_path:
+                    raise FileNotFoundError(index_path)
+                return original_open(path, *args, **kwargs)
+
+            with (
+                patch.dict(os.environ, {"HAZARD_FORMATION_REPLAY_DIR": str(replay_dir)}),
+                patch.object(Path, "open", flaky_open),
+                _test_server() as base_url,
+            ):
+                with self.assertRaises(HTTPError) as ctx:
+                    _get_json(f"{base_url}/hazard-formation")
+                self.assertEqual(ctx.exception.code, 404)
+                payload = json.loads(ctx.exception.read().decode("utf-8"))
+                self.assertEqual(payload["status"], "missing_hazard_formation_replay")
+                self.assertEqual(payload["build_command"], "python3 scripts/prepare_demo_recording_pack.py")
+
     def test_hazard_formation_rejects_path_traversal(self) -> None:
         with TemporaryDirectory() as tmpdir:
             replay_dir = Path(tmpdir) / "hazard-replay"

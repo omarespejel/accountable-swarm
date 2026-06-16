@@ -7,7 +7,7 @@ import json
 import os
 from pathlib import Path
 import shutil
-from typing import Any
+from typing import Any, Callable
 from urllib.parse import parse_qs, unquote, urlparse
 
 from accountable_swarm.images import image_size
@@ -130,7 +130,11 @@ class AccountableSwarmHandler(BaseHTTPRequestHandler):
         if not target.is_file():
             self._send_missing_swarm_demo_bundle()
             return
-        self._send_file(target)
+        self._send_file(
+            target,
+            on_missing=self._send_missing_swarm_demo_bundle,
+            read_error_label="swarm demo",
+        )
 
     def _handle_hazard_formation_file(self, rel_url_path: str) -> None:
         root = _hazard_formation_replay_root()
@@ -145,7 +149,11 @@ class AccountableSwarmHandler(BaseHTTPRequestHandler):
         if not target.is_file():
             self._send_missing_hazard_formation_replay()
             return
-        self._send_file(target)
+        self._send_file(
+            target,
+            on_missing=self._send_missing_hazard_formation_replay,
+            read_error_label="hazard formation replay",
+        )
 
     def _send_missing_swarm_demo_bundle(self) -> None:
         self._send_json(
@@ -175,15 +183,21 @@ class AccountableSwarmHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
-    def _send_file(self, path: Path) -> None:
+    def _send_file(
+        self,
+        path: Path,
+        *,
+        on_missing: Callable[[], None],
+        read_error_label: str,
+    ) -> None:
         try:
             size = path.stat().st_size
             source = path.open("rb")
         except FileNotFoundError:
-            self._send_missing_swarm_demo_bundle()
+            on_missing()
             return
         except OSError as exc:
-            self._send_json({"status": "failed", "error": f"could not read swarm demo file: {exc}"}, status=500)
+            self._send_json({"status": "failed", "error": f"could not read {read_error_label} file: {exc}"}, status=500)
             return
 
         self.send_response(200)
