@@ -89,6 +89,25 @@ class WorldModelTests(TestCase):
                 agents=(agent, agent),
             )
 
+    def test_world_agent_state_rejects_invalid_decision_event_sha(self) -> None:
+        with self.assertRaisesRegex(ValueError, "decision_event_sha must be a 64-character hex string"):
+            WorldAgentState(
+                agent_id="sim-agent-0",
+                cell=GridPoint(0, 0),
+                goal=GridPoint(1, 0),
+                decision_trace_sha=GENESIS_SHA,
+                last_decision="MOVE",
+                decision_event_sha="bad-sha",
+            )
+
+    def test_world_model_from_dict_preserves_decision_event_sha(self) -> None:
+        value = _state().with_computed_sha().to_dict()
+        value["agents"][0]["decision_event_sha"] = "a" * 64
+
+        loaded = world_model_from_dict(value)
+
+        self.assertEqual(loaded.agents[0].decision_event_sha, "a" * 64)
+
     def test_world_model_rejects_duplicate_reservations(self) -> None:
         reservation = WorldReservation(tick=1, agent_id="sim-agent-0", cell=GridPoint(1, 0))
 

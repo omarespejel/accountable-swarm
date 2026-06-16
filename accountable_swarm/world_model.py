@@ -57,11 +57,14 @@ class WorldAgentState:
     goal: GridPoint
     decision_trace_sha: str
     last_decision: str = "HOLD"
+    decision_event_sha: str = ""
 
     def __post_init__(self) -> None:
         if not self.agent_id.strip():
             raise ValueError("agent_id must be non-empty")
         _require_hex_64(self.decision_trace_sha, "decision_trace_sha")
+        if self.decision_event_sha:
+            _require_hex_64(self.decision_event_sha, "decision_event_sha")
         if self.last_decision not in {"MOVE", "VETO", "HOLD", "REROUTE"}:
             raise ValueError(f"unsupported last_decision: {self.last_decision}")
 
@@ -279,6 +282,7 @@ def world_model_from_dict(value: dict[str, Any]) -> WorldModelState:
             goal=GridPoint.from_dict(_require_dict(item["goal"], "agent goal")),
             decision_trace_sha=item["decision_trace_sha"],
             last_decision=item.get("last_decision", "HOLD"),
+            decision_event_sha=item.get("decision_event_sha", ""),
         )
         for item in _require_list(value.get("agents", []), "agents")
         for item in (_require_dict(item, "agent"),)
