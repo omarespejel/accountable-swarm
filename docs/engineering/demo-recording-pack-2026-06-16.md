@@ -11,6 +11,7 @@ surface. The pack is a convenience wrapper around already-reviewed gates:
 
 - deterministic swarm demo bundle generation;
 - fixture hazard-to-X-formation gate;
+- verified world-model dashboard data pack and HTML rendering;
 - manifest and shot-list generation.
 
 The pack exists so the demo video can be recorded from exact artifacts instead
@@ -43,6 +44,10 @@ runs/demo/swarm/index.html
 runs/demo/swarm/summary.json
 runs/hazard_formation/recording_x_report.json
 runs/hazard_formation/recording_x/hazard.json
+runs/hazard_formation/recording_x_replay/index.html
+runs/dashboard/recording_x/data.json
+runs/dashboard/recording_x/index.html
+runs/dashboard/recording_x/summary.json
 ```
 
 The manifest records the exact child commands, return codes, generated artifact
@@ -59,13 +64,15 @@ The demo story supported by this pack is:
 
 ```text
 Qwen-style keyframe bbox or live Qwen evidence -> local hazard cell ->
-deterministic X formation -> replayable DecisionTrace artifacts.
+deterministic X formation -> explicit world model -> replayable DecisionTrace
+artifacts -> interactive accountability dashboard.
 ```
 
 ## Non-Claims
 
 - no physical robot behavior;
 - no SO-101 operation;
+- no learned world model;
 - no 3D physics simulation;
 - no DimOS integration;
 - no Qwen real-time control;
@@ -79,6 +86,7 @@ Targeted validation for this change:
 
 ```bash
 python3 -m unittest tests.test_demo_recording_pack_cli tests.test_packaging
+python3 scripts/prepare_demo_recording_pack.py
 git diff --check
 ```
 

@@ -2,22 +2,25 @@
 
 ## Thesis
 
-The deterministic swarm demo bundle should be inspectable through the existing
-stdlib demo server without cloud access or physical hardware. This gives a
-reviewer a simple local path: build the bundle, start the server, open
-`/swarm-demo`.
+The deterministic swarm demo bundle and recording surfaces should be inspectable
+through the existing stdlib demo server without cloud access or physical
+hardware. This gives a reviewer a simple local path: build the bundle or
+recording pack, start the server, open `/swarm-demo`, `/hazard-formation`, or
+`/world-model-dashboard`.
 
 ## Scope
 
 The server is read-only for this gate. It serves an already-generated bundle
-from `SWARM_DEMO_BUNDLE_DIR` or the repo-anchored default
-`runs/demo/swarm`. It does not generate, mutate, or refresh bundle artifacts on
+from `SWARM_DEMO_BUNDLE_DIR` or the repo-anchored default `runs/demo/swarm`.
+It also serves the recording pack's hazard replay and world-model dashboard
+from configured roots. It does not generate, mutate, or refresh artifacts on
 request.
 
 ## Commands
 
 ```bash
 python3 scripts/build_swarm_demo_bundle.py
+python3 scripts/prepare_demo_recording_pack.py
 python3 scripts/serve_demo.py --host 127.0.0.1 --port 8765
 ```
 
@@ -27,6 +30,9 @@ Smoke endpoints:
 curl -fsS http://127.0.0.1:8765/swarm-demo
 curl -fsS http://127.0.0.1:8765/swarm-demo/summary.json
 curl -fsS http://127.0.0.1:8765/swarm-demo/scenarios/corridor/replay.html
+curl -fsS http://127.0.0.1:8765/hazard-formation
+curl -fsS http://127.0.0.1:8765/world-model-dashboard
+curl -fsS http://127.0.0.1:8765/world-model-dashboard/summary.json
 ```
 
 ## Pass Conditions
@@ -34,6 +40,10 @@ curl -fsS http://127.0.0.1:8765/swarm-demo/scenarios/corridor/replay.html
 - `GET /swarm-demo` serves bundle `index.html`;
 - `GET /swarm-demo/summary.json` serves the canonical bundle summary;
 - scenario replay HTML is served only from inside the configured bundle root;
+- hazard formation replay HTML is served only from inside the configured replay
+  root;
+- world-model dashboard HTML is served only from inside the configured
+  dashboard root;
 - empty `SWARM_DEMO_BUNDLE_DIR` does not widen serving to the process CWD;
 - roots without `index.html` and `summary.json` fail closed with
   `status: missing_bundle`;
@@ -50,7 +60,7 @@ Focused test:
 
 ```text
 python3 -m unittest tests.test_server
-Ran 7 tests
+Ran 16 tests
 OK
 ```
 
@@ -58,6 +68,7 @@ OK
 
 - no physical robot behavior;
 - no SO-101 operation;
+- no learned world model;
 - no 3D physics simulation;
 - no live Qwen claim;
 - no latency or reliability claim;

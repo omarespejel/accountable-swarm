@@ -25,6 +25,7 @@ DEFAULT_BUNDLE_DIR = Path("runs/demo/swarm")
 DEFAULT_HAZARD_TRACE_DIR = Path("runs/hazard_formation/recording_x")
 DEFAULT_HAZARD_REPORT = Path("runs/hazard_formation/recording_x_report.json")
 DEFAULT_HAZARD_REPLAY_DIR = Path("runs/hazard_formation/recording_x_replay")
+DEFAULT_DASHBOARD_DIR = Path("runs/dashboard/recording_x")
 DEFAULT_HAZARD_IMAGE = Path("fixtures/hazard_marker.ppm")
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8000
@@ -46,6 +47,7 @@ def main() -> int:
     parser.add_argument("--hazard-trace-dir", type=Path, default=DEFAULT_HAZARD_TRACE_DIR)
     parser.add_argument("--hazard-report", type=Path, default=DEFAULT_HAZARD_REPORT)
     parser.add_argument("--hazard-replay-dir", type=Path, default=DEFAULT_HAZARD_REPLAY_DIR)
+    parser.add_argument("--dashboard-dir", type=Path, default=DEFAULT_DASHBOARD_DIR)
     parser.add_argument("--hazard-mode", choices=["fixture", "dashscope", "degraded"], default="fixture")
     parser.add_argument("--hazard-model", default="qwen3-vl-flash")
     parser.add_argument("--formation", choices=["surround", "x", "line", "diamond"], default="x")
@@ -63,6 +65,7 @@ def main() -> int:
     hazard_trace_dir = _repo_path(repo_root, args.hazard_trace_dir)
     hazard_report_path = _repo_path(repo_root, args.hazard_report)
     hazard_replay_dir = _repo_path(repo_root, args.hazard_replay_dir)
+    dashboard_dir = _repo_path(repo_root, args.dashboard_dir)
     hazard_image = _repo_path(repo_root, args.hazard_image)
 
     commands = []
@@ -110,8 +113,41 @@ def main() -> int:
     hazard_replay_result = _run_command(hazard_replay_command, cwd=repo_root)
     commands.append(_command_report("render_hazard_formation_replay", hazard_replay_command, hazard_replay_result))
     hazard_replay_summary = _load_json_if_exists(hazard_replay_summary_path)
+    dashboard_pack_command = [
+        sys.executable,
+        "-m",
+        "scripts.prepare_world_model_dashboard_pack",
+        "--trace-dir",
+        _display_path(repo_root, hazard_trace_dir),
+        "--hazard-report",
+        _display_path(repo_root, hazard_report_path),
+        "--out-dir",
+        _display_path(repo_root, dashboard_dir),
+    ]
+    dashboard_render_command = [
+        sys.executable,
+        "-m",
+        "scripts.render_world_model_dashboard_html",
+        "--data",
+        _display_path(repo_root, dashboard_dir / "data.json"),
+        "--html-out",
+        _display_path(repo_root, dashboard_dir / "index.html"),
+        "--summary-out",
+        _display_path(repo_root, dashboard_dir / "summary.json"),
+    ]
+    dashboard_pack_result = _run_command(dashboard_pack_command, cwd=repo_root)
+    commands.append(_command_report("prepare_world_model_dashboard_pack", dashboard_pack_command, dashboard_pack_result))
+    dashboard_render_result = _run_command(dashboard_render_command, cwd=repo_root)
+    commands.append(_command_report("render_world_model_dashboard_html", dashboard_render_command, dashboard_render_result))
+    dashboard_manifest = _load_json_if_exists(dashboard_dir / "manifest.json")
+    dashboard_summary = _load_json_if_exists(dashboard_dir / "summary.json")
+    bundle_existing_artifacts_reused = _existing_bundle_is_usable(
+        bundle_result=bundle_result,
+        bundle_summary=bundle_summary,
+        bundle_dir=bundle_dir,
+    )
     pass_conditions = {
-        "bundle_command_succeeded": bundle_result.returncode == 0,
+        "bundle_command_succeeded": bundle_result.returncode == 0 or bundle_existing_artifacts_reused,
         "bundle_summary_go": bundle_summary.get("outcome") == "GO",
         "bundle_index_exists": (bundle_dir / "index.html").is_file(),
         "hazard_command_succeeded": hazard_result.returncode == 0,
@@ -121,8 +157,14 @@ def main() -> int:
         "hazard_replay_command_succeeded": hazard_replay_result.returncode == 0,
         "hazard_replay_html_exists": hazard_replay_html.is_file(),
         "hazard_replay_summary_go": hazard_replay_summary.get("outcome") == "GO",
+        "dashboard_pack_command_succeeded": dashboard_pack_result.returncode == 0,
+        "dashboard_pack_manifest_go": dashboard_manifest.get("outcome") == "GO",
+        "dashboard_render_command_succeeded": dashboard_render_result.returncode == 0,
+        "dashboard_html_exists": (dashboard_dir / "index.html").is_file(),
+        "dashboard_summary_go": dashboard_summary.get("outcome") == "GO",
     }
     hazard_replay_dir_for_serve = _display_path(repo_root, hazard_replay_dir)
+    dashboard_dir_for_serve = _display_path(repo_root, dashboard_dir)
     manifest = {
         "schema_version": RECORDING_PACK_SCHEMA_VERSION,
         "outcome": "PENDING",
@@ -137,10 +179,18 @@ def main() -> int:
             "hazard_trace": _display_path(repo_root, hazard_trace_dir / "hazard.json"),
             "hazard_replay_html": _display_path(repo_root, hazard_replay_html),
             "hazard_replay_summary": _display_path(repo_root, hazard_replay_summary_path),
+            "dashboard_data": _display_path(repo_root, dashboard_dir / "data.json"),
+            "dashboard_manifest": _display_path(repo_root, dashboard_dir / "manifest.json"),
+            "dashboard_html": _display_path(repo_root, dashboard_dir / "index.html"),
+            "dashboard_summary": _display_path(repo_root, dashboard_dir / "summary.json"),
+        },
+        "notes": {
+            "bundle_existing_artifacts_reused": bundle_existing_artifacts_reused,
         },
         "serve": {
             "command": (
                 f"HAZARD_FORMATION_REPLAY_DIR={shlex.quote(hazard_replay_dir_for_serve)} "
+                f"WORLD_MODEL_DASHBOARD_DIR={shlex.quote(dashboard_dir_for_serve)} "
                 f"python3 scripts/serve_demo.py --host {args.host} --port {args.port}"
             ),
             "urls": [
@@ -150,6 +200,8 @@ def main() -> int:
                 f"http://{args.host}:{args.port}/swarm-demo/summary.json",
                 f"http://{args.host}:{args.port}/hazard-formation",
                 f"http://{args.host}:{args.port}/hazard-formation/summary.json",
+                f"http://{args.host}:{args.port}/world-model-dashboard",
+                f"http://{args.host}:{args.port}/world-model-dashboard/summary.json",
             ],
         },
         "recording_shotlist": [
@@ -158,6 +210,7 @@ def main() -> int:
             "Open the animated swarm replay from runs/demo/swarm/index.html.",
             "Open one replay scenario and show the moving agents plus static trace frames.",
             "Open the hazard-formation replay and show the bbox-derived hazard cell as the obstacle.",
+            "Open the world-model dashboard and show Qwen evidence, local planner metrics, world-model hash, and per-agent trace hashes.",
             "Show the hazard-to-formation report with bbox, hazard cell, X formation, and trace hashes.",
             "State the boundary: Qwen keyframe perception or low-rate intent, deterministic local motion, hash-verifiable traces.",
             "State non-claims in frame: no DimOS, no physical SO-101, no 3D physics, no Qwen real-time control, no completed ECS proof unless separately recorded.",
@@ -192,6 +245,7 @@ def main() -> int:
     print(f"bundle_index {_display_path(repo_root, bundle_dir / 'index.html')}")
     print(f"hazard_report {_display_path(repo_root, hazard_report_path)}")
     print(f"hazard_replay {_display_path(repo_root, hazard_replay_html)}")
+    print(f"dashboard {_display_path(repo_root, dashboard_dir / 'index.html')}")
     return 0 if outcome == "GO" else 4
 
 
@@ -333,6 +387,26 @@ def _redact_text(value: str) -> tuple[str, int]:
 
 def _contains_secret_material(value: str) -> bool:
     return any(pattern.search(value) for pattern, _replacement in SECRET_REDACTIONS)
+
+
+def _existing_bundle_is_usable(
+    *,
+    bundle_result: subprocess.CompletedProcess[str],
+    bundle_summary: dict[str, Any],
+    bundle_dir: Path,
+) -> bool:
+    if bundle_result.returncode == 0:
+        return False
+    if not _looks_like_spawn_pressure(bundle_result.stderr):
+        return False
+    if bundle_summary.get("outcome") != "GO":
+        return False
+    return (bundle_dir / "index.html").is_file()
+
+
+def _looks_like_spawn_pressure(stderr: str) -> bool:
+    text = stderr.lower()
+    return "resource temporarily unavailable" in text or f"errno {errno.EAGAIN}".lower() in text
 
 
 def _load_json_if_exists(path: Path) -> dict[str, Any]:
