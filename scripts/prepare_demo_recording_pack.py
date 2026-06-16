@@ -8,6 +8,7 @@ import errno
 import json
 from pathlib import Path
 import re
+import shlex
 import subprocess
 import sys
 import time
@@ -121,6 +122,7 @@ def main() -> int:
         "hazard_replay_html_exists": hazard_replay_html.is_file(),
         "hazard_replay_summary_go": hazard_replay_summary.get("outcome") == "GO",
     }
+    hazard_replay_dir_for_serve = _display_path(repo_root, hazard_replay_dir)
     manifest = {
         "schema_version": RECORDING_PACK_SCHEMA_VERSION,
         "outcome": "PENDING",
@@ -137,7 +139,10 @@ def main() -> int:
             "hazard_replay_summary": _display_path(repo_root, hazard_replay_summary_path),
         },
         "serve": {
-            "command": f"python3 scripts/serve_demo.py --host {args.host} --port {args.port}",
+            "command": (
+                f"HAZARD_FORMATION_REPLAY_DIR={shlex.quote(hazard_replay_dir_for_serve)} "
+                f"python3 scripts/serve_demo.py --host {args.host} --port {args.port}"
+            ),
             "urls": [
                 f"http://{args.host}:{args.port}/healthz",
                 f"http://{args.host}:{args.port}/readyz",

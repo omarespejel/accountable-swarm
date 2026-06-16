@@ -117,6 +117,7 @@ class ServerTests(TestCase):
                 self.assertEqual(ctx.exception.code, 400)
                 payload = json.loads(ctx.exception.read().decode("utf-8"))
                 self.assertEqual(payload["status"], "rejected")
+                self.assertIn("swarm demo", payload["error"])
 
     def test_hazard_formation_replay_files_are_served_from_configured_root(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -185,7 +186,7 @@ class ServerTests(TestCase):
             (replay_dir / "summary.json").write_text('{"outcome":"GO"}\n', encoding="utf-8")
             original_open = Path.open
 
-            def flaky_open(path: Path, *args: object, **kwargs: object):
+            def flaky_open(path: Path, *args: object, **kwargs: object) -> object:
                 if path == index_path:
                     raise FileNotFoundError(index_path)
                 return original_open(path, *args, **kwargs)
@@ -217,6 +218,7 @@ class ServerTests(TestCase):
                 self.assertEqual(ctx.exception.code, 400)
                 payload = json.loads(ctx.exception.read().decode("utf-8"))
                 self.assertEqual(payload["status"], "rejected")
+                self.assertIn("hazard formation replay", payload["error"])
 
 
 class _test_server:
