@@ -27,6 +27,8 @@ render-world-model-dashboard-html = "scripts.render_world_model_dashboard_html:m
 prepare-ecs-operator-pack = "scripts.prepare_ecs_operator_pack:main"
 prepare-dimos-bridge-pack = "scripts.prepare_dimos_bridge_pack:main"
 run-dimos-replay-consumer = "scripts.run_dimos_replay_consumer:main"
+collect-dimos-runtime-smoke-report = "scripts.collect_dimos_runtime_smoke_report:main"
+prepare-dimos-runtime-smoke-pack = "scripts.prepare_dimos_runtime_smoke_pack:main"
 collect-ecs-smoke-report = "scripts.collect_ecs_smoke_report:main"
 verify-trace = "scripts.verify_trace:main"
 
