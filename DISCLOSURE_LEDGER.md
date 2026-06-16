@@ -43,6 +43,7 @@ data sources, and external assets from day one.
 | 2026-06-16 | Hazard formation replay pack | Authored for `accountable-swarm` | Apache-2.0 | Recording-pack generation and read-only serving of the persisted hazard formation trace replay | No physical, SO-101, DimOS execution, 3D physics, arbitrary-map, latency, reliability, safety, or Qwen real-time-control claim. |
 | 2026-06-17 | Sensor-frame proof pack | Authored for `accountable-swarm` | Apache-2.0 | Safe manifest pack for static-image or webcam camera-go-gate evidence with source-frame SHA and delete-after-hash webcam default | No physical robot behavior, SO-101 operation, safety, latency, reliability, cloud deployment, or swarm claim. |
 | 2026-06-17 | SO-101 trace-only camera probe | Authored for `accountable-swarm` | Apache-2.0 | Optional-dependency SO-101 camera capture probe with controlled `NO_GO` report when `lerobot` / `opencv` are unavailable | No SO-101 connectivity, no autonomous motion, no ACT policy success, no safety/latency/reliability claim, and no physical swarm claim. |
+| 2026-06-17 | SO-101 operator probe pack | Authored for `accountable-swarm`; official LeRobot docs referenced for install/camera flow | Apache-2.0 | Non-secret runbook and command pack for setting up the SO-101 trace-only camera probe on the actual hardware machine | No SO-101 connectivity or success claim by itself; no autonomous motion, ACT success, safety, latency, reliability, or physical swarm claim. |
 
 ## Pending Before Demo
 
