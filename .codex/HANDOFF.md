@@ -1,6 +1,6 @@
 # Accountable Swarm Handoff
 
-Last updated: 2026-06-15 JST
+Last updated: 2026-06-17 JST
 
 ## Active Thesis
 
@@ -173,6 +173,12 @@ What is checked locally:
   non-empty timelines, world-model hashes, event-hash binding, relative paths,
   no raw floats, no secret-looking payloads, and explicit non-claims before
   writing the page.
+- the dashboard pack can now optionally copy a reviewed source frame into the
+  output, carry a validated `dimos-bridge-pack-report.v1` summary, and expose
+  both through the rendered dashboard without claiming DimOS execution.
+- the world-model dashboard now shows a Qwen source-frame pane with bbox
+  overlay, a per-agent `DecisionTrace Inspector`, and a DimOS-ready export
+  status panel in the same verified HTML artifact.
 - read-only stdlib server endpoints serve existing swarm bundle artifacts at
   `/swarm-demo` and `/swarm-demo/summary.json` with path traversal rejection.
 - read-only stdlib server endpoints serve the generated hazard formation replay

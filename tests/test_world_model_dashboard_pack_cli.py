@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import replace
 import json
 from pathlib import Path
@@ -126,6 +128,59 @@ class WorldModelDashboardPackCliTests(TestCase):
         self.assertEqual(data["timeline"][0]["hazards"], [])
         self.assertEqual(data["planner_metrics"]["hold_count"], 4)
 
+    def test_dashboard_pack_copies_source_image_and_summarizes_dimos_export(self) -> None:
+        (ROOT / "runs").mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=ROOT / "runs") as tmpdir:
+            base = Path(tmpdir)
+            trace_dir = base / "hazard_x"
+            report_path = base / "hazard_x_report.json"
+            out_dir = base / "dashboard"
+            dimos_manifest = base / "dimos_manifest.json"
+            _run_hazard_gate(trace_dir=trace_dir, report_path=report_path)
+            dimos_manifest.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "dimos-bridge-pack-report.v1",
+                        "outcome": "GO",
+                        "bridge_outcome": "GO",
+                        "event_count": 12,
+                        "scenario_count": 5,
+                        "artifacts": {
+                            "manifest": "runs/dimos/bridge/manifest.json",
+                            "timeline_ndjson": "runs/dimos/bridge/timeline.ndjson",
+                        },
+                        "dimos_probe": {
+                            "runtime_outcome": "NARROW_CLAIM",
+                            "source": {"checkout_provided": False},
+                        },
+                    },
+                    sort_keys=True,
+                    separators=(",", ":"),
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            result = _run_dashboard_pack(
+                trace_dir=trace_dir,
+                report_path=report_path,
+                out_dir=out_dir,
+                source_image=ROOT / "fixtures" / "hazard_marker.ppm",
+                dimos_manifest=dimos_manifest,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
+            data = json.loads((out_dir / "data.json").read_text(encoding="utf-8"))
+            copied_asset_exists = (out_dir / "assets" / "hazard_marker.ppm").is_file()
+
+        self.assertEqual(manifest["outcome"], "GO")
+        self.assertEqual(data["image"]["asset_path"], "assets/hazard_marker.ppm")
+        self.assertEqual(data["dimos_export"]["bridge_manifest_schema"], "dimos-bridge-pack-report.v1")
+        self.assertEqual(data["dimos_export"]["bridge_outcome"], "GO")
+        self.assertEqual(data["dimos_export"]["runtime_outcome"], "NARROW_CLAIM")
+        self.assertTrue(copied_asset_exists)
+
 
 def _run_hazard_gate(
     *,
@@ -159,19 +214,26 @@ def _run_dashboard_pack(
     trace_dir: Path,
     report_path: Path,
     out_dir: Path,
+    source_image: Path | None = None,
+    dimos_manifest: Path | None = None,
 ) -> subprocess.CompletedProcess[str]:
+    args = [
+        sys.executable,
+        "-m",
+        "scripts.prepare_world_model_dashboard_pack",
+        "--trace-dir",
+        str(trace_dir.relative_to(ROOT)),
+        "--hazard-report",
+        str(report_path.relative_to(ROOT)),
+        "--out-dir",
+        str(out_dir.relative_to(ROOT)),
+    ]
+    if source_image is not None:
+        args.extend(["--source-image", str(source_image.relative_to(ROOT))])
+    if dimos_manifest is not None:
+        args.extend(["--dimos-bridge-manifest", str(dimos_manifest.relative_to(ROOT))])
     return subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "scripts.prepare_world_model_dashboard_pack",
-            "--trace-dir",
-            str(trace_dir.relative_to(ROOT)),
-            "--hazard-report",
-            str(report_path.relative_to(ROOT)),
-            "--out-dir",
-            str(out_dir.relative_to(ROOT)),
-        ],
+        args,
         cwd=ROOT,
         text=True,
         capture_output=True,

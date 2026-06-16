@@ -50,6 +50,15 @@ class DemoRecordingPackCliTests(TestCase):
                     stdout="outcome GO\n",
                     stderr="ALIBABA_API_KEY=sk-anothertesttoken\n",
                 )
+            if "scripts.prepare_dimos_bridge_pack" in args:
+                out_dir = ROOT / args[args.index("--out-dir") + 1]
+                out_dir.mkdir(parents=True, exist_ok=True)
+                (out_dir / "manifest.json").write_text(
+                    '{"schema_version":"dimos-bridge-pack-report.v1","outcome":"GO","bridge_outcome":"GO","event_count":12,"scenario_count":5,"artifacts":{"manifest":"runs/dimos/bridge/manifest.json","timeline_ndjson":"runs/dimos/bridge/timeline.ndjson"},"dimos_probe":{"runtime_outcome":"NARROW_CLAIM","source":{"checkout_provided":false}}}\n',
+                    encoding="utf-8",
+                )
+                (out_dir / "timeline.ndjson").write_text("{}\n", encoding="utf-8")
+                return subprocess.CompletedProcess(args=args, returncode=0, stdout="outcome GO\n", stderr="")
             if "scripts/render_swarm_trace_html.py" in args:
                 self.assertIn("--obstacle", args)
                 self.assertEqual(args[args.index("--obstacle") + 1], "3,2")
@@ -66,6 +75,8 @@ class DemoRecordingPackCliTests(TestCase):
                 )
             if "scripts.prepare_world_model_dashboard_pack" in args:
                 out_dir = ROOT / args[args.index("--out-dir") + 1]
+                self.assertIn("--source-image", args)
+                self.assertIn("--dimos-bridge-manifest", args)
                 out_dir.mkdir(parents=True, exist_ok=True)
                 (out_dir / "data.json").write_text('{"schema_version":"world-model-dashboard-data.v1"}\n', encoding="utf-8")
                 (out_dir / "manifest.json").write_text('{"outcome":"GO"}\n', encoding="utf-8")
@@ -98,6 +109,7 @@ class DemoRecordingPackCliTests(TestCase):
             hazard_report = Path(tmpdir) / "hazard_report.json"
             hazard_replay_dir = Path(tmpdir) / "hazard_replay"
             dashboard_dir = Path(tmpdir) / "dashboard"
+            dimos_bridge_dir = Path(tmpdir) / "dimos_bridge"
             argv = [
                 "prepare_demo_recording_pack.py",
                 "--out-dir",
@@ -112,6 +124,8 @@ class DemoRecordingPackCliTests(TestCase):
                 str(hazard_replay_dir.relative_to(ROOT)),
                 "--dashboard-dir",
                 str(dashboard_dir.relative_to(ROOT)),
+                "--dimos-bridge-dir",
+                str(dimos_bridge_dir.relative_to(ROOT)),
             ]
             with (
                 patch.object(module, "_run_command", side_effect=fake_run_command),
@@ -127,9 +141,13 @@ class DemoRecordingPackCliTests(TestCase):
         self.assertEqual(manifest["schema_version"], "demo-recording-pack-report.v1")
         self.assertEqual(manifest["outcome"], "GO")
         self.assertTrue(all(manifest["pass_conditions"].values()))
-        self.assertEqual(len(manifest["commands"]), 5)
+        self.assertEqual(len(manifest["commands"]), 6)
         self.assertFalse(manifest["notes"]["bundle_existing_artifacts_reused"])
         self.assertEqual(manifest["artifacts"]["bundle_index"], bundle_dir.relative_to(ROOT).as_posix() + "/index.html")
+        self.assertEqual(
+            manifest["artifacts"]["dimos_bridge_manifest"],
+            dimos_bridge_dir.relative_to(ROOT).as_posix() + "/manifest.json",
+        )
         self.assertEqual(
             manifest["artifacts"]["hazard_replay_html"],
             hazard_replay_dir.relative_to(ROOT).as_posix() + "/index.html",
@@ -156,6 +174,7 @@ class DemoRecordingPackCliTests(TestCase):
         self.assertNotIn("sk-", json.dumps(manifest, sort_keys=True))
         self.assertFalse(module._contains_secret_material(json.dumps(manifest, sort_keys=True)))
         self.assertIn("no DimOS integration", shotlist)
+        self.assertIn("DimOS-ready export status panel", shotlist)
         self.assertIn("Open the animated swarm replay", shotlist)
         self.assertIn("Open the world-model dashboard", shotlist)
 
@@ -186,6 +205,15 @@ class DemoRecordingPackCliTests(TestCase):
                     encoding="utf-8",
                 )
                 return subprocess.CompletedProcess(args=args, returncode=0, stdout="outcome GO\n", stderr="")
+            if "scripts.prepare_dimos_bridge_pack" in args:
+                out_dir = ROOT / args[args.index("--out-dir") + 1]
+                out_dir.mkdir(parents=True, exist_ok=True)
+                (out_dir / "manifest.json").write_text(
+                    '{"schema_version":"dimos-bridge-pack-report.v1","outcome":"GO","bridge_outcome":"GO","event_count":12,"scenario_count":5,"artifacts":{"manifest":"runs/dimos/bridge/manifest.json","timeline_ndjson":"runs/dimos/bridge/timeline.ndjson"},"dimos_probe":{"runtime_outcome":"NARROW_CLAIM","source":{"checkout_provided":false}}}\n',
+                    encoding="utf-8",
+                )
+                (out_dir / "timeline.ndjson").write_text("{}\n", encoding="utf-8")
+                return subprocess.CompletedProcess(args=args, returncode=0, stdout="outcome GO\n", stderr="")
             if "scripts/render_swarm_trace_html.py" in args:
                 html_path = ROOT / args[args.index("--html-out") + 1]
                 summary_path = ROOT / args[args.index("--summary-out") + 1]
@@ -217,6 +245,7 @@ class DemoRecordingPackCliTests(TestCase):
             hazard_report = Path(tmpdir) / "hazard_report.json"
             hazard_replay_dir = Path(tmpdir) / "hazard_replay"
             dashboard_dir = Path(tmpdir) / "dashboard"
+            dimos_bridge_dir = Path(tmpdir) / "dimos_bridge"
             argv = [
                 "prepare_demo_recording_pack.py",
                 "--out-dir",
@@ -231,6 +260,8 @@ class DemoRecordingPackCliTests(TestCase):
                 str(hazard_replay_dir.relative_to(ROOT)),
                 "--dashboard-dir",
                 str(dashboard_dir.relative_to(ROOT)),
+                "--dimos-bridge-dir",
+                str(dimos_bridge_dir.relative_to(ROOT)),
             ]
             with (
                 patch.object(module, "_run_command", side_effect=flaky_run_command),

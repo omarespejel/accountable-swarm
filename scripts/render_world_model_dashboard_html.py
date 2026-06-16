@@ -94,6 +94,8 @@ def _validate_data(data: dict[str, Any]) -> None:
     grid = _require_dict(data.get("grid"), "grid")
     width = _require_positive_int(grid, "width")
     height = _require_positive_int(grid, "height")
+    _validate_image(data.get("image"))
+    _validate_dimos_export(data.get("dimos_export"))
     timeline = _require_list(data.get("timeline"), "timeline")
     if not timeline:
         raise ValueError("timeline must contain at least one frame")
@@ -158,6 +160,32 @@ def _validate_data(data: dict[str, Any]) -> None:
             raise ValueError("timeline agent set must stay stable")
         _validate_reservations(frame.get("reservations"), agents=agents)
         _require_list(frame.get("predicted_conflicts"), "predicted_conflicts")
+
+
+def _validate_image(value: Any) -> None:
+    image = _require_dict(value, "image")
+    if "asset_path" in image:
+        asset_path = image["asset_path"]
+        if not isinstance(asset_path, str) or not asset_path:
+            raise ValueError("image asset_path must be a non-empty string")
+        if Path(asset_path).is_absolute():
+            raise ValueError("image asset_path must be relative")
+
+
+def _validate_dimos_export(value: Any) -> None:
+    if value is None:
+        return
+    export = _require_dict(value, "dimos_export")
+    schema = export.get("bridge_manifest_schema")
+    if not isinstance(schema, str) or not schema:
+        raise ValueError("dimos_export bridge_manifest_schema must be a non-empty string")
+    for key in ("bridge_outcome", "overall_outcome", "runtime_outcome", "timeline_path", "manifest_path"):
+        if not isinstance(export.get(key), str) or not export[key]:
+            raise ValueError(f"dimos_export {key} must be a non-empty string")
+    for key in ("event_count", "scenario_count"):
+        item = export.get(key)
+        if isinstance(item, bool) or not isinstance(item, int):
+            raise ValueError(f"dimos_export {key} must be an integer")
 
 
 def _validate_observations(value: Any, *, hazard_trace_sha: str, width: int, height: int) -> None:
@@ -264,7 +292,8 @@ def _render_html(*, data: dict[str, Any], summary: dict[str, Any]) -> str:
     model = data.get("model") or "fixture"
     mode = data.get("mode") or "unknown"
     hazard_cell = _hazard_cell_label(data.get("hazard"))
-    planner_metrics = data.get("planner_metrics", {})
+    source_image = _require_dict(data.get("image"), "image")
+    source_image_asset = source_image.get("asset_path")
     return (
         "<!doctype html>\n"
         "<html lang=\"en\">\n"
@@ -282,10 +311,18 @@ def _render_html(*, data: dict[str, Any], summary: dict[str, Any]) -> str:
         "    main{display:grid;grid-template-columns:minmax(520px,1.45fr) minmax(360px,.9fr);gap:18px;padding:18px 28px 28px;align-items:start;}\n"
         "    section,.panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;}\n"
         "    .stage{padding:14px;}\n"
+        "    .stage-grid{display:grid;grid-template-columns:minmax(280px,.72fr) minmax(420px,1fr);gap:12px;align-items:start;}\n"
         "    .toolbar{display:flex;align-items:center;gap:10px;margin-bottom:12px;}\n"
         "    button{appearance:none;border:1px solid #8aa0b5;background:#fff;border-radius:6px;padding:8px 12px;font-weight:700;color:var(--ink);cursor:pointer;}\n"
         "    input[type=range]{width:100%;min-width:160px;accent-color:var(--teal);}\n"
         "    canvas{width:100%;height:auto;display:block;background:#152032;border-radius:6px;border:1px solid #334155;}\n"
+        "    .source-frame{border:1px solid var(--line);border-radius:6px;background:#fbfcfe;padding:10px;}\n"
+        "    .source-frame h2{margin:0 0 8px;font-size:14px;line-height:1.2;}\n"
+        "    .source-frame p{margin:0 0 8px;font-size:12px;color:var(--muted);line-height:1.4;}\n"
+        "    .frame-wrap{position:relative;background:#0f172a;border-radius:6px;overflow:hidden;border:1px solid #334155;aspect-ratio:1 / 1;}\n"
+        "    .frame-wrap img{display:block;width:100%;height:100%;object-fit:contain;background:#0f172a;}\n"
+        "    .bbox{position:absolute;border:3px solid #c4b5fd;box-shadow:0 0 0 9999px rgba(124,58,237,0.08) inset;pointer-events:none;}\n"
+        "    .source-fallback{display:flex;align-items:center;justify-content:center;min-height:260px;color:#cbd5e1;font-size:13px;padding:12px;text-align:center;}\n"
         "    .side{display:grid;gap:12px;}\n"
         "    .panel{padding:14px;}\n"
         "    .panel h2{margin:0 0 10px;font-size:15px;line-height:1.2;letter-spacing:0;color:#101828;}\n"
@@ -299,6 +336,8 @@ def _render_html(*, data: dict[str, Any], summary: dict[str, Any]) -> str:
         "    code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11px;word-break:break-all;color:#243b53;}\n"
         "    .hash-list{display:grid;gap:8px;font-size:12px;}\n"
         "    .agent-row{display:grid;grid-template-columns:78px 74px 1fr;gap:8px;align-items:center;border-top:1px solid var(--line);padding:7px 0;font-size:12px;}\n"
+        "    .agent-row button{all:unset;display:grid;grid-template-columns:78px 74px 1fr;gap:8px;align-items:center;width:100%;cursor:pointer;border-top:1px solid var(--line);padding:7px 0;font-size:12px;}\n"
+        "    .agent-row button[data-selected=\"true\"]{background:#f5f8fc;border-radius:6px;padding-left:6px;padding-right:6px;}\n"
         "    .agent-chip{display:inline-flex;align-items:center;gap:6px;font-weight:700;}\n"
         "    .agent-swatch{width:10px;height:10px;border-radius:50%;display:inline-block;}\n"
         "    .notice{border-left:4px solid var(--amber);background:#fff7ed;padding:10px 12px;color:#663c00;font-size:13px;line-height:1.4;}\n"
@@ -307,6 +346,12 @@ def _render_html(*, data: dict[str, Any], summary: dict[str, Any]) -> str:
         "    .legend{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;font-size:12px;color:#d9e5ef;}\n"
         "    .legend span{display:inline-flex;gap:5px;align-items:center;}\n"
         "    .legend i{width:10px;height:10px;border-radius:2px;display:inline-block;}\n"
+        "    .detail-grid{display:grid;gap:8px;font-size:12px;}\n"
+        "    .detail-grid code{font-size:11px;}\n"
+        "    .detail-row{border-top:1px solid var(--line);padding-top:8px;}\n"
+        "    .status-stack{display:grid;gap:8px;font-size:12px;}\n"
+        "    .status-stack strong{font-size:13px;}\n"
+        "    @media(max-width:1180px){.stage-grid{grid-template-columns:1fr;}}\n"
         "    @media(max-width:980px){main{grid-template-columns:1fr;padding:14px;}header{padding:18px 14px 12px;}h1{font-size:24px;}.metrics{grid-template-columns:1fr 1fr;}}\n"
         "  </style>\n"
         "</head>\n"
@@ -321,7 +366,21 @@ def _render_html(*, data: dict[str, Any], summary: dict[str, Any]) -> str:
         "        <button id=\"play-toggle\" type=\"button\">Play</button>\n"
         f"        <input id=\"tick-slider\" type=\"range\" min=\"0\" max=\"{len(data['timeline']) - 1}\" value=\"0\" step=\"1\" aria-label=\"Replay tick\">\n"
         "      </div>\n"
-        "      <canvas id=\"world-canvas\" width=\"1120\" height=\"760\"></canvas>\n"
+        "      <div class=\"stage-grid\">\n"
+        "        <div class=\"source-frame\">\n"
+        "          <h2>Qwen Source Frame</h2>\n"
+        "          <p>Bounded keyframe evidence only. The bbox is displayed exactly as persisted in the verified observation payload.</p>\n"
+        "          <div class=\"frame-wrap\" id=\"frame-wrap\">\n"
+        + (
+            f"            <img id=\"source-image\" alt=\"Qwen source frame\" src=\"{html.escape(str(source_image_asset))}\">\n"
+            if isinstance(source_image_asset, str) and source_image_asset
+            else "            <div class=\"source-fallback\">No source-frame asset was packaged for this run.</div>\n"
+        )
+        + "            <div class=\"bbox\" id=\"bbox-overlay\" hidden></div>\n"
+        "          </div>\n"
+        "        </div>\n"
+        "        <canvas id=\"world-canvas\" width=\"1120\" height=\"760\"></canvas>\n"
+        "      </div>\n"
         "      <div class=\"legend\"><span><i style=\"background:#7c3aed\"></i>Qwen hazard evidence</span><span><i style=\"background:#0f766e\"></i>local planner agents</span><span><i style=\"background:#f59e0b\"></i>formation targets</span><span><i style=\"background:#ef4444\"></i>predicted conflict</span></div>\n"
         "    </section>\n"
         "    <aside class=\"side\">\n"
@@ -347,6 +406,14 @@ def _render_html(*, data: dict[str, Any], summary: dict[str, Any]) -> str:
         "        <div id=\"agent-list\"></div>\n"
         "      </section>\n"
         "      <section class=\"panel\">\n"
+        "        <h2>DecisionTrace Inspector</h2>\n"
+        "        <div class=\"detail-grid\" id=\"trace-inspector\"></div>\n"
+        "      </section>\n"
+        "      <section class=\"panel\">\n"
+        "        <h2>DimOS-ready Export</h2>\n"
+        "        <div class=\"status-stack\" id=\"dimos-status\"></div>\n"
+        "      </section>\n"
+        "      <section class=\"panel\">\n"
         "        <h2>Verifier Notes</h2>\n"
         "        <div class=\"notice\">The rendered payload comes from <code>world-model-dashboard-data.v1</code>. Agent event hashes are checked against the world-model event hashes before this HTML is produced.</div>\n"
         "        <div class=\"nonclaims\" id=\"nonclaims\"></div>\n"
@@ -365,17 +432,47 @@ def _render_html(*, data: dict[str, Any], summary: dict[str, Any]) -> str:
         "    const hazardSha = document.getElementById('hazard-sha');\n"
         "    const plannerReadout = document.getElementById('planner-readout');\n"
         "    const agentList = document.getElementById('agent-list');\n"
+        "    const traceInspector = document.getElementById('trace-inspector');\n"
+        "    const dimosStatus = document.getElementById('dimos-status');\n"
+        "    const bboxOverlay = document.getElementById('bbox-overlay');\n"
+        "    const sourceImage = document.getElementById('source-image');\n"
         "    const nonclaims = document.getElementById('nonclaims');\n"
         "    const colors = {\"sim-agent-0\":\"#0f766e\",\"sim-agent-1\":\"#7c3aed\",\"sim-agent-2\":\"#dc2626\",\"sim-agent-3\":\"#2563eb\",\"sim-agent-4\":\"#d97706\",\"sim-agent-5\":\"#0891b2\"};\n"
         "    let tick = 0;\n"
+        "    let selectedAgentId = null;\n"
         "    let timer = null;\n"
         "    hazardSha.textContent = data.hazard_trace_summary_sha;\n"
         "    plannerReadout.textContent = `${data.planner_metrics.outcome || 'unknown'} / same-cell ${data.planner_metrics.same_cell_collision_count} / swap ${data.planner_metrics.swap_collision_count}`;\n"
         "    data.non_claims.forEach((claim) => { const span = document.createElement('span'); span.className = 'pill'; span.textContent = claim; nonclaims.appendChild(span); });\n"
+        "    function renderDimosStatus(){\n"
+        "      dimosStatus.innerHTML = '';\n"
+        "      if(!data.dimos_export){ const empty = document.createElement('div'); empty.textContent = 'No DimOS bridge manifest was packaged for this run.'; dimosStatus.appendChild(empty); return; }\n"
+        "      const rows = [\n"
+        "        ['Bridge outcome', data.dimos_export.bridge_outcome],\n"
+        "        ['Runtime outcome', data.dimos_export.runtime_outcome],\n"
+        "        ['Overall outcome', data.dimos_export.overall_outcome],\n"
+        "        ['Events', String(data.dimos_export.event_count)],\n"
+        "        ['Scenarios', String(data.dimos_export.scenario_count)],\n"
+        "      ];\n"
+        "      rows.forEach(([label, value]) => { const row = document.createElement('div'); row.className = 'detail-row'; row.innerHTML = `<strong>${label}</strong><br><code>${value}</code>`; dimosStatus.appendChild(row); });\n"
+        "      const foot = document.createElement('div'); foot.className = 'notice'; foot.textContent = 'This panel proves replay/export status only. It does not claim DimOS executed, visualized, or controlled the swarm.'; dimosStatus.appendChild(foot);\n"
+        "    }\n"
+        "    function renderSourceFrame(frame){\n"
+        "      if(!bboxOverlay){ return; }\n"
+        "      const observation = frame.observations && frame.observations[0];\n"
+        "      if(!observation || !Array.isArray(observation.bbox_2d_norm_1000) || observation.bbox_2d_norm_1000.length !== 4){ bboxOverlay.hidden = true; return; }\n"
+        "      const [x0,y0,x1,y1] = observation.bbox_2d_norm_1000;\n"
+        "      bboxOverlay.hidden = false;\n"
+        "      bboxOverlay.style.left = `${(x0 / 1000) * 100}%`;\n"
+        "      bboxOverlay.style.top = `${(y0 / 1000) * 100}%`;\n"
+        "      bboxOverlay.style.width = `${((x1 - x0) / 1000) * 100}%`;\n"
+        "      bboxOverlay.style.height = `${((y1 - y0) / 1000) * 100}%`;\n"
+        "    }\n"
         "    function draw(){\n"
         "      const frame = data.timeline[tick];\n"
         "      worldModelSha.textContent = frame.world_model_sha;\n"
         "      slider.value = String(tick);\n"
+        "      renderSourceFrame(frame);\n"
         "      if(!ctx){ return; }\n"
         "      ctx.clearRect(0,0,canvas.width,canvas.height);\n"
         "      ctx.fillStyle = '#152032'; ctx.fillRect(0,0,canvas.width,canvas.height);\n"
@@ -414,21 +511,45 @@ def _render_html(*, data: dict[str, Any], summary: dict[str, Any]) -> str:
         "    }\n"
         "    function renderRows(){\n"
         "      const frame = data.timeline[tick]; agentList.innerHTML = '';\n"
+        "      if(!selectedAgentId && frame.agents.length){ selectedAgentId = frame.agents[0].agent_id; }\n"
         "      frame.agents.forEach((agent) => {\n"
         "        const row = document.createElement('div'); row.className = 'agent-row';\n"
+        "        const button = document.createElement('button'); button.type = 'button'; button.dataset.selected = String(agent.agent_id === selectedAgentId);\n"
         "        const chip = document.createElement('span'); chip.className = 'agent-chip';\n"
         "        const swatch = document.createElement('span'); swatch.className = 'agent-swatch'; swatch.style.background = colors[agent.agent_id] || '#0891b2'; chip.appendChild(swatch); chip.append(agent.agent_id.replace('sim-agent-','A'));\n"
         "        const cell = document.createElement('span'); cell.textContent = `(${agent.cell.x},${agent.cell.y}) -> (${agent.goal.x},${agent.goal.y})`;\n"
         "        const code = document.createElement('code'); code.textContent = `${agent.decision} ${agent.event_sha256}`;\n"
-        "        row.append(chip, cell, code); agentList.appendChild(row);\n"
+        "        button.append(chip, cell, code); button.addEventListener('click', () => { selectedAgentId = agent.agent_id; renderRows(); renderInspector(); }); row.appendChild(button); agentList.appendChild(row);\n"
         "      });\n"
         "    }\n"
-        "    function update(){ draw(); renderRows(); }\n"
+        "    function renderInspector(){\n"
+        "      const frame = data.timeline[tick];\n"
+        "      const agent = frame.agents.find((entry) => entry.agent_id === selectedAgentId) || frame.agents[0];\n"
+        "      if(!agent){ traceInspector.innerHTML = ''; return; }\n"
+        "      selectedAgentId = agent.agent_id;\n"
+        "      const conflictCells = (frame.predicted_conflicts || []).map((conflict) => `(${conflict.cell.x},${conflict.cell.y})`).join(', ') || 'none';\n"
+        "      const reservationCells = (frame.reservations || []).map((reservation) => `${reservation.agent_id}:${reservation.cell.x},${reservation.cell.y}`).join(' | ') || 'none';\n"
+        "      traceInspector.innerHTML = '';\n"
+        "      const rows = [\n"
+        "        ['Agent', agent.agent_id],\n"
+        "        ['Decision', agent.decision],\n"
+        "        ['Reason', agent.reason],\n"
+        "        ['Event SHA', agent.event_sha256],\n"
+        "        ['Proposed', `(${agent.command.proposed_x},${agent.command.proposed_y})`],\n"
+        "        ['Accepted', `(${agent.command.accepted_x},${agent.command.accepted_y})`],\n"
+        "        ['Goal', `(${agent.command.goal_x},${agent.command.goal_y})`],\n"
+        "        ['Reservations', reservationCells],\n"
+        "        ['Predicted conflicts', conflictCells],\n"
+        "      ];\n"
+        "      rows.forEach(([label, value]) => { const row = document.createElement('div'); row.className = 'detail-row'; row.innerHTML = `<strong>${label}</strong><br><code>${String(value)}</code>`; traceInspector.appendChild(row); });\n"
+        "    }\n"
+        "    function update(){ draw(); renderRows(); renderInspector(); }\n"
         "    slider.addEventListener('input', () => { tick = Number(slider.value); update(); });\n"
         "    button.addEventListener('click', () => {\n"
         "      if(timer){ clearInterval(timer); timer = null; button.textContent = 'Play'; return; }\n"
         "      button.textContent = 'Pause'; timer = setInterval(() => { tick = (tick + 1) % data.timeline.length; update(); }, 650);\n"
         "    });\n"
+        "    renderDimosStatus();\n"
         "    update();\n"
         "  })();\n"
         "  </script>\n"

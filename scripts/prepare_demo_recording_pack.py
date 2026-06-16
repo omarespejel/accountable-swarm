@@ -26,6 +26,7 @@ DEFAULT_HAZARD_TRACE_DIR = Path("runs/hazard_formation/recording_x")
 DEFAULT_HAZARD_REPORT = Path("runs/hazard_formation/recording_x_report.json")
 DEFAULT_HAZARD_REPLAY_DIR = Path("runs/hazard_formation/recording_x_replay")
 DEFAULT_DASHBOARD_DIR = Path("runs/dashboard/recording_x")
+DEFAULT_DIMOS_BRIDGE_DIR = Path("runs/dimos/recording_x_bridge")
 DEFAULT_HAZARD_IMAGE = Path("fixtures/hazard_marker.ppm")
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8000
@@ -48,6 +49,8 @@ def main() -> int:
     parser.add_argument("--hazard-report", type=Path, default=DEFAULT_HAZARD_REPORT)
     parser.add_argument("--hazard-replay-dir", type=Path, default=DEFAULT_HAZARD_REPLAY_DIR)
     parser.add_argument("--dashboard-dir", type=Path, default=DEFAULT_DASHBOARD_DIR)
+    parser.add_argument("--dimos-bridge-dir", type=Path, default=DEFAULT_DIMOS_BRIDGE_DIR)
+    parser.add_argument("--dimos-checkout", type=Path, default=None)
     parser.add_argument("--hazard-mode", choices=["fixture", "dashscope", "degraded"], default="fixture")
     parser.add_argument("--hazard-model", default="qwen3-vl-flash")
     parser.add_argument("--formation", choices=["surround", "x", "line", "diamond"], default="x")
@@ -66,7 +69,9 @@ def main() -> int:
     hazard_report_path = _repo_path(repo_root, args.hazard_report)
     hazard_replay_dir = _repo_path(repo_root, args.hazard_replay_dir)
     dashboard_dir = _repo_path(repo_root, args.dashboard_dir)
+    dimos_bridge_dir = _repo_path(repo_root, args.dimos_bridge_dir)
     hazard_image = _repo_path(repo_root, args.hazard_image)
+    dimos_checkout = _repo_path(repo_root, args.dimos_checkout) if args.dimos_checkout is not None else None
 
     commands = []
     bundle_command = [
@@ -101,6 +106,22 @@ def main() -> int:
     bundle_summary_path = bundle_dir / "summary.json"
     hazard_report = _load_json_if_exists(hazard_report_path)
     bundle_summary = _load_json_if_exists(bundle_summary_path)
+    dimos_bridge_command = [
+        sys.executable,
+        "-m",
+        "scripts.prepare_dimos_bridge_pack",
+        "--source-bundle",
+        _display_path(repo_root, bundle_dir),
+        "--out-dir",
+        _display_path(repo_root, dimos_bridge_dir),
+    ]
+    if dimos_checkout is not None:
+        dimos_bridge_command.extend(
+            ["--dimos-checkout", _display_path(repo_root, dimos_checkout)]
+        )
+    dimos_bridge_result = _run_command(dimos_bridge_command, cwd=repo_root)
+    commands.append(_command_report("prepare_dimos_bridge_pack", dimos_bridge_command, dimos_bridge_result))
+    dimos_bridge_manifest = _load_json_if_exists(dimos_bridge_dir / "manifest.json")
     hazard_replay_html = hazard_replay_dir / "index.html"
     hazard_replay_summary_path = hazard_replay_dir / "summary.json"
     hazard_replay_command = _hazard_replay_command(
@@ -123,6 +144,10 @@ def main() -> int:
         _display_path(repo_root, hazard_report_path),
         "--out-dir",
         _display_path(repo_root, dashboard_dir),
+        "--source-image",
+        _display_path(repo_root, hazard_image),
+        "--dimos-bridge-manifest",
+        _display_path(repo_root, dimos_bridge_dir / "manifest.json"),
     ]
     dashboard_render_command = [
         sys.executable,
@@ -154,6 +179,8 @@ def main() -> int:
         "hazard_report_exists": hazard_report_path.is_file(),
         "hazard_report_accepted_outcome": hazard_report.get("outcome") in {"GO", "DEGRADED"},
         "hazard_trace_exists": (hazard_trace_dir / "hazard.json").is_file(),
+        "dimos_bridge_command_succeeded": dimos_bridge_result.returncode == 0,
+        "dimos_bridge_manifest_go": dimos_bridge_manifest.get("outcome") == "GO",
         "hazard_replay_command_succeeded": hazard_replay_result.returncode == 0,
         "hazard_replay_html_exists": hazard_replay_html.is_file(),
         "hazard_replay_summary_go": hazard_replay_summary.get("outcome") == "GO",
@@ -177,6 +204,8 @@ def main() -> int:
             "bundle_summary": _display_path(repo_root, bundle_summary_path),
             "hazard_report": _display_path(repo_root, hazard_report_path),
             "hazard_trace": _display_path(repo_root, hazard_trace_dir / "hazard.json"),
+            "dimos_bridge_manifest": _display_path(repo_root, dimos_bridge_dir / "manifest.json"),
+            "dimos_bridge_timeline": _display_path(repo_root, dimos_bridge_dir / "timeline.ndjson"),
             "hazard_replay_html": _display_path(repo_root, hazard_replay_html),
             "hazard_replay_summary": _display_path(repo_root, hazard_replay_summary_path),
             "dashboard_data": _display_path(repo_root, dashboard_dir / "data.json"),
@@ -211,6 +240,7 @@ def main() -> int:
             "Open one replay scenario and show the moving agents plus static trace frames.",
             "Open the hazard-formation replay and show the bbox-derived hazard cell as the obstacle.",
             "Open the world-model dashboard and show Qwen evidence, local planner metrics, world-model hash, and per-agent trace hashes.",
+            "Show the DimOS-ready export status panel and state clearly that it is replay/export evidence, not DimOS execution.",
             "Show the hazard-to-formation report with bbox, hazard cell, X formation, and trace hashes.",
             "State the boundary: Qwen keyframe perception or low-rate intent, deterministic local motion, hash-verifiable traces.",
             "State non-claims in frame: no DimOS, no physical SO-101, no 3D physics, no Qwen real-time control, no completed ECS proof unless separately recorded.",

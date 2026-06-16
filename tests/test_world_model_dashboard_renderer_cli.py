@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 from pathlib import Path
 import shutil
@@ -19,8 +21,38 @@ class WorldModelDashboardRendererCliTests(TestCase):
         cls._base_pack_dir = base / "dashboard"
         trace_dir = base / "hazard_x"
         report_path = base / "hazard_x_report.json"
+        dimos_manifest = base / "dimos_manifest.json"
         _run_hazard_gate(trace_dir=trace_dir, report_path=report_path)
-        _run_dashboard_pack(trace_dir=trace_dir, report_path=report_path, out_dir=cls._base_pack_dir)
+        dimos_manifest.write_text(
+            json.dumps(
+                {
+                    "schema_version": "dimos-bridge-pack-report.v1",
+                    "outcome": "GO",
+                    "bridge_outcome": "GO",
+                    "event_count": 12,
+                    "scenario_count": 5,
+                    "artifacts": {
+                        "manifest": "runs/dimos/bridge/manifest.json",
+                        "timeline_ndjson": "runs/dimos/bridge/timeline.ndjson",
+                    },
+                    "dimos_probe": {
+                        "runtime_outcome": "NARROW_CLAIM",
+                        "source": {"checkout_provided": False},
+                    },
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        _run_dashboard_pack(
+            trace_dir=trace_dir,
+            report_path=report_path,
+            out_dir=cls._base_pack_dir,
+            source_image=ROOT / "fixtures" / "hazard_marker.ppm",
+            dimos_manifest=dimos_manifest,
+        )
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -49,9 +81,14 @@ class WorldModelDashboardRendererCliTests(TestCase):
         self.assertFalse(Path(summary["html_path"]).is_absolute())
         self.assertFalse(Path(summary["data_path"]).is_absolute())
         self.assertIn("Accountable World Model Dashboard", html_text)
+        self.assertIn("Qwen Source Frame", html_text)
         self.assertIn("Qwen evidence", html_text)
         self.assertIn("Deterministic local planner", html_text)
         self.assertIn("DecisionTrace", html_text)
+        self.assertIn("DimOS-ready Export", html_text)
+        self.assertIn("assets/hazard_marker.ppm", html_text)
+        self.assertIn("No DimOS bridge manifest was packaged", html_text)  # script contains fallback string
+        self.assertIn("renderDimosStatus", html_text)
         self.assertIn("world_model_sha", html_text)
         self.assertIn("no physical robot behavior", html_text)
         self.assertIn("no Qwen real-time control", html_text)
@@ -142,19 +179,31 @@ def _run_hazard_gate(*, trace_dir: Path, report_path: Path) -> subprocess.Comple
     return result
 
 
-def _run_dashboard_pack(*, trace_dir: Path, report_path: Path, out_dir: Path) -> subprocess.CompletedProcess[str]:
+def _run_dashboard_pack(
+    *,
+    trace_dir: Path,
+    report_path: Path,
+    out_dir: Path,
+    source_image: Path | None = None,
+    dimos_manifest: Path | None = None,
+) -> subprocess.CompletedProcess[str]:
+    args = [
+        sys.executable,
+        "-m",
+        "scripts.prepare_world_model_dashboard_pack",
+        "--trace-dir",
+        str(trace_dir.relative_to(ROOT)),
+        "--hazard-report",
+        str(report_path.relative_to(ROOT)),
+        "--out-dir",
+        str(out_dir.relative_to(ROOT)),
+    ]
+    if source_image is not None:
+        args.extend(["--source-image", str(source_image.relative_to(ROOT))])
+    if dimos_manifest is not None:
+        args.extend(["--dimos-bridge-manifest", str(dimos_manifest.relative_to(ROOT))])
     result = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "scripts.prepare_world_model_dashboard_pack",
-            "--trace-dir",
-            str(trace_dir.relative_to(ROOT)),
-            "--hazard-report",
-            str(report_path.relative_to(ROOT)),
-            "--out-dir",
-            str(out_dir.relative_to(ROOT)),
-        ],
+        args,
         cwd=ROOT,
         text=True,
         capture_output=True,
