@@ -21,6 +21,7 @@ run-hazard-formation-gate = "scripts.run_hazard_formation_gate:main"
 prepare-demo-recording-pack = "scripts.prepare_demo_recording_pack:main"
 prepare-ecs-operator-pack = "scripts.prepare_ecs_operator_pack:main"
 prepare-dimos-bridge-pack = "scripts.prepare_dimos_bridge_pack:main"
+run-dimos-replay-consumer = "scripts.run_dimos_replay_consumer:main"
 collect-ecs-smoke-report = "scripts.collect_ecs_smoke_report:main"
 verify-trace = "scripts.verify_trace:main"
 
