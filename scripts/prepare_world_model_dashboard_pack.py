@@ -73,13 +73,17 @@ def _build_pack(
     out_dir: Path,
 ) -> dict[str, dict[str, Any]]:
     hazard_report = _read_json_object(hazard_report_path, "hazard report")
-    hazard_trace = _read_trace(trace_dir / "hazard.json", "hazard trace")
+    hazard_trace_path = _contained_path(repo_root, trace_dir / "hazard.json", "hazard trace")
+    agent_trace_dir = _contained_path(repo_root, trace_dir / "agents", "agent trace dir")
+    export_trace_path = _contained_path(repo_root, trace_dir / "world_model_export.json", "world model export trace")
+    timeline_path = _contained_path(repo_root, trace_dir / "world_model_timeline.jsonl", "world model timeline")
+    hazard_trace = _read_trace(hazard_trace_path, "hazard trace")
     hazard_trace_sha = verify_trace(hazard_trace)
-    agent_traces = _read_agent_traces(trace_dir / "agents")
+    agent_traces = _read_agent_traces(agent_trace_dir, repo_root=repo_root)
     agent_trace_shas = {agent_id: verify_trace(trace) for agent_id, trace in sorted(agent_traces.items())}
-    export_trace = _read_trace(trace_dir / "world_model_export.json", "world model export trace")
+    export_trace = _read_trace(export_trace_path, "world model export trace")
     export_trace_sha = verify_trace(export_trace)
-    states = _read_world_model_timeline(trace_dir / "world_model_timeline.jsonl")
+    states = _read_world_model_timeline(timeline_path)
     state_hashes = [verify_world_model_state(state) for state in states]
 
     _validate_report_and_sources(
@@ -102,10 +106,10 @@ def _build_pack(
         "schema_version": DASHBOARD_DATA_SCHEMA_VERSION,
         "source": {
             "hazard_report": _display_path(repo_root, hazard_report_path),
-            "hazard_trace": _display_path(repo_root, trace_dir / "hazard.json"),
-            "agent_trace_dir": _display_path(repo_root, trace_dir / "agents"),
-            "world_model_timeline": _display_path(repo_root, trace_dir / "world_model_timeline.jsonl"),
-            "world_model_export_trace": _display_path(repo_root, trace_dir / "world_model_export.json"),
+            "hazard_trace": _display_path(repo_root, hazard_trace_path),
+            "agent_trace_dir": _display_path(repo_root, agent_trace_dir),
+            "world_model_timeline": _display_path(repo_root, timeline_path),
+            "world_model_export_trace": _display_path(repo_root, export_trace_path),
         },
         "image": hazard_report.get("image", {}),
         "mode": hazard_report.get("mode", ""),
@@ -232,6 +236,8 @@ def _timeline_from_states(
             event = trace.events[state.tick]
             if event.tick != state.tick:
                 raise ValueError(f"trace tick mismatch for {agent.agent_id}")
+            if event.actor_id != agent.agent_id:
+                raise ValueError(f"trace actor_id does not match world model agent for {agent.agent_id}")
             command = event.command
             accepted_x = _require_int(command, "accepted_x")
             accepted_y = _require_int(command, "accepted_y")
@@ -303,15 +309,21 @@ def _read_trace(path: Path, name: str) -> DecisionTrace:
     return trace
 
 
-def _read_agent_traces(path: Path) -> dict[str, DecisionTrace]:
+def _read_agent_traces(path: Path, *, repo_root: Path) -> dict[str, DecisionTrace]:
     if not path.is_dir():
         raise ValueError("agent trace directory is required")
     traces = {}
     for trace_path in sorted(path.glob("*.json")):
+        trace_path = _contained_path(repo_root, trace_path, trace_path.name)
         trace = _read_trace(trace_path, trace_path.name)
         agent_id = trace_path.stem
         if trace.run_id and not trace.run_id.endswith(f"-{agent_id}"):
             raise ValueError(f"agent trace filename does not match run_id for {agent_id}")
+        for index, event in enumerate(trace.events):
+            if event.actor_id != agent_id:
+                raise ValueError(f"agent trace actor_id does not match filename for {agent_id}")
+            if event.tick != index:
+                raise ValueError(f"agent trace ticks must be contiguous for {agent_id}")
         traces[agent_id] = trace
     if not traces:
         raise ValueError("at least one agent trace is required")
@@ -359,10 +371,17 @@ def _repo_path(repo_root: Path, path: Path) -> Path:
 
 
 def _require_inside_repo(repo_root: Path, path: Path, name: str) -> None:
+    _contained_path(repo_root, path, name)
+
+
+def _contained_path(repo_root: Path, path: Path, name: str) -> Path:
+    resolved_root = repo_root.resolve()
+    resolved = path.resolve()
     try:
-        path.resolve().relative_to(repo_root.resolve())
+        resolved.relative_to(resolved_root)
     except ValueError as exc:
         raise ValueError(f"{name} must be inside the repository") from exc
+    return resolved
 
 
 def _display_path(repo_root: Path, path: Path) -> str:

@@ -1,3 +1,4 @@
+from dataclasses import replace
 import json
 from pathlib import Path
 import subprocess
@@ -5,6 +6,7 @@ import sys
 from tempfile import TemporaryDirectory
 from unittest import TestCase
 
+from accountable_swarm.trace.models import GENESIS_SHA, DecisionTrace, trace_from_dict
 from accountable_swarm.world_model import world_model_from_dict
 
 
@@ -67,6 +69,39 @@ class WorldModelDashboardPackCliTests(TestCase):
 
         self.assertEqual(result.returncode, 4)
         self.assertIn("world model agent cell does not match trace command", result.stderr)
+
+    def test_dashboard_pack_rejects_symlinked_source_escape(self) -> None:
+        (ROOT / "runs").mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=ROOT / "runs") as tmpdir, TemporaryDirectory() as outside_tmpdir:
+            base = Path(tmpdir)
+            trace_dir = base / "hazard_x"
+            report_path = base / "hazard_x_report.json"
+            out_dir = base / "dashboard"
+            _run_hazard_gate(trace_dir=trace_dir, report_path=report_path)
+            external_hazard = Path(outside_tmpdir) / "hazard.json"
+            external_hazard.write_text((trace_dir / "hazard.json").read_text(encoding="utf-8"), encoding="utf-8")
+            (trace_dir / "hazard.json").unlink()
+            (trace_dir / "hazard.json").symlink_to(external_hazard)
+
+            result = _run_dashboard_pack(trace_dir=trace_dir, report_path=report_path, out_dir=out_dir)
+
+        self.assertEqual(result.returncode, 4)
+        self.assertIn("hazard trace must be inside the repository", result.stderr)
+
+    def test_dashboard_pack_rejects_hash_valid_actor_misattribution(self) -> None:
+        (ROOT / "runs").mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=ROOT / "runs") as tmpdir:
+            base = Path(tmpdir)
+            trace_dir = base / "hazard_x"
+            report_path = base / "hazard_x_report.json"
+            out_dir = base / "dashboard"
+            _run_hazard_gate(trace_dir=trace_dir, report_path=report_path)
+            _rewrite_agent_trace_actor_id(trace_dir / "agents" / "sim-agent-0.json", "wrong-agent")
+
+            result = _run_dashboard_pack(trace_dir=trace_dir, report_path=report_path, out_dir=out_dir)
+
+        self.assertEqual(result.returncode, 4)
+        self.assertIn("agent trace actor_id does not match filename", result.stderr)
 
     def test_dashboard_pack_accepts_degraded_hold_world_model_timeline(self) -> None:
         (ROOT / "runs").mkdir(parents=True, exist_ok=True)
@@ -160,3 +195,20 @@ def _rewrite_report_first_world_model_sha(report_path: Path, first_world_model_s
     report = json.loads(report_path.read_text(encoding="utf-8"))
     report["world_model"]["first_world_model_sha"] = first_world_model_sha
     report_path.write_text(json.dumps(report, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8")
+
+
+def _rewrite_agent_trace_actor_id(trace_path: Path, actor_id: str) -> None:
+    trace = trace_from_dict(json.loads(trace_path.read_text(encoding="utf-8")))
+    prev_sha = GENESIS_SHA
+    events = []
+    for event in trace.events:
+        rewritten = replace(event, actor_id=actor_id, prev_sha=prev_sha, sha256="").with_computed_sha()
+        events.append(rewritten)
+        prev_sha = rewritten.sha256
+    rewritten_trace = DecisionTrace(
+        run_id=trace.run_id,
+        events=tuple(events),
+        schema_version=trace.schema_version,
+        genesis_sha=trace.genesis_sha,
+    ).with_computed_summary()
+    trace_path.write_text(rewritten_trace.to_canonical_json() + "\n", encoding="utf-8")
