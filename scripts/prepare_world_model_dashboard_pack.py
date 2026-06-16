@@ -7,6 +7,7 @@ import argparse
 import json
 from pathlib import Path
 import re
+import shutil
 import sys
 from typing import Any
 
@@ -19,6 +20,8 @@ DASHBOARD_DATA_SCHEMA_VERSION = "world-model-dashboard-data.v1"
 DEFAULT_TRACE_DIR = Path("runs/hazard_formation/world_model_x")
 DEFAULT_HAZARD_REPORT = Path("runs/hazard_formation/world_model_x_report.json")
 DEFAULT_OUT_DIR = Path("runs/dashboard/world_model_x")
+DEFAULT_SOURCE_IMAGE = None
+DEFAULT_DIMOS_BRIDGE_MANIFEST = None
 SECRET_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"Authorization:\s*Bearer\s+\S+", re.IGNORECASE),
     re.compile(r"ALIBABA_API_KEY\s*=\s*\S+", re.IGNORECASE),
@@ -31,6 +34,8 @@ def main() -> int:
     parser.add_argument("--trace-dir", type=Path, default=DEFAULT_TRACE_DIR)
     parser.add_argument("--hazard-report", type=Path, default=DEFAULT_HAZARD_REPORT)
     parser.add_argument("--out-dir", type=Path, default=DEFAULT_OUT_DIR)
+    parser.add_argument("--source-image", type=Path, default=DEFAULT_SOURCE_IMAGE)
+    parser.add_argument("--dimos-bridge-manifest", type=Path, default=DEFAULT_DIMOS_BRIDGE_MANIFEST)
     args = parser.parse_args()
 
     try:
@@ -38,21 +43,33 @@ def main() -> int:
         trace_dir = _repo_path(repo_root, args.trace_dir)
         hazard_report_path = _repo_path(repo_root, args.hazard_report)
         out_dir = _repo_path(repo_root, args.out_dir)
+        source_image_path = _optional_repo_path(repo_root, args.source_image)
+        dimos_bridge_manifest_path = _optional_repo_path(repo_root, args.dimos_bridge_manifest)
         _require_inside_repo(repo_root, trace_dir, "trace-dir")
         _require_inside_repo(repo_root, hazard_report_path, "hazard-report")
         _require_inside_repo(repo_root, out_dir, "out-dir")
+        if source_image_path is not None:
+            _require_inside_repo(repo_root, source_image_path, "source-image")
+        if dimos_bridge_manifest_path is not None:
+            _require_inside_repo(repo_root, dimos_bridge_manifest_path, "dimos-bridge-manifest")
 
         pack = _build_pack(
             repo_root=repo_root,
             trace_dir=trace_dir,
             hazard_report_path=hazard_report_path,
             out_dir=out_dir,
+            source_image_path=source_image_path,
+            dimos_bridge_manifest_path=dimos_bridge_manifest_path,
         )
     except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
         print(f"world-model dashboard pack failed: {exc}", file=sys.stderr)
         return 4
 
     out_dir.mkdir(parents=True, exist_ok=True)
+    for asset in pack["copied_assets"]:
+        target_path = out_dir / asset["relative_path"]
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(asset["source_path"], target_path)
     data_path = out_dir / "data.json"
     manifest_path = out_dir / "manifest.json"
     data_path.write_text(canonical_json(pack["data"]) + "\n", encoding="utf-8")
@@ -71,7 +88,9 @@ def _build_pack(
     trace_dir: Path,
     hazard_report_path: Path,
     out_dir: Path,
-) -> dict[str, dict[str, Any]]:
+    source_image_path: Path | None,
+    dimos_bridge_manifest_path: Path | None,
+) -> dict[str, Any]:
     hazard_report = _read_json_object(hazard_report_path, "hazard report")
     hazard_trace_path = _contained_path(repo_root, trace_dir / "hazard.json", "hazard trace")
     agent_trace_dir = _contained_path(repo_root, trace_dir / "agents", "agent trace dir")
@@ -102,6 +121,23 @@ def _build_pack(
         agent_trace_shas=agent_trace_shas,
         hazard_trace_sha=hazard_trace_sha,
     )
+    copied_assets: list[dict[str, Any]] = []
+    image_metadata = dict(_require_dict(hazard_report.get("image", {}), "hazard report image"))
+    if source_image_path is not None:
+        if not source_image_path.is_file():
+            raise ValueError("source-image file is required")
+        image_asset_relative_path = Path("assets") / source_image_path.name
+        copied_assets.append(
+            {
+                "source_path": source_image_path,
+                "relative_path": image_asset_relative_path,
+            }
+        )
+        image_metadata["asset_path"] = image_asset_relative_path.as_posix()
+    dimos_export = _read_dimos_bridge_manifest(
+        repo_root=repo_root,
+        manifest_path=dimos_bridge_manifest_path,
+    )
     data = {
         "schema_version": DASHBOARD_DATA_SCHEMA_VERSION,
         "source": {
@@ -111,7 +147,7 @@ def _build_pack(
             "world_model_timeline": _display_path(repo_root, timeline_path),
             "world_model_export_trace": _display_path(repo_root, export_trace_path),
         },
-        "image": hazard_report.get("image", {}),
+        "image": image_metadata,
         "mode": hazard_report.get("mode", ""),
         "model": hazard_report.get("model", ""),
         "formation": hazard_report.get("formation"),
@@ -128,6 +164,7 @@ def _build_pack(
             "export_trace_summary_sha": export_trace_sha,
             "predicted_conflict_count": sum(len(state.predicted_conflicts) for state in states),
         },
+        "dimos_export": dimos_export,
         "timeline": timeline,
         "planner_metrics": {
             "outcome": hazard_report.get("sim_report", {}).get("outcome"),
@@ -154,6 +191,8 @@ def _build_pack(
         "world_model_timeline_verified": bool(state_hashes) and all(_is_hex_64(value) for value in state_hashes),
         "report_hashes_match_sources": True,
         "timeline_matches_traces": True,
+        "source_image_copied": source_image_path is None or "asset_path" in image_metadata,
+        "dimos_export_summary_valid": dimos_export is None or dimos_export.get("bridge_manifest_schema") == "dimos-bridge-pack-report.v1",
         "dashboard_data_contains_no_key_material": not _contains_secret_material(data_text),
         "dashboard_data_paths_are_relative": not _contains_absolute_path(data),
         "dashboard_data_canonical_json_stable": canonical_json(json.loads(data_text)) == data_text,
@@ -168,6 +207,7 @@ def _build_pack(
         "first_world_model_sha": state_hashes[0],
         "last_world_model_sha": state_hashes[-1],
         "world_model_export_trace_summary_sha": export_trace_sha,
+        "dimos_export": dimos_export,
         "pass_conditions": pass_conditions,
         "non_claims": _non_claims(),
     }
@@ -176,7 +216,7 @@ def _build_pack(
         raise ValueError("dashboard manifest would contain secret material")
     if _contains_absolute_path(manifest):
         raise ValueError("dashboard manifest would contain an absolute path")
-    return {"data": data, "manifest": manifest}
+    return {"data": data, "manifest": manifest, "copied_assets": copied_assets}
 
 
 def _validate_report_and_sources(
@@ -370,6 +410,12 @@ def _repo_path(repo_root: Path, path: Path) -> Path:
     return path if path.is_absolute() else repo_root / path
 
 
+def _optional_repo_path(repo_root: Path, path: Path | None) -> Path | None:
+    if path is None:
+        return None
+    return _repo_path(repo_root, path)
+
+
 def _require_inside_repo(repo_root: Path, path: Path, name: str) -> None:
     _contained_path(repo_root, path, name)
 
@@ -420,6 +466,37 @@ def _contains_absolute_path(value: Any) -> bool:
     if isinstance(value, str):
         return Path(value).is_absolute() or bool(re.match(r"^[A-Za-z]:[\\/]", value))
     return False
+
+
+def _read_dimos_bridge_manifest(*, repo_root: Path, manifest_path: Path | None) -> dict[str, Any] | None:
+    if manifest_path is None:
+        return None
+    payload = _read_json_object(manifest_path, "dimos bridge manifest")
+    if payload.get("schema_version") != "dimos-bridge-pack-report.v1":
+        raise ValueError("dimos bridge manifest uses an unsupported schema")
+    artifacts = _require_dict(payload.get("artifacts"), "dimos bridge artifacts")
+    timeline_path = artifacts.get("timeline_ndjson")
+    manifest_rel_path = artifacts.get("manifest")
+    if not isinstance(timeline_path, str) or not timeline_path:
+        raise ValueError("dimos bridge timeline path must be a non-empty string")
+    if not isinstance(manifest_rel_path, str) or not manifest_rel_path:
+        raise ValueError("dimos bridge manifest path must be a non-empty string")
+    if _contains_absolute_path(payload):
+        raise ValueError("dimos bridge manifest must not contain absolute paths")
+    if _contains_secret_material(canonical_json(payload)):
+        raise ValueError("dimos bridge manifest contains secret material")
+    dimos_probe = _require_dict(payload.get("dimos_probe"), "dimos bridge probe")
+    return {
+        "bridge_manifest_schema": payload["schema_version"],
+        "bridge_outcome": payload.get("bridge_outcome"),
+        "overall_outcome": payload.get("outcome"),
+        "runtime_outcome": dimos_probe.get("runtime_outcome"),
+        "event_count": payload.get("event_count"),
+        "scenario_count": payload.get("scenario_count"),
+        "timeline_path": timeline_path,
+        "manifest_path": manifest_rel_path,
+        "source_checkout_provided": _require_dict(dimos_probe.get("source"), "dimos source probe").get("checkout_provided"),
+    }
 
 
 def _non_claims() -> list[str]:
