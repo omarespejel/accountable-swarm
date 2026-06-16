@@ -220,6 +220,45 @@ class ServerTests(TestCase):
                 self.assertEqual(payload["status"], "rejected")
                 self.assertIn("hazard formation replay", payload["error"])
 
+    def test_world_model_dashboard_files_are_served_from_configured_root(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dashboard_dir = Path(tmpdir) / "dashboard"
+            dashboard_dir.mkdir()
+            (dashboard_dir / "index.html").write_text(
+                "<!doctype html><title>Accountable World Model Dashboard</title>",
+                encoding="utf-8",
+            )
+            (dashboard_dir / "summary.json").write_text('{"outcome":"GO"}\n', encoding="utf-8")
+
+            with patch.dict(os.environ, {"WORLD_MODEL_DASHBOARD_DIR": str(dashboard_dir)}), _test_server() as base_url:
+                self.assertIn("Accountable World Model Dashboard", _get_text(f"{base_url}/world-model-dashboard"))
+                self.assertEqual(_get_json(f"{base_url}/world-model-dashboard/summary.json")["outcome"], "GO")
+
+    def test_world_model_dashboard_missing_returns_build_command(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            missing_dir = Path(tmpdir) / "missing"
+            with patch.dict(os.environ, {"WORLD_MODEL_DASHBOARD_DIR": str(missing_dir)}), _test_server() as base_url:
+                with self.assertRaises(HTTPError) as ctx:
+                    _get_json(f"{base_url}/world-model-dashboard")
+                self.assertEqual(ctx.exception.code, 404)
+                payload = json.loads(ctx.exception.read().decode("utf-8"))
+                self.assertEqual(payload["status"], "missing_world_model_dashboard")
+                self.assertEqual(payload["build_command"], "python3 scripts/prepare_demo_recording_pack.py")
+
+    def test_world_model_dashboard_rejects_path_traversal(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dashboard_dir = Path(tmpdir) / "dashboard"
+            dashboard_dir.mkdir()
+            (dashboard_dir / "index.html").write_text("<!doctype html><title>dashboard</title>", encoding="utf-8")
+            (dashboard_dir / "summary.json").write_text('{"outcome":"GO"}\n', encoding="utf-8")
+            with patch.dict(os.environ, {"WORLD_MODEL_DASHBOARD_DIR": str(dashboard_dir)}), _test_server() as base_url:
+                with self.assertRaises(HTTPError) as ctx:
+                    _get_json(f"{base_url}/world-model-dashboard/%2e%2e/README.md")
+                self.assertEqual(ctx.exception.code, 400)
+                payload = json.loads(ctx.exception.read().decode("utf-8"))
+                self.assertEqual(payload["status"], "rejected")
+                self.assertIn("world model dashboard", payload["error"])
+
 
 class _test_server:
     def __enter__(self) -> str:

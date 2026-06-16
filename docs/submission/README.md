@@ -279,7 +279,7 @@ shotlist runs/demo/recording-pack/shotlist.md
    counters.
 6. Open `runs/hazard_formation/recording_x_replay/index.html` and show the
    hazard cell obstacle plus the four-agent X formation replay.
-7. Open `runs/dashboard/world_model_x/index.html` and show the Qwen evidence,
+7. Open `runs/dashboard/recording_x/index.html` and show the Qwen evidence,
    local planner, world-model hash, and per-agent DecisionTrace hashes.
 8. Show `runs/hazard_formation/recording_x_report.json` with bbox, hazard cell,
    formation, assigned goals, and trace hashes.
@@ -288,7 +288,7 @@ shotlist runs/demo/recording-pack/shotlist.md
 10. Optional, if the DimOS bridge pack exists: show its manifest and state that
    it is a verified replay export, not DimOS execution.
 11. Optional, if ECS proof exists: show the public `/swarm-demo`,
-    `/hazard-formation`, and `/readyz` responses.
+    `/hazard-formation`, `/world-model-dashboard`, and `/readyz` responses.
 
 ## Submission Text Draft
 

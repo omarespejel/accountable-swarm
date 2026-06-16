@@ -64,6 +64,29 @@ class DemoRecordingPackCliTests(TestCase):
                     stdout="outcome GO\n",
                     stderr="",
                 )
+            if "scripts.prepare_world_model_dashboard_pack" in args:
+                out_dir = ROOT / args[args.index("--out-dir") + 1]
+                out_dir.mkdir(parents=True, exist_ok=True)
+                (out_dir / "data.json").write_text('{"schema_version":"world-model-dashboard-data.v1"}\n', encoding="utf-8")
+                (out_dir / "manifest.json").write_text('{"outcome":"GO"}\n', encoding="utf-8")
+                return subprocess.CompletedProcess(
+                    args=args,
+                    returncode=0,
+                    stdout="outcome GO\n",
+                    stderr="",
+                )
+            if "scripts.render_world_model_dashboard_html" in args:
+                html_path = ROOT / args[args.index("--html-out") + 1]
+                summary_path = ROOT / args[args.index("--summary-out") + 1]
+                html_path.parent.mkdir(parents=True, exist_ok=True)
+                html_path.write_text("<!doctype html><title>dashboard</title>", encoding="utf-8")
+                summary_path.write_text('{"outcome":"GO"}\n', encoding="utf-8")
+                return subprocess.CompletedProcess(
+                    args=args,
+                    returncode=0,
+                    stdout="outcome GO\n",
+                    stderr="",
+                )
             raise AssertionError(f"unexpected command: {args}")
 
         test_root = ROOT / "runs" / "demo"
@@ -74,6 +97,7 @@ class DemoRecordingPackCliTests(TestCase):
             hazard_trace_dir = Path(tmpdir) / "hazard"
             hazard_report = Path(tmpdir) / "hazard_report.json"
             hazard_replay_dir = Path(tmpdir) / "hazard_replay"
+            dashboard_dir = Path(tmpdir) / "dashboard"
             argv = [
                 "prepare_demo_recording_pack.py",
                 "--out-dir",
@@ -86,6 +110,8 @@ class DemoRecordingPackCliTests(TestCase):
                 str(hazard_report.relative_to(ROOT)),
                 "--hazard-replay-dir",
                 str(hazard_replay_dir.relative_to(ROOT)),
+                "--dashboard-dir",
+                str(dashboard_dir.relative_to(ROOT)),
             ]
             with (
                 patch.object(module, "_run_command", side_effect=fake_run_command),
@@ -101,18 +127,28 @@ class DemoRecordingPackCliTests(TestCase):
         self.assertEqual(manifest["schema_version"], "demo-recording-pack-report.v1")
         self.assertEqual(manifest["outcome"], "GO")
         self.assertTrue(all(manifest["pass_conditions"].values()))
-        self.assertEqual(len(manifest["commands"]), 3)
+        self.assertEqual(len(manifest["commands"]), 5)
+        self.assertFalse(manifest["notes"]["bundle_existing_artifacts_reused"])
         self.assertEqual(manifest["artifacts"]["bundle_index"], bundle_dir.relative_to(ROOT).as_posix() + "/index.html")
         self.assertEqual(
             manifest["artifacts"]["hazard_replay_html"],
             hazard_replay_dir.relative_to(ROOT).as_posix() + "/index.html",
         )
+        self.assertEqual(
+            manifest["artifacts"]["dashboard_html"],
+            dashboard_dir.relative_to(ROOT).as_posix() + "/index.html",
+        )
         self.assertIn(
             f"HAZARD_FORMATION_REPLAY_DIR={hazard_replay_dir.relative_to(ROOT).as_posix()}",
             manifest["serve"]["command"],
         )
+        self.assertIn(
+            f"WORLD_MODEL_DASHBOARD_DIR={dashboard_dir.relative_to(ROOT).as_posix()}",
+            manifest["serve"]["command"],
+        )
         self.assertIn("http://127.0.0.1:8000/swarm-demo", manifest["serve"]["urls"])
         self.assertIn("http://127.0.0.1:8000/hazard-formation", manifest["serve"]["urls"])
+        self.assertIn("http://127.0.0.1:8000/world-model-dashboard", manifest["serve"]["urls"])
         self.assertEqual(manifest["key_material_redacted_count"], 2)
         self.assertTrue(manifest["pass_conditions"]["manifest_contains_no_key_material"])
         self.assertIn("Authorization: Bearer <redacted>", manifest["commands"][0]["stdout_tail"])
@@ -121,6 +157,94 @@ class DemoRecordingPackCliTests(TestCase):
         self.assertFalse(module._contains_secret_material(json.dumps(manifest, sort_keys=True)))
         self.assertIn("no DimOS integration", shotlist)
         self.assertIn("Open the animated swarm replay", shotlist)
+        self.assertIn("Open the world-model dashboard", shotlist)
+
+    def test_prepare_recording_pack_accepts_existing_bundle_after_spawn_pressure(self) -> None:
+        module = _load_module()
+
+        def flaky_run_command(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
+            self.assertEqual(cwd, ROOT)
+            if "scripts/build_swarm_demo_bundle.py" in args:
+                out_dir = ROOT / args[args.index("--out-dir") + 1]
+                out_dir.mkdir(parents=True)
+                (out_dir / "index.html").write_text("<!doctype html><title>swarm</title>", encoding="utf-8")
+                (out_dir / "summary.json").write_text('{"outcome":"GO"}\n', encoding="utf-8")
+                return subprocess.CompletedProcess(
+                    args=args,
+                    returncode=4,
+                    stdout="",
+                    stderr="swarm demo bundle failed: [Errno 35] Resource temporarily unavailable",
+                )
+            if "scripts.run_hazard_formation_gate" in args:
+                trace_dir = ROOT / args[args.index("--trace-dir") + 1]
+                report_path = ROOT / args[args.index("--report-out") + 1]
+                trace_dir.mkdir(parents=True)
+                (trace_dir / "hazard.json").write_text('{"trace":"placeholder"}\n', encoding="utf-8")
+                report_path.parent.mkdir(parents=True, exist_ok=True)
+                report_path.write_text(
+                    '{"outcome":"GO","grid":{"width":7,"height":5},"hazard":{"cell":{"x":3,"y":2}}}\n',
+                    encoding="utf-8",
+                )
+                return subprocess.CompletedProcess(args=args, returncode=0, stdout="outcome GO\n", stderr="")
+            if "scripts/render_swarm_trace_html.py" in args:
+                html_path = ROOT / args[args.index("--html-out") + 1]
+                summary_path = ROOT / args[args.index("--summary-out") + 1]
+                html_path.parent.mkdir(parents=True, exist_ok=True)
+                html_path.write_text("<!doctype html><title>hazard replay</title>", encoding="utf-8")
+                summary_path.write_text('{"outcome":"GO"}\n', encoding="utf-8")
+                return subprocess.CompletedProcess(args=args, returncode=0, stdout="outcome GO\n", stderr="")
+            if "scripts.prepare_world_model_dashboard_pack" in args:
+                out_dir = ROOT / args[args.index("--out-dir") + 1]
+                out_dir.mkdir(parents=True, exist_ok=True)
+                (out_dir / "data.json").write_text('{"schema_version":"world-model-dashboard-data.v1"}\n', encoding="utf-8")
+                (out_dir / "manifest.json").write_text('{"outcome":"GO"}\n', encoding="utf-8")
+                return subprocess.CompletedProcess(args=args, returncode=0, stdout="outcome GO\n", stderr="")
+            if "scripts.render_world_model_dashboard_html" in args:
+                html_path = ROOT / args[args.index("--html-out") + 1]
+                summary_path = ROOT / args[args.index("--summary-out") + 1]
+                html_path.parent.mkdir(parents=True, exist_ok=True)
+                html_path.write_text("<!doctype html><title>dashboard</title>", encoding="utf-8")
+                summary_path.write_text('{"outcome":"GO"}\n', encoding="utf-8")
+                return subprocess.CompletedProcess(args=args, returncode=0, stdout="outcome GO\n", stderr="")
+            raise AssertionError(f"unexpected command: {args}")
+
+        test_root = ROOT / "runs" / "demo"
+        test_root.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=test_root) as tmpdir:
+            out_dir = Path(tmpdir) / "recording-pack"
+            bundle_dir = Path(tmpdir) / "swarm"
+            hazard_trace_dir = Path(tmpdir) / "hazard"
+            hazard_report = Path(tmpdir) / "hazard_report.json"
+            hazard_replay_dir = Path(tmpdir) / "hazard_replay"
+            dashboard_dir = Path(tmpdir) / "dashboard"
+            argv = [
+                "prepare_demo_recording_pack.py",
+                "--out-dir",
+                str(out_dir.relative_to(ROOT)),
+                "--bundle-dir",
+                str(bundle_dir.relative_to(ROOT)),
+                "--hazard-trace-dir",
+                str(hazard_trace_dir.relative_to(ROOT)),
+                "--hazard-report",
+                str(hazard_report.relative_to(ROOT)),
+                "--hazard-replay-dir",
+                str(hazard_replay_dir.relative_to(ROOT)),
+                "--dashboard-dir",
+                str(dashboard_dir.relative_to(ROOT)),
+            ]
+            with (
+                patch.object(module, "_run_command", side_effect=flaky_run_command),
+                patch.object(sys, "argv", argv),
+                contextlib.redirect_stdout(io.StringIO()),
+            ):
+                returncode = module.main()
+
+            self.assertEqual(returncode, 0)
+            manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
+
+        self.assertEqual(manifest["outcome"], "GO")
+        self.assertTrue(manifest["notes"]["bundle_existing_artifacts_reused"])
+        self.assertTrue(manifest["pass_conditions"]["bundle_command_succeeded"])
 
     def test_prepare_recording_pack_writes_narrow_manifest_when_children_fail(self) -> None:
         module = _load_module()

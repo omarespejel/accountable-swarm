@@ -150,9 +150,9 @@ What is checked locally:
   registry name; checked index SHA is
   `b929f77827e69b9100e9883f78e7b882e7b161d67350a31a129d452f99c63368`.
 - demo recording pack generator builds the deterministic swarm bundle, runs the
-  fixture hazard-to-X formation gate, renders the hazard formation replay, and
-  emits a judge-facing manifest plus shotlist with fixture/live-Qwen boundaries
-  separated.
+  fixture hazard-to-X formation gate, renders the hazard formation replay,
+  builds the verified world-model dashboard, and emits a judge-facing manifest
+  plus shotlist with fixture/live-Qwen boundaries separated.
 - dashboard data-pack generator verifies a hazard formation report, hazard
   trace, per-agent traces, and the persisted world-model timeline into a single
   renderer-ready `world-model-dashboard-data.v1` JSON artifact, and rejects
@@ -167,6 +167,9 @@ What is checked locally:
   `/swarm-demo` and `/swarm-demo/summary.json` with path traversal rejection.
 - read-only stdlib server endpoints serve the generated hazard formation replay
   at `/hazard-formation` and `/hazard-formation/summary.json` with path
+  traversal rejection.
+- read-only stdlib server endpoints serve the generated world-model dashboard at
+  `/world-model-dashboard` and `/world-model-dashboard/summary.json` with path
   traversal rejection.
 - exploratory deterministic N=4 integer-grid probe passes locally, but is not a
   physical, physics, latency, reliability, or larger-swarm claim.

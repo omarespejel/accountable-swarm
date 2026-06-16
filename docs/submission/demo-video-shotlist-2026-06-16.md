@@ -107,6 +107,7 @@ for the local recording:
 ```text
 http://127.0.0.1:8000/swarm-demo
 http://127.0.0.1:8000/hazard-formation
+http://127.0.0.1:8000/world-model-dashboard
 ```
 
 ## Optional Live Qwen Insert
