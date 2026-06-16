@@ -209,7 +209,12 @@ def _run_command(
                 )
             except OSError as exc:
                 if not _is_retryable_spawn_error(exc) or attempt + 1 >= SUBPROCESS_SPAWN_ATTEMPTS:
-                    raise
+                    return subprocess.CompletedProcess(
+                        args=args,
+                        returncode=125,
+                        stdout="",
+                        stderr=f"spawn failed: {exc}",
+                    )
                 time.sleep(SUBPROCESS_SPAWN_RETRY_DELAY_SECONDS)
     except subprocess.TimeoutExpired as exc:
         stderr = _coerce_output_text(exc.stderr)
