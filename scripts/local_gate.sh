@@ -37,6 +37,7 @@ required = [
     ".dockerignore",
     "scripts/build_swarm_demo_bundle.py",
     "scripts/run_camera_go_gate.py",
+    "scripts/prepare_sensor_frame_proof_pack.py",
     "scripts/run_hazard_formation_gate.py",
     "scripts/run_swarm_mission_gate.py",
     "scripts/run_swarm_mission_suite.py",
@@ -82,6 +83,7 @@ required = [
     "docs/engineering/swarm-larger-boundary-2026-06-15.md",
     "docs/engineering/swarm-scenario-registry-2026-06-15.md",
     "docs/engineering/camera-go-gate-2026-06-15.md",
+    "docs/engineering/sensor-frame-proof-pack-2026-06-17.md",
     "docs/engineering/hazard-formation-gate-2026-06-16.md",
     "docs/engineering/hazard-formation-replay-pack-2026-06-16.md",
     "docs/engineering/alibaba-ecs-manual-deploy-2026-06-15.md",
@@ -152,6 +154,11 @@ python3 -m venv "$gate_tmp/venv"
     --trace-out runs/go_gate/local_gate_camera_trace.json \
     --report-out runs/go_gate/local_gate_camera_report.json
 "$gate_tmp/venv/bin/verify-trace" runs/go_gate/local_gate_camera_trace.json
+
+"$gate_tmp/venv/bin/prepare-sensor-frame-proof-pack" \
+    --image fixtures/hazard_marker.ppm \
+    --mode fixture \
+    --out-dir runs/physical/local_gate_sensor_frame_proof
 
 "$gate_tmp/venv/bin/run-hazard-formation-gate" \
     --image fixtures/hazard_marker.ppm \

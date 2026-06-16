@@ -117,6 +117,20 @@ The report records five binary pass conditions: model response, JSON
 validation, bbox rescaling, deterministic trace replay, and DecisionTrace schema
 emission from the frame.
 
+To turn that into a reproducible physical-lane artifact without committing raw
+sensor imagery, build the sensor-frame proof pack:
+
+```bash
+prepare-sensor-frame-proof-pack \
+  --image fixtures/hazard_marker.ppm \
+  --mode fixture \
+  --out-dir runs/physical/sensor-frame-proof
+```
+
+For a live sensor frame, replace `--image ...` with `--capture-webcam`. Captured
+webcam frames are deleted after hashing by default unless
+`--keep-captured-frame` is set.
+
 ## Simulated Swarm Gate
 
 The first swarm-shaped gate is deterministic and local. It uses an integer grid,

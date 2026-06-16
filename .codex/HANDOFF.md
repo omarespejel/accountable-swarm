@@ -56,6 +56,10 @@ What is checked locally:
   summary `b643935f5ea0d326ac468c60cbac4ca46e61bab67584fd8840766a6a2601be9f`;
   the captured frame and trace are intentionally untracked. This is not
   SO-101 operation or physical motion evidence.
+- sensor-frame proof pack now turns the camera/webcam path into a reproducible
+  manifest artifact with source-frame SHA, trace/report binding, and
+  delete-after-hash default for captured webcam frames. This is still not
+  SO-101 operation or physical motion evidence.
 - minimal stdlib HTTP server and Dockerfile exist for manual Alibaba ECS proof;
   operator still needs to provision ECS and run the smoke checks.
 - ECS operator proof pack generator prepares a non-secret runbook, command
