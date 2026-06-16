@@ -123,7 +123,7 @@ class AccountableSwarmHandler(BaseHTTPRequestHandler):
             self._send_missing_swarm_demo_bundle()
             return
         try:
-            target = _safe_bundle_path(root=root, rel_url_path=rel_url_path)
+            target = _safe_bundle_path(root=root, rel_url_path=rel_url_path, label="swarm demo")
         except ValueError as exc:
             self._send_json({"status": "rejected", "error": str(exc)}, status=400)
             return
@@ -142,7 +142,7 @@ class AccountableSwarmHandler(BaseHTTPRequestHandler):
             self._send_missing_hazard_formation_replay()
             return
         try:
-            target = _safe_bundle_path(root=root, rel_url_path=rel_url_path)
+            target = _safe_bundle_path(root=root, rel_url_path=rel_url_path, label="hazard formation replay")
         except ValueError as exc:
             self._send_json({"status": "rejected", "error": str(exc)}, status=400)
             return
@@ -233,15 +233,15 @@ def _has_hazard_formation_replay_markers(root: Path) -> bool:
     return root.is_dir() and (root / "index.html").is_file() and (root / "summary.json").is_file()
 
 
-def _safe_bundle_path(*, root: Path, rel_url_path: str) -> Path:
+def _safe_bundle_path(*, root: Path, rel_url_path: str, label: str) -> Path:
     rel_path = Path(unquote(rel_url_path))
     if rel_path.is_absolute() or ".." in rel_path.parts:
-        raise ValueError("swarm demo path must stay inside bundle root")
+        raise ValueError(f"{label} path must stay inside root")
     target = (root / rel_path).resolve()
     try:
         target.relative_to(root)
     except ValueError as exc:
-        raise ValueError("swarm demo path must stay inside bundle root") from exc
+        raise ValueError(f"{label} path must stay inside root") from exc
     return target
 
 

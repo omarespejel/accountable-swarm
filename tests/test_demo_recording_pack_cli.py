@@ -8,6 +8,7 @@ from pathlib import Path
 import subprocess
 import sys
 from tempfile import TemporaryDirectory
+from typing import NoReturn
 from unittest import TestCase
 from unittest.mock import patch
 
@@ -105,6 +106,10 @@ class DemoRecordingPackCliTests(TestCase):
         self.assertEqual(
             manifest["artifacts"]["hazard_replay_html"],
             hazard_replay_dir.relative_to(ROOT).as_posix() + "/index.html",
+        )
+        self.assertIn(
+            f"HAZARD_FORMATION_REPLAY_DIR={hazard_replay_dir.relative_to(ROOT).as_posix()}",
+            manifest["serve"]["command"],
         )
         self.assertIn("http://127.0.0.1:8000/swarm-demo", manifest["serve"]["urls"])
         self.assertIn("http://127.0.0.1:8000/hazard-formation", manifest["serve"]["urls"])
@@ -369,12 +374,12 @@ class DemoRecordingPackCliTests(TestCase):
     def test_run_command_returns_completed_process_on_persistent_spawn_error(self) -> None:
         module = _load_module()
 
-        def failed_spawn(*args, **kwargs):
+        def failed_spawn(*_args: object, **_kwargs: object) -> NoReturn:
             raise BlockingIOError(35, "Resource temporarily unavailable")
 
         with (
-            patch.object(module.subprocess, "run", side_effect=failed_spawn),
-            patch.object(module.time, "sleep"),
+            patch.object(module.subprocess, "run", side_effect=failed_spawn) as run_mock,
+            patch.object(module.time, "sleep") as sleep_mock,
         ):
             result = module._run_command(["python3", "child.py"], cwd=ROOT, timeout_seconds=7)
 
@@ -382,6 +387,8 @@ class DemoRecordingPackCliTests(TestCase):
         self.assertEqual(result.stdout, "")
         self.assertIn("spawn failed", result.stderr)
         self.assertIn("Resource temporarily unavailable", result.stderr)
+        self.assertEqual(run_mock.call_count, module.SUBPROCESS_SPAWN_ATTEMPTS)
+        self.assertEqual(sleep_mock.call_count, module.SUBPROCESS_SPAWN_ATTEMPTS - 1)
 
     def test_installed_entrypoint_resolves_repo_from_current_working_tree(self) -> None:
         module = _load_module()
