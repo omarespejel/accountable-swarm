@@ -5,5 +5,14 @@ from accountable_swarm.physical.contract import (
     PhysicalNodeSafety,
     TraceOnlyActionSink,
 )
+from accountable_swarm.physical.so101 import SO101CameraSpec, capture_frame, dependency_status, parse_index_or_path
 
-__all__ = ["PhysicalAction", "PhysicalNodeSafety", "TraceOnlyActionSink"]
+__all__ = [
+    "PhysicalAction",
+    "PhysicalNodeSafety",
+    "TraceOnlyActionSink",
+    "SO101CameraSpec",
+    "capture_frame",
+    "dependency_status",
+    "parse_index_or_path",
+]

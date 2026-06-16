@@ -131,6 +131,20 @@ For a live sensor frame, replace `--image ...` with `--capture-webcam`. Captured
 webcam frames are deleted after hashing by default unless
 `--keep-captured-frame` is set.
 
+For the SO-101-specific camera lane, the repo now exposes a trace-only probe:
+
+```bash
+capture-so101-camera-frame \
+  --camera-name so101_overhead \
+  --index-or-path 0 \
+  --out runs/physical/so101_frame.png \
+  --report-out runs/physical/so101_capture_report.json
+```
+
+On machines without the optional `lerobot` and `opencv` dependencies, this
+returns a controlled `NO_GO` report instead of silently failing or widening the
+claim boundary.
+
 ## Simulated Swarm Gate
 
 The first swarm-shaped gate is deterministic and local. It uses an integer grid,
