@@ -63,6 +63,9 @@ What is checked locally:
 - SO-101 trace-only camera probe surface now exists and emits a controlled
   `NO_GO` report when optional `lerobot` / `opencv` dependencies are absent.
   This is an adapter/probe boundary only, not SO-101 camera success.
+- SO-101 operator probe pack now exists to generate a non-secret runbook and
+  command script for the actual hardware machine using the official LeRobot
+  install and OpenCV camera flow. This is setup guidance, not hardware success.
 - minimal stdlib HTTP server and Dockerfile exist for manual Alibaba ECS proof;
   operator still needs to provision ECS and run the smoke checks.
 - ECS operator proof pack generator prepares a non-secret runbook, command

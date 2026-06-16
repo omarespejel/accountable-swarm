@@ -145,6 +145,18 @@ On machines without the optional `lerobot` and `opencv` dependencies, this
 returns a controlled `NO_GO` report instead of silently failing or widening the
 claim boundary.
 
+To prepare the operator-run setup pack for the actual SO-101 machine:
+
+```bash
+prepare-so101-operator-probe-pack \
+  --out-dir runs/physical/so101-operator-pack \
+  --camera-name so101_overhead \
+  --camera-id 0
+```
+
+That pack writes a runbook and command script pinned to the current official
+LeRobot installation and OpenCV camera flow.
+
 ## Simulated Swarm Gate
 
 The first swarm-shaped gate is deterministic and local. It uses an integer grid,
