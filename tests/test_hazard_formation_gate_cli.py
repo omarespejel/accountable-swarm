@@ -5,6 +5,7 @@ import sys
 from unittest import TestCase
 
 from accountable_swarm.world_model import verify_world_model_state, world_model_from_dict
+from accountable_swarm.trace.models import trace_from_dict, verify_trace
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -52,9 +53,12 @@ class HazardFormationGateCliTests(TestCase):
         self.assertEqual(report["world_model"]["predicted_conflict_count"], 0)
         self.assertEqual(len(report["world_model"]["first_world_model_sha"]), 64)
         self.assertEqual(len(report["world_model"]["last_world_model_sha"]), 64)
+        self.assertEqual(len(report["world_model"]["export_trace_summary_sha"]), 64)
         self.assertFalse(Path(report["world_model"]["path"]).is_absolute())
+        self.assertFalse(Path(report["world_model"]["export_trace_path"]).is_absolute())
         self.assertTrue((trace_dir / "hazard.json").is_file())
         self.assertTrue((trace_dir / "agents" / "sim-agent-0.json").is_file())
+        self.assertTrue((trace_dir / "world_model_export.json").is_file())
         states = _load_world_model_timeline(trace_dir)
         self.assertEqual(len(states), report["ticks"])
         self.assertEqual(verify_world_model_state(states[0]), report["world_model"]["first_world_model_sha"])
@@ -63,6 +67,16 @@ class HazardFormationGateCliTests(TestCase):
         self.assertEqual(states[0].hazards[0], states[0].observations[0].cell)
         self.assertEqual(len(states[0].agents), 4)
         self.assertEqual(len(states[0].reservations), 4)
+        agent_trace = trace_from_dict(
+            json.loads((trace_dir / "agents" / "sim-agent-0.json").read_text(encoding="utf-8"))
+        )
+        agent_state = next(agent for agent in states[0].agents if agent.agent_id == "sim-agent-0")
+        self.assertEqual(agent_state.decision_event_sha, agent_trace.events[0].sha256)
+        export_trace = trace_from_dict(
+            json.loads((trace_dir / "world_model_export.json").read_text(encoding="utf-8"))
+        )
+        self.assertEqual(verify_trace(export_trace), report["world_model"]["export_trace_summary_sha"])
+        self.assertEqual(export_trace.events[0].command["type"], "world_model_timeline_export")
 
     def test_degraded_mode_writes_hold_traces_without_model(self) -> None:
         trace_dir = ROOT / "runs/hazard_formation/test_degraded"
