@@ -67,6 +67,11 @@ What is checked locally:
   NDJSON with event hashes, and records DimOS source/runtime availability as a
   separate probe. This is a DimOS-ready replay artifact, not DimOS execution or
   integration proof.
+- DimOS replay consumer validates the bridge-pack manifest and timeline, rejects
+  non-canonical, float-containing, path-escaped, or out-of-order replay input,
+  groups verified events into DimOS-shaped stream summaries, and records DimOS
+  source/runtime availability separately. This is a replay stream-contract
+  proof, not DimOS execution, Rerun recording, or swarm-control proof.
 - deterministic N=2 integer-grid simulated swarm emits one DecisionTrace per
   agent, reaches goals, and reports zero same-cell or swap collisions.
 - deterministic N=2 center-block obstacle scenario reaches goals, reports zero
@@ -153,7 +158,8 @@ What is not checked yet:
 
 - Alibaba Cloud deployment proof from an actual ECS instance;
 - SO-101 physical frame source;
-- DimOS execution/integration; current work only exports a bridge pack;
+- DimOS runtime execution or Rerun visualization; current work exports and
+  consumes a deterministic replay stream contract only;
 - physics-backed multi-agent swarm behavior;
 - latency, reliability, or safety claims.
 - live Qwen mission assignment beyond the scoped `qwen-plus` five-scenario
@@ -163,18 +169,12 @@ What is not checked yet:
 
 - Issue #1: research ground truth and build hierarchy.
 - Issue #3: physical-node safety contract and true sensor-frame proof.
-- Issue #4: Alibaba/Qwen proof path.
+- Issue #73: DimOS replay consumer over verified swarm bridge timeline.
 - Issue #2, #6, #11, #13, #15, #17, #19, #21, #23, #25, #27, #29, #33,
-  #35, #37, #39, #41, #43, #45, #48, #50, and #52 are closed as GO.
-- Issue #54 is active for GO-gate follow-up hardening. P1 and P2 are merged as
-  GO; P3 confidence and tiny-bbox policy are locally implemented on the current
-  branch pending PR review and merge.
-- Issue #59 is active for submission readiness. PR #66 merged the demo
-  recording pack; PR #70 work is adding a first-class hazard formation replay
-  artifact. Alibaba ECS proof (#4) and physical/SO-101 or acceptable real
-  sensor proof (#3) remain open.
+  #35, #37, #39, #41, #43, #45, #48, #50, #52, #54, #59, and #68 are closed
+  as GO or scoped NARROW_CLAIM where documented.
 - PR #5, #7, #8, #9, #10, #12, #14, #16, #18, #20, #22, #24, #34, #36, and
-  #38, #40, #42, #44, #46, #47, #49, and #51 are merged.
+  #38, #40, #42, #44, #46, #47, #49, #51, #66, #70, and #72 are merged.
 
 Before creating new work, inspect the current PR and issues:
 
