@@ -173,6 +173,31 @@ class WorldModelTests(TestCase):
 
         self.assertEqual(observation.bbox_2d_norm_1000, (0, 0, 1000, 1000))
 
+    def test_world_observation_rejects_bbox_out_of_range(self) -> None:
+        with self.assertRaisesRegex(ValueError, "bbox_2d_norm_1000 values must be in 0..1000"):
+            WorldObservation(
+                observation_id="obs-out-of-range",
+                source="fixture_bbox",
+                label="hazard",
+                cell=GridPoint(3, 2),
+                source_trace_sha=GENESIS_SHA,
+                bbox_2d_norm_1000=(0, 0, 1001, 1000),
+            )
+
+    def test_world_model_hash_handles_multiple_hazards(self) -> None:
+        state = WorldModelState(
+            tick=1,
+            grid_width=7,
+            grid_height=5,
+            observations=(_observation(),),
+            hazards=(GridPoint(4, 3), GridPoint(3, 2)),
+        ).with_computed_sha()
+
+        self.assertEqual(
+            state.to_dict()["hazards"],
+            [{"x": 3, "y": 2}, {"x": 4, "y": 3}],
+        )
+
 
 def _state() -> WorldModelState:
     return WorldModelState(
