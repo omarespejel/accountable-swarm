@@ -50,7 +50,7 @@ class WorldModelTests(TestCase):
             verify_world_model_state(_state())
 
     def test_world_model_rejects_raw_float(self) -> None:
-        with self.assertRaisesRegex(TypeError, "raw float"):
+        with self.assertRaisesRegex(TypeError, "world model grid_width must be an integer"):
             WorldModelState(
                 tick=0,
                 grid_width=7.0,  # type: ignore[arg-type]
@@ -59,7 +59,7 @@ class WorldModelTests(TestCase):
             )
 
     def test_world_model_rejects_raw_bool_in_hashed_payload(self) -> None:
-        with self.assertRaisesRegex(TypeError, "raw bool"):
+        with self.assertRaisesRegex(TypeError, "world model tick must be an integer"):
             WorldModelState(
                 tick=True,  # type: ignore[arg-type]
                 grid_width=7,
@@ -128,6 +128,50 @@ class WorldModelTests(TestCase):
                 cell=GridPoint(1, 0),
                 reason="bad type",
             )
+
+    def test_world_model_from_dict_rejects_non_object_top_level(self) -> None:
+        with self.assertRaisesRegex(ValueError, "world model must be an object"):
+            world_model_from_dict([])  # type: ignore[arg-type]
+
+    def test_world_model_from_dict_rejects_non_object_observation(self) -> None:
+        value = _state().with_computed_sha().to_dict()
+        value["observations"] = ["not-an-object"]
+
+        with self.assertRaisesRegex(ValueError, "observation must be an object"):
+            world_model_from_dict(value)
+
+    def test_world_model_from_dict_rejects_agent_ids_string(self) -> None:
+        value = _state().with_computed_sha().to_dict()
+        value["predicted_conflicts"][0]["agent_ids"] = "sim-agent-0"
+
+        with self.assertRaisesRegex(ValueError, "conflict agent_ids must be an array"):
+            world_model_from_dict(value)
+
+    def test_world_model_from_dict_rejects_non_string_agent_id(self) -> None:
+        value = _state().with_computed_sha().to_dict()
+        value["predicted_conflicts"][0]["agent_ids"] = ["sim-agent-0", 7]
+
+        with self.assertRaisesRegex(ValueError, "conflict agent_ids must contain non-empty strings"):
+            world_model_from_dict(value)
+
+    def test_world_model_from_dict_rejects_non_integer_grid_width(self) -> None:
+        value = _state().with_computed_sha().to_dict()
+        value["grid"]["width"] = "7"
+
+        with self.assertRaisesRegex(TypeError, "world model grid_width must be an integer"):
+            world_model_from_dict(value)
+
+    def test_world_observation_accepts_bbox_boundaries(self) -> None:
+        observation = WorldObservation(
+            observation_id="obs-boundary",
+            source="fixture_bbox",
+            label="hazard",
+            cell=GridPoint(3, 2),
+            source_trace_sha=GENESIS_SHA,
+            bbox_2d_norm_1000=(0, 0, 1000, 1000),
+        )
+
+        self.assertEqual(observation.bbox_2d_norm_1000, (0, 0, 1000, 1000))
 
 
 def _state() -> WorldModelState:
