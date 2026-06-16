@@ -77,6 +77,8 @@ def _build_pack(
     hazard_trace_sha = verify_trace(hazard_trace)
     agent_traces = _read_agent_traces(trace_dir / "agents")
     agent_trace_shas = {agent_id: verify_trace(trace) for agent_id, trace in sorted(agent_traces.items())}
+    export_trace = _read_trace(trace_dir / "world_model_export.json", "world model export trace")
+    export_trace_sha = verify_trace(export_trace)
     states = _read_world_model_timeline(trace_dir / "world_model_timeline.jsonl")
     state_hashes = [verify_world_model_state(state) for state in states]
 
@@ -86,6 +88,7 @@ def _build_pack(
         hazard_report=hazard_report,
         hazard_trace_sha=hazard_trace_sha,
         agent_trace_shas=agent_trace_shas,
+        export_trace_sha=export_trace_sha,
         states=states,
         state_hashes=state_hashes,
     )
@@ -102,6 +105,7 @@ def _build_pack(
             "hazard_trace": _display_path(repo_root, trace_dir / "hazard.json"),
             "agent_trace_dir": _display_path(repo_root, trace_dir / "agents"),
             "world_model_timeline": _display_path(repo_root, trace_dir / "world_model_timeline.jsonl"),
+            "world_model_export_trace": _display_path(repo_root, trace_dir / "world_model_export.json"),
         },
         "image": hazard_report.get("image", {}),
         "mode": hazard_report.get("mode", ""),
@@ -117,6 +121,7 @@ def _build_pack(
             "state_count": len(states),
             "first_world_model_sha": state_hashes[0],
             "last_world_model_sha": state_hashes[-1],
+            "export_trace_summary_sha": export_trace_sha,
             "predicted_conflict_count": sum(len(state.predicted_conflicts) for state in states),
         },
         "timeline": timeline,
@@ -141,6 +146,7 @@ def _build_pack(
         "hazard_report_accepted_outcome": hazard_report.get("outcome") in {"GO", "DEGRADED"},
         "hazard_trace_verified": _is_hex_64(hazard_trace_sha),
         "agent_traces_verified": bool(agent_trace_shas) and all(_is_hex_64(value) for value in agent_trace_shas.values()),
+        "world_model_export_trace_verified": _is_hex_64(export_trace_sha),
         "world_model_timeline_verified": bool(state_hashes) and all(_is_hex_64(value) for value in state_hashes),
         "report_hashes_match_sources": True,
         "timeline_matches_traces": True,
@@ -157,6 +163,7 @@ def _build_pack(
         "agent_count": len(agent_trace_shas),
         "first_world_model_sha": state_hashes[0],
         "last_world_model_sha": state_hashes[-1],
+        "world_model_export_trace_summary_sha": export_trace_sha,
         "pass_conditions": pass_conditions,
         "non_claims": _non_claims(),
     }
@@ -175,6 +182,7 @@ def _validate_report_and_sources(
     hazard_report: dict[str, Any],
     hazard_trace_sha: str,
     agent_trace_shas: dict[str, str],
+    export_trace_sha: str,
     states: list[WorldModelState],
     state_hashes: list[str],
 ) -> None:
@@ -190,6 +198,11 @@ def _validate_report_and_sources(
     expected_timeline = _display_path(repo_root, trace_dir / "world_model_timeline.jsonl")
     if report_world_model.get("path") != expected_timeline:
         raise ValueError("hazard report world_model path does not match trace-dir timeline")
+    expected_export_trace = _display_path(repo_root, trace_dir / "world_model_export.json")
+    if report_world_model.get("export_trace_path") != expected_export_trace:
+        raise ValueError("hazard report world_model export_trace_path does not match trace-dir export trace")
+    if report_world_model.get("export_trace_summary_sha") != export_trace_sha:
+        raise ValueError("hazard report world_model export_trace_summary_sha does not match export trace")
     if report_world_model.get("state_count") != len(states):
         raise ValueError("hazard report world_model state_count does not match timeline")
     if not states:
@@ -232,6 +245,8 @@ def _timeline_from_states(
                 raise ValueError(f"world model last_decision does not match trace for {agent.agent_id}")
             if agent.decision_trace_sha != agent_trace_shas[agent.agent_id]:
                 raise ValueError(f"world model decision_trace_sha does not match trace for {agent.agent_id}")
+            if agent.decision_event_sha != event.sha256:
+                raise ValueError(f"world model decision_event_sha does not match trace event for {agent.agent_id}")
             agents.append(
                 {
                     "agent_id": agent.agent_id,
@@ -240,6 +255,7 @@ def _timeline_from_states(
                     "decision": event.decision,
                     "reason": event.reason,
                     "event_sha256": event.sha256,
+                    "world_model_decision_event_sha": agent.decision_event_sha,
                     "trace_summary_sha": agent_trace_shas[agent.agent_id],
                     "command": {
                         "from_x": _require_int(command, "from_x"),

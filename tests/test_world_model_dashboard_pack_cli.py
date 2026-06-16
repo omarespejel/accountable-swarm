@@ -32,14 +32,20 @@ class WorldModelDashboardPackCliTests(TestCase):
         self.assertTrue(all(manifest["pass_conditions"].values()))
         self.assertEqual(manifest["state_count"], 8)
         self.assertEqual(manifest["agent_count"], 4)
+        self.assertEqual(len(manifest["world_model_export_trace_summary_sha"]), 64)
         self.assertEqual(data["schema_version"], "world-model-dashboard-data.v1")
         self.assertEqual(data["mode"], "fixture")
         self.assertEqual(data["hazard"]["cell"], {"x": 3, "y": 2})
         self.assertEqual(data["formation"], "x")
         self.assertEqual(len(data["timeline"]), 8)
         self.assertEqual(len(data["timeline"][0]["agents"]), 4)
+        self.assertEqual(len(data["world_model"]["export_trace_summary_sha"]), 64)
         self.assertEqual(data["timeline"][0]["observations"][0]["source"], "fixture_bbox")
         self.assertEqual(data["timeline"][0]["hazards"], [{"x": 3, "y": 2}])
+        self.assertEqual(
+            data["timeline"][0]["agents"][0]["world_model_decision_event_sha"],
+            data["timeline"][0]["agents"][0]["event_sha256"],
+        )
         self.assertFalse(Path(manifest["data_path"]).is_absolute())
         self.assertFalse(any(Path(path).is_absolute() for path in manifest["source"].values()))
         self.assertNotIn("sk-", json.dumps(manifest, sort_keys=True))
