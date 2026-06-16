@@ -211,7 +211,7 @@ class WorldModelState:
                 observation.to_dict()
                 for observation in sorted(self.observations, key=lambda item: item.observation_id)
             ],
-            "hazards": [point.to_dict() for point in sorted(self.hazards)],
+            "hazards": [point.to_dict() for point in sorted(self.hazards, key=lambda point: (point.x, point.y))],
             "agents": [agent.to_dict() for agent in sorted(self.agents, key=lambda item: item.agent_id)],
             "reservations": [
                 reservation.to_dict()
