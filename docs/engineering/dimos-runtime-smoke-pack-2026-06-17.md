@@ -43,7 +43,7 @@ The operator commands:
 
 What is present locally:
 
-- a real local DimOS source checkout at `/Users/espejelomar/StarkNet/dimos`;
+- a real local DimOS source checkout supplied as an operator parameter;
 - a verified Accountable Swarm bridge pack / replay consumer path.
 
 What is not present in the current Accountable Swarm environment:

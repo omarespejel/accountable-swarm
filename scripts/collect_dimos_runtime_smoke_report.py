@@ -12,6 +12,7 @@ import sys
 from typing import Any
 
 from accountable_swarm.trace.models import canonical_json
+from scripts.run_dimos_replay_consumer import _read_timeline, _validate_manifest_against_timeline
 
 
 REPORT_SCHEMA_VERSION = "dimos-runtime-smoke-report.v1"
@@ -96,6 +97,13 @@ def main() -> int:
         report_out = _repo_path(repo_root, args.report_out)
         dimos_checkout = args.dimos_checkout.expanduser().resolve()
         manifest = _read_bridge_manifest(repo_root=repo_root, bridge_pack=bridge_pack)
+        events = _read_timeline(bridge_pack / "timeline.ndjson")
+        _validate_manifest_against_timeline(
+            repo_root=repo_root,
+            bridge_pack=bridge_pack,
+            manifest=manifest,
+            events=events,
+        )
         runtime_probe = _probe_runtime(dimos_checkout=dimos_checkout, bridge_pack=bridge_pack)
         report = _build_report(
             repo_root=repo_root,
@@ -245,6 +253,7 @@ def _build_report(
 
     pass_conditions = {
         "bridge_pack_inside_repo": True,
+        "bridge_pack_timeline_valid": True,
         "report_out_inside_repo": True,
         "checkout_exists": bool(runtime_probe["checkout_exists"]),
         "required_source_files_present": all(runtime_probe["required_files_present"].values()),

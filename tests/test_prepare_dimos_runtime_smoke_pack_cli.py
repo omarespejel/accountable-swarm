@@ -71,10 +71,71 @@ class PrepareDimosRuntimeSmokePackCliTests(TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertIn("path escapes repository root", result.stderr)
 
+    def test_tampered_bridge_manifest_is_rejected(self) -> None:
+        base = ROOT / "runs"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            tmp = Path(tmpdir)
+            bridge_pack = tmp / "bridge-pack"
+            _write_bridge_pack(bridge_pack, event_count_override=99)
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.prepare_dimos_runtime_smoke_pack",
+                    "--bridge-pack",
+                    str(bridge_pack.relative_to(ROOT)),
+                    "--out-dir",
+                    str((tmp / "runtime-smoke-pack").relative_to(ROOT)),
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("manifest event_count does not match timeline", result.stderr)
 
-def _write_bridge_pack(bridge_pack: Path) -> None:
+
+def _write_bridge_pack(bridge_pack: Path, *, event_count_override: int | None = None) -> None:
     bridge_pack.mkdir(parents=True, exist_ok=True)
-    (bridge_pack / "timeline.ndjson").write_text("{\"fixture\":true}\n", encoding="utf-8")
+    timeline_lines = [
+        json.dumps(
+            {
+                "agent_id": "agent-0",
+                "decision": "MOVE",
+                "dimos_stream_hint": "/accountable_swarm/demo/agent-0/grid_pose",
+                "event_sha256": "a" * 64,
+                "grid": {"height": 4, "width": 4},
+                "position_cell": {"x": 1, "y": 1},
+                "scenario": "demo",
+                "schema_version": "dimos-swarm-replay-event.v1",
+                "source": "accountable_swarm_decisiontrace",
+                "tick": 0,
+                "trace_summary_sha": "b" * 64,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        ),
+        json.dumps(
+            {
+                "agent_id": "agent-1",
+                "decision": "HOLD",
+                "dimos_stream_hint": "/accountable_swarm/demo/agent-1/grid_pose",
+                "event_sha256": "c" * 64,
+                "grid": {"height": 4, "width": 4},
+                "position_cell": {"x": 2, "y": 1},
+                "scenario": "demo",
+                "schema_version": "dimos-swarm-replay-event.v1",
+                "source": "accountable_swarm_decisiontrace",
+                "tick": 0,
+                "trace_summary_sha": "d" * 64,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        ),
+    ]
+    (bridge_pack / "timeline.ndjson").write_text("\n".join(timeline_lines) + "\n", encoding="utf-8")
     manifest = {
         "schema_version": "dimos-bridge-pack-report.v1",
         "outcome": "GO",
@@ -86,7 +147,7 @@ def _write_bridge_pack(bridge_pack: Path) -> None:
         },
         "scenario_count": 1,
         "scenarios": ["demo"],
-        "event_count": 2,
+        "event_count": 2 if event_count_override is None else event_count_override,
         "agent_count": 2,
         "dimos_probe": {
             "source": {"checkout_provided": False, "checkout_exists": False, "required_files_present": {}, "source_outcome": "NARROW_CLAIM", "source_name": None},
