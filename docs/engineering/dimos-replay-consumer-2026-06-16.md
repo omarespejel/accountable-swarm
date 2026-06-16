@@ -22,6 +22,8 @@ It validates that:
 
 - the bridge manifest uses `dimos-bridge-pack-report.v1`;
 - the bridge outcome is `GO`;
+- manifest `event_count`, `scenario_count`, `scenarios`, and artifact paths
+  match the actual bridge pack and parsed timeline;
 - each timeline line is canonical JSON;
 - each timeline event uses `dimos-swarm-replay-event.v1`;
 - raw floats and boolean scalars are rejected before replay grouping;

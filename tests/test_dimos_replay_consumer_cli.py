@@ -37,6 +37,7 @@ class DimosReplayConsumerCliTests(TestCase):
             ]
 
             with (
+                patch.object(module, "_probe_dimos", return_value=_runtime_probe(source_outcome="GO")),
                 patch.object(sys, "argv", argv),
                 contextlib.redirect_stdout(io.StringIO()),
             ):
@@ -81,6 +82,7 @@ class DimosReplayConsumerCliTests(TestCase):
             ]
 
             with (
+                patch.object(module, "_probe_dimos", return_value=_runtime_probe()),
                 patch.object(sys, "argv", argv),
                 contextlib.redirect_stdout(io.StringIO()),
             ):
@@ -114,6 +116,36 @@ class DimosReplayConsumerCliTests(TestCase):
             ]
 
             with (
+                patch.object(sys, "argv", argv),
+                contextlib.redirect_stderr(io.StringIO()),
+            ):
+                returncode = module.main()
+
+            self.assertEqual(returncode, 4)
+            self.assertFalse(report_out.exists())
+
+    def test_replay_consumer_rejects_manifest_timeline_mismatch(self) -> None:
+        module = _load_module()
+        test_root = ROOT / "runs" / "dimos"
+        test_root.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=test_root) as tmpdir:
+            work_dir = Path(tmpdir)
+            bridge_pack = _write_bridge_pack(work_dir / "bridge")
+            report_out = work_dir / "report.json"
+            manifest_path = bridge_pack / "manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["event_count"] = 99
+            manifest_path.write_text(canonical_json(manifest) + "\n", encoding="utf-8")
+            argv = [
+                "run_dimos_replay_consumer.py",
+                "--bridge-pack",
+                str(bridge_pack.relative_to(ROOT)),
+                "--report-out",
+                str(report_out.relative_to(ROOT)),
+            ]
+
+            with (
+                patch.object(module, "_probe_dimos", return_value=_runtime_probe()),
                 patch.object(sys, "argv", argv),
                 contextlib.redirect_stderr(io.StringIO()),
             ):
@@ -224,6 +256,23 @@ def _write_fake_dimos_checkout(path: Path) -> Path:
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text("# fake DimOS file for replay consumer tests\n", encoding="utf-8")
     return path
+
+
+def _runtime_probe(*, source_outcome: str = "NARROW_CLAIM") -> dict[str, object]:
+    return {
+        "source": {
+            "checkout_provided": source_outcome == "GO",
+            "checkout_exists": source_outcome == "GO",
+            "source_name": "dimos" if source_outcome == "GO" else None,
+            "required_files_present": {},
+            "source_outcome": source_outcome,
+        },
+        "python_import_available": False,
+        "cli_available": False,
+        "rerun_import_available": False,
+        "runtime_outcome": "NARROW_CLAIM",
+        "claim_boundary": "test runtime probe",
+    }
 
 
 def _load_module():
