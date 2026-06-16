@@ -60,6 +60,12 @@ def main() -> int:
         manifest = _read_manifest(manifest_path)
         events = _read_timeline(timeline_path)
         streams = _stream_summaries(events)
+        _validate_manifest_against_timeline(
+            repo_root=repo_root,
+            bridge_pack=bridge_pack,
+            manifest=manifest,
+            events=events,
+        )
         runtime_probe = _probe_dimos(args.dimos_checkout)
         report = _build_report(
             repo_root=repo_root,
@@ -183,6 +189,34 @@ def _stream_summaries(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return summaries
 
 
+def _validate_manifest_against_timeline(
+    *,
+    repo_root: Path,
+    bridge_pack: Path,
+    manifest: dict[str, Any],
+    events: list[dict[str, Any]],
+) -> None:
+    scenario_names = sorted({event["scenario"] for event in events})
+    if _require_int(manifest, "event_count") != len(events):
+        raise ValueError("manifest event_count does not match timeline")
+    if _require_int(manifest, "scenario_count") != len(scenario_names):
+        raise ValueError("manifest scenario_count does not match timeline")
+    manifest_scenarios = manifest["scenarios"]
+    if not isinstance(manifest_scenarios, list) or not all(
+        isinstance(item, str) and item.strip() for item in manifest_scenarios
+    ):
+        raise ValueError("manifest scenarios must be a non-empty string list")
+    if manifest_scenarios != scenario_names:
+        raise ValueError("manifest scenarios do not match timeline")
+    artifacts = _require_dict(manifest, "artifacts")
+    expected_manifest = _display_path(repo_root, bridge_pack / "manifest.json")
+    expected_timeline = _display_path(repo_root, bridge_pack / "timeline.ndjson")
+    if artifacts.get("manifest") != expected_manifest:
+        raise ValueError("manifest artifact path does not match bridge-pack manifest path")
+    if artifacts.get("timeline_ndjson") != expected_timeline:
+        raise ValueError("manifest artifact path does not match bridge-pack timeline path")
+
+
 def _build_report(
     *,
     repo_root: Path,
@@ -202,6 +236,9 @@ def _build_report(
         "source_manifest_schema_valid": manifest.get("schema_version") == BRIDGE_SCHEMA_VERSION,
         "source_bridge_outcome_go": manifest.get("bridge_outcome") == "GO",
         "source_manifest_hash_stable": _is_hex_64(source_manifest_sha),
+        "source_event_count_matches_timeline": manifest.get("event_count") == len(events),
+        "source_scenario_count_matches_timeline": manifest.get("scenario_count") == len(scenario_names),
+        "source_scenarios_match_timeline": manifest.get("scenarios") == scenario_names,
         "timeline_has_events": bool(events),
         "stream_count_matches_events": len(streams) <= len(events),
         "events_are_integer_only": _events_are_integer_only(events),
