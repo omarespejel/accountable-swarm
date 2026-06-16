@@ -22,9 +22,13 @@ flowchart LR
     D --> E["Deterministic integer-grid swarm planner"]
     E --> F["Agent-local commands"]
     F --> G["DecisionTrace per agent"]
+    F --> W["Explicit world-model timeline"]
     G --> H["Replay verifier"]
+    W --> H
     H --> I["Scenario report"]
     H --> J["Static HTML/SVG replay bundle"]
+    H --> X["World-model dashboard data pack"]
+    X --> Y["Interactive accountability dashboard"]
     H --> S["Optional DimOS bridge pack (timeline export only)"]
 
     K["Qwen keyframe bbox path"] --> L["Optional semantic grounding"]
@@ -50,8 +54,10 @@ flowchart LR
 | Hazard-cell quantizer | Converts a validated 2D bbox center into an integer-grid hazard cell | Checked in fixture mode for center hazard cell `{"x": 3, "y": 2}` |
 | Formation compiler | Assigns four local agents to `surround`, `x`, `line`, or `diamond` slots around the hazard | Checked for deterministic slot assignment and replayable planner traces |
 | Swarm planner | Deterministic integer-grid planner with local collision and obstacle guards | Checked for four agents in the reviewed scenarios |
+| Explicit world model | Records observations, hazards, reservations, agent cells, goals, predicted conflicts, and deterministic world-model hashes | Checked as a data contract and dashboard input, not as a learned model |
 | DecisionTrace | Hash-chained event evidence for mission and agent decisions | Checked by replay verifiers |
 | Static replay bundle | Judge-facing HTML/SVG and JSON summary generated from persisted traces | Checked by `scripts/build_swarm_demo_bundle.py` evidence |
+| World-model dashboard | Interactive HTML generated from the verified dashboard data pack | Checked by `scripts.render_world_model_dashboard_html` evidence |
 | DimOS bridge pack | Optional integer-only timeline export from verified traces plus DimOS source/runtime availability probe | Checked as a bridge artifact only; no DimOS execution claim |
 | Minimal server | Serves `/swarm-demo` bundle artifacts read-only; auxiliary smoke endpoints can compute a fixture trace or ping Qwen | Checked locally; ECS proof pending |
 
@@ -65,9 +71,12 @@ flowchart LR
    hazard cell and compiled into reviewed formation slots.
 5. The deterministic integer-grid simulator runs local planner commands.
 6. Each agent writes a `DecisionTrace`.
-7. Verifiers reload persisted traces from disk and recompute summary hashes.
-8. Reports and static replay pages are generated from verified artifacts.
-9. Optionally, verified traces are exported as a DimOS bridge timeline for a
+7. The explicit world model records observations, hazards, reservations, agent
+   states, predicted conflicts, and a deterministic world-model hash per tick.
+8. Verifiers reload persisted traces from disk and recompute summary hashes.
+9. Reports, static replay pages, and the interactive world-model dashboard are
+   generated from verified artifacts.
+10. Optionally, verified traces are exported as a DimOS bridge timeline for a
    future DimOS/Rerun consumer; no DimOS process is started in this step.
 
 ## Real-Time Boundary
@@ -89,6 +98,10 @@ trace artifacts.
 - `docs/submission/README.md`
 - `docs/engineering/swarm-demo-bundle-2026-06-15.md`
 - `docs/engineering/dimos-bridge-probe-2026-06-16.md`
+- `docs/engineering/world-model-state-2026-06-16.md`
+- `docs/engineering/world-model-hazard-binding-2026-06-16.md`
+- `docs/engineering/world-model-dashboard-pack-2026-06-16.md`
+- `docs/engineering/world-model-dashboard-renderer-2026-06-16.md`
 - `docs/engineering/live-dashscope-swarm-mission-suite-post-hardening-2026-06-15.md`
 - `docs/engineering/live-dashscope-hazard-formation-2026-06-16.md`
 - `docs/engineering/swarm-mission-objective-hardening-2026-06-15.md`
@@ -101,6 +114,7 @@ trace artifacts.
 
 - No physical robot behavior.
 - No SO-101 operation.
+- No learned world model.
 - No 3D physics simulation.
 - No latency or reliability claim.
 - No DimOS integration.

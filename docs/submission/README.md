@@ -15,7 +15,7 @@ The checked demo claim is:
 ```text
 Qwen-assisted mission intent -> bounded local scenario binding ->
 deterministic integer-grid swarm -> hash-chained DecisionTrace per agent ->
-replay-verifiable report and static visual bundle
+explicit world-model timeline -> replay-verifiable report and dashboard
 ```
 
 ## Current Judge Path
@@ -62,6 +62,37 @@ also exist: `/camera-fixture` builds and verifies an in-memory fixture
 `DecisionTrace`, and `/qwen-ping` may call DashScope when `ALIBABA_API_KEY` is
 configured.
 
+Prepare the world-model dashboard artifact:
+
+```bash
+python3 -m scripts.run_hazard_formation_gate \
+  --image fixtures/hazard_marker.ppm \
+  --mode fixture \
+  --formation x \
+  --trace-dir runs/hazard_formation/world_model_x \
+  --report-out runs/hazard_formation/world_model_x_report.json
+
+python3 -m scripts.prepare_world_model_dashboard_pack \
+  --trace-dir runs/hazard_formation/world_model_x \
+  --hazard-report runs/hazard_formation/world_model_x_report.json \
+  --out-dir runs/dashboard/world_model_x
+
+python3 -m scripts.render_world_model_dashboard_html \
+  --data runs/dashboard/world_model_x/data.json \
+  --html-out runs/dashboard/world_model_x/index.html \
+  --summary-out runs/dashboard/world_model_x/summary.json
+```
+
+Open the generated dashboard:
+
+```text
+runs/dashboard/world_model_x/index.html
+```
+
+This dashboard is the recommended recording surface for the accountable
+world-model path because it shows Qwen evidence, deterministic local planning,
+world-model hashes, and per-agent trace hashes in one page.
+
 ## Checked Local Evidence
 
 Primary deterministic swarm evidence:
@@ -92,6 +123,10 @@ Primary hazard-to-formation evidence:
 
 - `docs/engineering/hazard-formation-gate-2026-06-16.md`
 - `docs/engineering/hazard-formation-replay-pack-2026-06-16.md`
+- `docs/engineering/world-model-state-2026-06-16.md`
+- `docs/engineering/world-model-hazard-binding-2026-06-16.md`
+- `docs/engineering/world-model-dashboard-pack-2026-06-16.md`
+- `docs/engineering/world-model-dashboard-renderer-2026-06-16.md`
 - `docs/engineering/live-dashscope-hazard-formation-2026-06-16.md`
 
 Replay the fixture hazard-to-X gate:
@@ -244,13 +279,15 @@ shotlist runs/demo/recording-pack/shotlist.md
    counters.
 6. Open `runs/hazard_formation/recording_x_replay/index.html` and show the
    hazard cell obstacle plus the four-agent X formation replay.
-7. Show `runs/hazard_formation/recording_x_report.json` with bbox, hazard cell,
+7. Open `runs/dashboard/world_model_x/index.html` and show the Qwen evidence,
+   local planner, world-model hash, and per-agent DecisionTrace hashes.
+8. Show `runs/hazard_formation/recording_x_report.json` with bbox, hazard cell,
    formation, assigned goals, and trace hashes.
-8. Show `docs/submission/architecture.md` and point out that Qwen is not in the
+9. Show `docs/submission/architecture.md` and point out that Qwen is not in the
    real-time loop.
-9. Optional, if the DimOS bridge pack exists: show its manifest and state that
+10. Optional, if the DimOS bridge pack exists: show its manifest and state that
    it is a verified replay export, not DimOS execution.
-10. Optional, if ECS proof exists: show the public `/swarm-demo`,
+11. Optional, if ECS proof exists: show the public `/swarm-demo`,
     `/hazard-formation`, and `/readyz` responses.
 
 ## Submission Text Draft

@@ -25,6 +25,27 @@ http://127.0.0.1:8000/swarm-demo
 http://127.0.0.1:8000/swarm-demo/summary.json
 ```
 
+For the accountable world-model dashboard, first run:
+
+```bash
+python3 -m scripts.run_hazard_formation_gate \
+  --image fixtures/hazard_marker.ppm \
+  --mode fixture \
+  --formation x \
+  --trace-dir runs/hazard_formation/world_model_x \
+  --report-out runs/hazard_formation/world_model_x_report.json
+
+python3 -m scripts.prepare_world_model_dashboard_pack \
+  --trace-dir runs/hazard_formation/world_model_x \
+  --hazard-report runs/hazard_formation/world_model_x_report.json \
+  --out-dir runs/dashboard/world_model_x
+
+python3 -m scripts.render_world_model_dashboard_html \
+  --data runs/dashboard/world_model_x/data.json \
+  --html-out runs/dashboard/world_model_x/index.html \
+  --summary-out runs/dashboard/world_model_x/summary.json
+```
+
 ## Shot Sequence
 
 1. Show the repository root, `LICENSE`, `README.md`, and
@@ -36,10 +57,14 @@ http://127.0.0.1:8000/swarm-demo/summary.json
 6. Open `runs/hazard_formation/recording_x_replay/index.html`.
 7. Show the hazard cell obstacle and the four agents moving into the `x`
    formation.
-8. Open `runs/hazard_formation/recording_x_report.json`.
-9. Show the hazard bbox, hazard cell, `x` formation, assigned goals, and
+8. Open `runs/dashboard/world_model_x/index.html`.
+9. Show the Qwen evidence panel, deterministic local planner panel,
+   `world_model_sha`, per-agent DecisionTrace event hashes, and visible
+   non-claims.
+10. Open `runs/hazard_formation/recording_x_report.json`.
+11. Show the hazard bbox, hazard cell, `x` formation, assigned goals, and
    trace summary hashes.
-10. Say the default fixture-recording boundary on camera:
+12. Say the default fixture-recording boundary on camera:
 
     ```text
     This recording shows the local audited execution path using a fixture
@@ -48,7 +73,7 @@ http://127.0.0.1:8000/swarm-demo/summary.json
     from hash-chained traces.
     ```
 
-11. Show the non-claims in `runs/demo/recording-pack/shotlist.md`.
+13. Show the non-claims in `runs/demo/recording-pack/shotlist.md`.
 
 ## Optional DimOS Bridge Insert
 
