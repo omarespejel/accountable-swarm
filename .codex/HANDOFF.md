@@ -127,10 +127,14 @@ What is checked locally:
   registry name; checked index SHA is
   `b929f77827e69b9100e9883f78e7b882e7b161d67350a31a129d452f99c63368`.
 - demo recording pack generator builds the deterministic swarm bundle, runs the
-  fixture hazard-to-X formation gate, and emits a judge-facing manifest plus
-  shotlist with fixture/live-Qwen boundaries separated.
+  fixture hazard-to-X formation gate, renders the hazard formation replay, and
+  emits a judge-facing manifest plus shotlist with fixture/live-Qwen boundaries
+  separated.
 - read-only stdlib server endpoints serve existing swarm bundle artifacts at
   `/swarm-demo` and `/swarm-demo/summary.json` with path traversal rejection.
+- read-only stdlib server endpoints serve the generated hazard formation replay
+  at `/hazard-formation` and `/hazard-formation/summary.json` with path
+  traversal rejection.
 - exploratory deterministic N=4 integer-grid probe passes locally, but is not a
   physical, physics, latency, reliability, or larger-swarm claim.
 - local-guard-only deterministic N=4 center-block obstacle probe remains useful
@@ -157,8 +161,9 @@ What is not checked yet:
 - Issue #54 is active for GO-gate follow-up hardening. P1 and P2 are merged as
   GO; P3 confidence and tiny-bbox policy remain open.
 - Issue #59 is active for submission readiness. PR #66 merged the demo
-  recording pack; Alibaba ECS proof (#4) and physical/SO-101 or acceptable
-  real sensor proof (#3) remain open.
+  recording pack; PR #70 work is adding a first-class hazard formation replay
+  artifact. Alibaba ECS proof (#4) and physical/SO-101 or acceptable real
+  sensor proof (#3) remain open.
 - PR #5, #7, #8, #9, #10, #12, #14, #16, #18, #20, #22, #24, #34, #36, and
   #38, #40, #42, #44, #46, #47, #49, and #51 are merged.
 

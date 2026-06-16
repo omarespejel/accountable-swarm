@@ -118,6 +118,47 @@ class ServerTests(TestCase):
                 payload = json.loads(ctx.exception.read().decode("utf-8"))
                 self.assertEqual(payload["status"], "rejected")
 
+    def test_hazard_formation_replay_files_are_served_from_configured_root(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            replay_dir = Path(tmpdir) / "hazard-replay"
+            replay_dir.mkdir()
+            (replay_dir / "index.html").write_text(
+                "<!doctype html><title>hazard replay</title>",
+                encoding="utf-8",
+            )
+            (replay_dir / "summary.json").write_text('{"outcome":"GO"}\n', encoding="utf-8")
+
+            with patch.dict(os.environ, {"HAZARD_FORMATION_REPLAY_DIR": str(replay_dir)}), _test_server() as base_url:
+                self.assertIn("hazard replay", _get_text(f"{base_url}/hazard-formation"))
+                self.assertEqual(_get_json(f"{base_url}/hazard-formation/summary.json")["outcome"], "GO")
+
+    def test_hazard_formation_missing_replay_returns_build_command(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            missing_dir = Path(tmpdir) / "missing"
+            with patch.dict(os.environ, {"HAZARD_FORMATION_REPLAY_DIR": str(missing_dir)}), _test_server() as base_url:
+                with self.assertRaises(HTTPError) as ctx:
+                    _get_json(f"{base_url}/hazard-formation")
+                self.assertEqual(ctx.exception.code, 404)
+                payload = json.loads(ctx.exception.read().decode("utf-8"))
+                self.assertEqual(payload["status"], "missing_hazard_formation_replay")
+                self.assertEqual(payload["build_command"], "python3 scripts/prepare_demo_recording_pack.py")
+
+    def test_hazard_formation_rejects_path_traversal(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            replay_dir = Path(tmpdir) / "hazard-replay"
+            replay_dir.mkdir()
+            (replay_dir / "index.html").write_text(
+                "<!doctype html><title>hazard replay</title>",
+                encoding="utf-8",
+            )
+            (replay_dir / "summary.json").write_text('{"outcome":"GO"}\n', encoding="utf-8")
+            with patch.dict(os.environ, {"HAZARD_FORMATION_REPLAY_DIR": str(replay_dir)}), _test_server() as base_url:
+                with self.assertRaises(HTTPError) as ctx:
+                    _get_json(f"{base_url}/hazard-formation/%2e%2e/README.md")
+                self.assertEqual(ctx.exception.code, 400)
+                payload = json.loads(ctx.exception.read().decode("utf-8"))
+                self.assertEqual(payload["status"], "rejected")
+
 
 class _test_server:
     def __enter__(self) -> str:

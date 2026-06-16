@@ -19,7 +19,9 @@ from accountable_swarm.trace.models import PerceptionEvent, build_single_event_t
 FIXTURE_RESPONSE = '[{"bbox_2d":[250,250,750,750],"label":"marked hazard"}]'
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SWARM_DEMO_BUNDLE_DIR = REPO_ROOT / "runs/demo/swarm"
+DEFAULT_HAZARD_FORMATION_REPLAY_DIR = REPO_ROOT / "runs/hazard_formation/recording_x_replay"
 SWARM_DEMO_BUILD_COMMAND = "python3 scripts/build_swarm_demo_bundle.py"
+HAZARD_FORMATION_BUILD_COMMAND = "python3 scripts/prepare_demo_recording_pack.py"
 
 
 class AccountableSwarmHandler(BaseHTTPRequestHandler):
@@ -48,6 +50,13 @@ class AccountableSwarmHandler(BaseHTTPRequestHandler):
         if parsed.path.startswith("/swarm-demo/"):
             rel_path = parsed.path.removeprefix("/swarm-demo/") or "index.html"
             self._handle_swarm_demo_file(rel_path)
+            return
+        if parsed.path == "/hazard-formation":
+            self._handle_hazard_formation_file("index.html")
+            return
+        if parsed.path.startswith("/hazard-formation/"):
+            rel_path = parsed.path.removeprefix("/hazard-formation/") or "index.html"
+            self._handle_hazard_formation_file(rel_path)
             return
         if parsed.path == "/qwen-ping":
             query = parse_qs(parsed.query)
@@ -123,12 +132,37 @@ class AccountableSwarmHandler(BaseHTTPRequestHandler):
             return
         self._send_file(target)
 
+    def _handle_hazard_formation_file(self, rel_url_path: str) -> None:
+        root = _hazard_formation_replay_root()
+        if not _has_hazard_formation_replay_markers(root):
+            self._send_missing_hazard_formation_replay()
+            return
+        try:
+            target = _safe_bundle_path(root=root, rel_url_path=rel_url_path)
+        except ValueError as exc:
+            self._send_json({"status": "rejected", "error": str(exc)}, status=400)
+            return
+        if not target.is_file():
+            self._send_missing_hazard_formation_replay()
+            return
+        self._send_file(target)
+
     def _send_missing_swarm_demo_bundle(self) -> None:
         self._send_json(
             {
                 "status": "missing_bundle",
                 "error": "swarm demo bundle file not found",
                 "build_command": SWARM_DEMO_BUILD_COMMAND,
+            },
+            status=404,
+        )
+
+    def _send_missing_hazard_formation_replay(self) -> None:
+        self._send_json(
+            {
+                "status": "missing_hazard_formation_replay",
+                "error": "hazard formation replay file not found",
+                "build_command": HAZARD_FORMATION_BUILD_COMMAND,
             },
             status=404,
         )
@@ -170,7 +204,18 @@ def _swarm_demo_bundle_root() -> Path:
     return Path(configured).resolve()
 
 
+def _hazard_formation_replay_root() -> Path:
+    configured = os.getenv("HAZARD_FORMATION_REPLAY_DIR")
+    if configured is None or configured.strip() in {"", "."}:
+        return DEFAULT_HAZARD_FORMATION_REPLAY_DIR.resolve()
+    return Path(configured).resolve()
+
+
 def _has_swarm_demo_bundle_markers(root: Path) -> bool:
+    return root.is_dir() and (root / "index.html").is_file() and (root / "summary.json").is_file()
+
+
+def _has_hazard_formation_replay_markers(root: Path) -> bool:
     return root.is_dir() and (root / "index.html").is_file() and (root / "summary.json").is_file()
 
 

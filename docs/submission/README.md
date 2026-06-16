@@ -91,6 +91,7 @@ from the same verified persisted traces.
 Primary hazard-to-formation evidence:
 
 - `docs/engineering/hazard-formation-gate-2026-06-16.md`
+- `docs/engineering/hazard-formation-replay-pack-2026-06-16.md`
 - `docs/engineering/live-dashscope-hazard-formation-2026-06-16.md`
 
 Replay the fixture hazard-to-X gate:
@@ -108,6 +109,11 @@ This checked path maps a Qwen-style 2D bbox to an integer-grid hazard cell,
 assigns four agents to formation slots, and verifies persisted hazard and agent
 traces from disk. It is not 3D grounding, physical behavior, or Qwen real-time
 control.
+
+The recording pack also renders the generated agent traces into
+`runs/hazard_formation/recording_x_replay/index.html`, with the hazard cell
+shown as the obstacle. This makes the perception-to-formation path visible
+without changing the claim boundary.
 
 When `ALIBABA_API_KEY` is available, the live hazard-to-formation proof uses
 `qwen3-vl-flash` on a generated PNG keyframe. The checked 2026-06-16 run
@@ -236,12 +242,16 @@ shotlist runs/demo/recording-pack/shotlist.md
    scenarios.
 5. Show `runs/demo/swarm/summary.json` with scenario outcomes and replay
    counters.
-6. Show `docs/submission/architecture.md` and point out that Qwen is not in the
+6. Open `runs/hazard_formation/recording_x_replay/index.html` and show the
+   hazard cell obstacle plus the four-agent X formation replay.
+7. Show `runs/hazard_formation/recording_x_report.json` with bbox, hazard cell,
+   formation, assigned goals, and trace hashes.
+8. Show `docs/submission/architecture.md` and point out that Qwen is not in the
    real-time loop.
-7. Optional, if the DimOS bridge pack exists: show its manifest and state that
+9. Optional, if the DimOS bridge pack exists: show its manifest and state that
    it is a verified replay export, not DimOS execution.
-8. Optional, if ECS proof exists: show the public `/swarm-demo` endpoint and
-   `/readyz` response.
+10. Optional, if ECS proof exists: show the public `/swarm-demo`,
+    `/hazard-formation`, and `/readyz` responses.
 
 ## Submission Text Draft
 
