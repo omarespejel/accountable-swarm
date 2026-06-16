@@ -153,6 +153,10 @@ What is checked locally:
   fixture hazard-to-X formation gate, renders the hazard formation replay, and
   emits a judge-facing manifest plus shotlist with fixture/live-Qwen boundaries
   separated.
+- dashboard data-pack generator verifies a hazard formation report, hazard
+  trace, per-agent traces, and the persisted world-model timeline into a single
+  renderer-ready `world-model-dashboard-data.v1` JSON artifact, and rejects
+  rehashed world-model drift against source DecisionTrace commands.
 - read-only stdlib server endpoints serve existing swarm bundle artifacts at
   `/swarm-demo` and `/swarm-demo/summary.json` with path traversal rejection.
 - read-only stdlib server endpoints serve the generated hazard formation replay
@@ -174,12 +178,15 @@ What is not checked yet:
 - latency, reliability, or safety claims.
 - live Qwen mission assignment beyond the scoped `qwen-plus` five-scenario
   suite evidence.
+- interactive world-model dashboard renderer; current work prepares the
+  verified data substrate only.
 
 ## Active GitHub Work
 
-- Issue #1: research ground truth and build hierarchy.
-- Issue #3: physical-node safety contract and true sensor-frame proof.
-- Issue #73: DimOS replay consumer over verified swarm bridge timeline.
+- Issue #75: Qwen-grounded world-model dashboard for accountable swarm.
+- Issue #3: physical-node safety contract and true sensor-frame proof. This is
+  parked during the dashboard sprint, not closed.
+- Issue #1 and #73 are closed or superseded by the current dashboard plan.
 - Issue #2, #6, #11, #13, #15, #17, #19, #21, #23, #25, #27, #29, #33,
   #35, #37, #39, #41, #43, #45, #48, #50, #52, #54, #59, and #68 are closed
   as GO or scoped NARROW_CLAIM where documented.
