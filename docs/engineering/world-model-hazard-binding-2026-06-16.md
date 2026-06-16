@@ -16,10 +16,14 @@ deterministic `world_model_sha` values.
 - Each timeline row is a canonical `WorldModelState`.
 - The hazard formation report now includes a `world_model` section with:
   - timeline path;
+  - export trace path and export `DecisionTrace` summary SHA;
   - state count;
   - first and last `world_model_sha`;
   - replay-determinism pass condition;
   - predicted conflict count.
+- Each `WorldAgentState` also carries the per-tick `decision_event_sha` for the
+  source agent `DecisionEvent`, while preserving the whole-trace
+  `decision_trace_sha`.
 - Fixture and degraded modes both emit world-model evidence.
 - Degraded mode records a `degraded` observation and an empty hazard set while
   preserving safe HOLD behavior.
@@ -46,9 +50,11 @@ formation x
 
 ## Evidence Boundary
 
-This proves that the existing hazard-formation path emits a replayable explicit
-world-model timeline. It does not yet add an interactive dashboard, a
-reservation heatmap, or explicit predicted-conflict visualization.
+This stack layer proves that the existing hazard-formation path emits a
+replayable explicit world-model timeline with export provenance. The dashboard
+architecture is delivered across issue #75 as a stack: this PR emits the
+timeline, the next data-pack layer verifies it against source traces, and the
+renderer layer consumes that verified pack.
 
 The current `predicted_conflict_count` is expected to be zero for the reviewed
 fixture path. Conflict prediction/heatmap work follows in a separate PR.

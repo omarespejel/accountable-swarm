@@ -49,6 +49,7 @@ DEFAULT_GRID_WIDTH = 7
 DEFAULT_GRID_HEIGHT = 5
 DEFAULT_TICKS = 8
 DEFAULT_MODEL = "qwen3-vl-flash"
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def main() -> int:
@@ -192,6 +193,7 @@ def _build_report(
         hazard_cell=hazard.cell,
         hazard_trace_sha=hazard_trace_sha,
         trace_summary_shas=agent_report["trace_summary_shas"],
+        decision_event_shas=agent_report["decision_event_shas"],
         observation_source="qwen_bbox" if mode == "dashscope" else "fixture_bbox",
         observation_label=hazard.source_label,
         observation_bbox=hazard.bbox_2d_norm_1000,
@@ -293,6 +295,7 @@ def _build_degraded_report(
         hazard_cell=None,
         hazard_trace_sha=verify_trace(hazard_trace),
         trace_summary_shas=agent_report["trace_summary_shas"],
+        decision_event_shas=agent_report["decision_event_shas"],
         observation_source="degraded",
         observation_label="degraded_no_model",
         observation_bbox=None,
@@ -408,12 +411,14 @@ def _write_and_verify_traces(
     traces = build_agent_traces(result)
     loaded_traces = {}
     trace_summary_shas = {}
+    decision_event_shas = {}
     for agent_id, trace in sorted(traces.items()):
         trace_path = agents_dir / f"{agent_id}.json"
         trace_path.write_text(trace.to_canonical_json() + "\n", encoding="utf-8")
         loaded = trace_from_dict(json.loads(trace_path.read_text(encoding="utf-8")))
         loaded_traces[agent_id] = loaded
         trace_summary_shas[agent_id] = verify_trace(loaded)
+        decision_event_shas[agent_id] = {event.tick: event.sha256 for event in loaded.events}
     replay = replay_swarm_traces(loaded_traces, obstacles=result.obstacles)
     agent_replay_matches = all(
         trace_summary_shas[agent_id] == verify_trace(traces[agent_id])
@@ -423,6 +428,7 @@ def _write_and_verify_traces(
         "hazard_trace_replay_deterministic": hazard_summary_sha == hazard_replay_sha,
         "agent_traces_replay_deterministic": agent_replay_matches,
         "trace_summary_shas": trace_summary_shas,
+        "decision_event_shas": decision_event_shas,
         "replay": replay.to_dict(),
     }
 
@@ -434,6 +440,7 @@ def _write_world_model_timeline(
     hazard_cell: GridPoint | None,
     hazard_trace_sha: str,
     trace_summary_shas: dict[str, str],
+    decision_event_shas: dict[str, dict[int, str]],
     observation_source: str,
     observation_label: str,
     observation_bbox: tuple[int, int, int, int] | None,
@@ -449,6 +456,7 @@ def _write_world_model_timeline(
             hazard_cell=hazard_cell,
             hazard_trace_sha=hazard_trace_sha,
             trace_summary_shas=trace_summary_shas,
+            decision_event_shas=decision_event_shas,
             observation_source=observation_source,
             observation_label=observation_label,
             observation_bbox=observation_bbox,
@@ -466,14 +474,28 @@ def _write_world_model_timeline(
     ]
     replay_hashes = [verify_world_model_state(state) for state in loaded]
     original_hashes = [verify_world_model_state(state) for state in states]
+    predicted_conflict_count = sum(len(state.predicted_conflicts) for state in states)
+    export_trace = _world_model_export_trace(
+        timeline_path=timeline_path,
+        state_count=len(states),
+        first_world_model_sha=original_hashes[0] if original_hashes else "",
+        last_world_model_sha=original_hashes[-1] if original_hashes else "",
+        predicted_conflict_count=predicted_conflict_count,
+    )
+    export_trace_path = trace_dir / "world_model_export.json"
+    export_trace_path.write_text(export_trace.to_canonical_json() + "\n", encoding="utf-8")
+    export_loaded = trace_from_dict(json.loads(export_trace_path.read_text(encoding="utf-8")))
+    export_trace_summary_sha = verify_trace(export_loaded)
     return {
         "schema_version": "world-model-timeline-report.v1",
         "path": _display_path(timeline_path),
+        "export_trace_path": _display_path(export_trace_path),
+        "export_trace_summary_sha": export_trace_summary_sha,
         "state_count": len(states),
         "first_world_model_sha": original_hashes[0] if original_hashes else "",
         "last_world_model_sha": original_hashes[-1] if original_hashes else "",
         "timeline_replay_deterministic": replay_hashes == original_hashes,
-        "predicted_conflict_count": sum(len(state.predicted_conflicts) for state in states),
+        "predicted_conflict_count": predicted_conflict_count,
     }
 
 
@@ -484,6 +506,7 @@ def _world_state_for_tick(
     hazard_cell: GridPoint | None,
     hazard_trace_sha: str,
     trace_summary_shas: dict[str, str],
+    decision_event_shas: dict[str, dict[int, str]],
     observation_source: str,
     observation_label: str,
     observation_bbox: tuple[int, int, int, int] | None,
@@ -508,6 +531,7 @@ def _world_state_for_tick(
             goal=goals[step.agent_id],
             decision_trace_sha=trace_summary_shas[step.agent_id],
             last_decision=step.decision,
+            decision_event_sha=decision_event_shas[step.agent_id][step.tick],
         )
         for step in tick.steps
     )
@@ -527,6 +551,42 @@ def _world_state_for_tick(
     )
 
 
+def _world_model_export_trace(
+    *,
+    timeline_path: Path,
+    state_count: int,
+    first_world_model_sha: str,
+    last_world_model_sha: str,
+    predicted_conflict_count: int,
+):
+    return build_single_event_trace(
+        run_id="world-model-timeline-export",
+        actor_id="edge-node-0",
+        mode="edge",
+        perception=PerceptionEvent(
+            event_id="world-model-export-0000",
+            source=f"world-model://{timeline_path.name}",
+            image_width=1,
+            image_height=1,
+            label="world model timeline export",
+            bbox_2d_norm_1000=(0, 0, 1000, 1000),
+            bbox_2d_px=(0, 0, 1, 1),
+            model="deterministic-world-model-exporter",
+        ),
+        intent="export verified explicit world model timeline for dashboard replay",
+        decision="HOLD",
+        reason="export action records replay artifact without changing local motion",
+        command={
+            "type": "world_model_timeline_export",
+            "timeline_path": _display_path(timeline_path),
+            "state_count": state_count,
+            "first_world_model_sha": first_world_model_sha,
+            "last_world_model_sha": last_world_model_sha,
+            "predicted_conflict_count": predicted_conflict_count,
+        },
+    )
+
+
 def _validate_image(image_path: Path) -> None:
     if not image_path.exists():
         raise ValueError(f"image does not exist: {image_path}")
@@ -536,7 +596,7 @@ def _validate_image(image_path: Path) -> None:
 
 def _display_path(path: Path) -> str:
     try:
-        return path.resolve().relative_to(Path.cwd().resolve()).as_posix()
+        return path.resolve().relative_to(REPO_ROOT.resolve()).as_posix()
     except ValueError:
         return path.as_posix()
 
