@@ -42,6 +42,7 @@ data sources, and external assets from day one.
 | 2026-06-16 | Live DashScope hazard formation gate | Alibaba Cloud Model Studio / DashScope `qwen3-vl-flash` | Service terms apply | Live keyframe hazard perception feeding deterministic local `x` formation planning | API key loaded from local untracked `.env`; no key committed; no Qwen real-time control, physical robot, SO-101, DimOS, 3D physics, latency, reliability, arbitrary-map, or ECS deployment claim. |
 | 2026-06-16 | Hazard formation replay pack | Authored for `accountable-swarm` | Apache-2.0 | Recording-pack generation and read-only serving of the persisted hazard formation trace replay | No physical, SO-101, DimOS execution, 3D physics, arbitrary-map, latency, reliability, safety, or Qwen real-time-control claim. |
 | 2026-06-17 | Sensor-frame proof pack | Authored for `accountable-swarm` | Apache-2.0 | Safe manifest pack for static-image or webcam camera-go-gate evidence with source-frame SHA and delete-after-hash webcam default | No physical robot behavior, SO-101 operation, safety, latency, reliability, cloud deployment, or swarm claim. |
+| 2026-06-17 | SO-101 trace-only camera probe | Authored for `accountable-swarm` | Apache-2.0 | Optional-dependency SO-101 camera capture probe with controlled `NO_GO` report when `lerobot` / `opencv` are unavailable | No SO-101 connectivity, no autonomous motion, no ACT policy success, no safety/latency/reliability claim, and no physical swarm claim. |
 
 ## Pending Before Demo
 

@@ -60,6 +60,9 @@ What is checked locally:
   manifest artifact with source-frame SHA, trace/report binding, and
   delete-after-hash default for captured webcam frames. This is still not
   SO-101 operation or physical motion evidence.
+- SO-101 trace-only camera probe surface now exists and emits a controlled
+  `NO_GO` report when optional `lerobot` / `opencv` dependencies are absent.
+  This is an adapter/probe boundary only, not SO-101 camera success.
 - minimal stdlib HTTP server and Dockerfile exist for manual Alibaba ECS proof;
   operator still needs to provision ECS and run the smoke checks.
 - ECS operator proof pack generator prepares a non-secret runbook, command
