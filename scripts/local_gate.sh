@@ -3,6 +3,7 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
+gate_commit="$(git rev-parse HEAD)"
 gate_tmp="$(mktemp -d /tmp/accountable-swarm-local-gate.XXXXXX)"
 cleanup() {
     rm -rf "$gate_tmp"
@@ -161,7 +162,8 @@ python3 -m venv "$gate_tmp/venv"
 "$gate_tmp/venv/bin/verify-trace" runs/hazard_formation/local_gate_x/hazard.json
 
 "$gate_tmp/venv/bin/prepare-ecs-operator-pack" \
-    --out-dir runs/ecs/local_gate_operator_pack
+    --out-dir runs/ecs/local_gate_operator_pack \
+    --commit "$gate_commit"
 
 "$gate_tmp/venv/bin/python" scripts/build_swarm_demo_bundle.py \
     --out-dir runs/demo/local_gate_dimos_source
