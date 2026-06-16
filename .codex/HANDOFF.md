@@ -157,6 +157,12 @@ What is checked locally:
   trace, per-agent traces, and the persisted world-model timeline into a single
   renderer-ready `world-model-dashboard-data.v1` JSON artifact, and rejects
   rehashed world-model drift against source DecisionTrace commands.
+- interactive world-model dashboard renderer consumes the verified
+  `world-model-dashboard-data.v1` artifact and emits a self-contained HTML
+  replay plus `world-model-dashboard-html-report.v1`. The renderer validates
+  non-empty timelines, world-model hashes, event-hash binding, relative paths,
+  no raw floats, no secret-looking payloads, and explicit non-claims before
+  writing the page.
 - read-only stdlib server endpoints serve existing swarm bundle artifacts at
   `/swarm-demo` and `/swarm-demo/summary.json` with path traversal rejection.
 - read-only stdlib server endpoints serve the generated hazard formation replay
@@ -178,8 +184,7 @@ What is not checked yet:
 - latency, reliability, or safety claims.
 - live Qwen mission assignment beyond the scoped `qwen-plus` five-scenario
   suite evidence.
-- interactive world-model dashboard renderer; current work prepares the
-  verified data substrate only.
+- public recording based on the interactive world-model dashboard renderer.
 
 ## Active GitHub Work
 
