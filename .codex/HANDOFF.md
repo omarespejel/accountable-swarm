@@ -72,6 +72,11 @@ What is checked locally:
   groups verified events into DimOS-shaped stream summaries, and records DimOS
   source/runtime availability separately. This is a replay stream-contract
   proof, not DimOS execution, Rerun recording, or swarm-control proof.
+- `WorldModelState` now exists as the explicit accountable world-model data
+  contract for issue #75. It records observations, hazards, agents,
+  reservations, predicted conflicts, and a deterministic `world_model_sha` while
+  rejecting raw floats and booleans in hashed payloads. This is a data-contract
+  proof only; it is not yet wired into the hazard-formation gate or dashboard.
 - deterministic N=2 integer-grid simulated swarm emits one DecisionTrace per
   agent, reaches goals, and reports zero same-cell or swap collisions.
 - deterministic N=2 center-block obstacle scenario reaches goals, reports zero
