@@ -63,6 +63,9 @@ class DimosReplayConsumerCliTests(TestCase):
         self.assertEqual(report["streams"][0]["stream_hint"], "/accountable_swarm/corridor/agent-0/grid_pose")
         self.assertEqual(report["streams"][0]["first_position_cell"], {"x": 0, "y": 0})
         self.assertEqual(report["streams"][0]["last_position_cell"], {"x": 1, "y": 0})
+        self.assertEqual(report["streams"][1]["stream_hint"], "/accountable_swarm/corridor/agent-1/grid_pose")
+        self.assertEqual(report["streams"][1]["first_position_cell"], {"x": 4, "y": 2})
+        self.assertEqual(report["streams"][1]["last_position_cell"], {"x": 4, "y": 2})
 
     def test_replay_consumer_requires_runtime_when_requested(self) -> None:
         module = _load_module()
@@ -116,6 +119,66 @@ class DimosReplayConsumerCliTests(TestCase):
             ]
 
             with (
+                patch.object(sys, "argv", argv),
+                contextlib.redirect_stderr(io.StringIO()),
+            ):
+                returncode = module.main()
+
+            self.assertEqual(returncode, 4)
+            self.assertFalse(report_out.exists())
+
+    def test_replay_consumer_rejects_invalid_event_hash_reference(self) -> None:
+        module = _load_module()
+        test_root = ROOT / "runs" / "dimos"
+        test_root.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=test_root) as tmpdir:
+            work_dir = Path(tmpdir)
+            bridge_pack = _write_bridge_pack(work_dir / "bridge")
+            report_out = work_dir / "report.json"
+            event = _base_event(agent_id="agent-0", tick=0, x=0, y=0)
+            event["event_sha256"] = "not-a-hash"
+            (bridge_pack / "timeline.ndjson").write_text(canonical_json(event) + "\n", encoding="utf-8")
+            _rewrite_manifest_counts(bridge_pack, event_count=1)
+            argv = [
+                "run_dimos_replay_consumer.py",
+                "--bridge-pack",
+                str(bridge_pack.relative_to(ROOT)),
+                "--report-out",
+                str(report_out.relative_to(ROOT)),
+            ]
+
+            with (
+                patch.object(module, "_probe_dimos", return_value=_runtime_probe()),
+                patch.object(sys, "argv", argv),
+                contextlib.redirect_stderr(io.StringIO()),
+            ):
+                returncode = module.main()
+
+            self.assertEqual(returncode, 4)
+            self.assertFalse(report_out.exists())
+
+    def test_replay_consumer_rejects_invalid_trace_summary_hash_reference(self) -> None:
+        module = _load_module()
+        test_root = ROOT / "runs" / "dimos"
+        test_root.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=test_root) as tmpdir:
+            work_dir = Path(tmpdir)
+            bridge_pack = _write_bridge_pack(work_dir / "bridge")
+            report_out = work_dir / "report.json"
+            event = _base_event(agent_id="agent-0", tick=0, x=0, y=0)
+            event["trace_summary_sha"] = "c" * 63
+            (bridge_pack / "timeline.ndjson").write_text(canonical_json(event) + "\n", encoding="utf-8")
+            _rewrite_manifest_counts(bridge_pack, event_count=1)
+            argv = [
+                "run_dimos_replay_consumer.py",
+                "--bridge-pack",
+                str(bridge_pack.relative_to(ROOT)),
+                "--report-out",
+                str(report_out.relative_to(ROOT)),
+            ]
+
+            with (
+                patch.object(module, "_probe_dimos", return_value=_runtime_probe()),
                 patch.object(sys, "argv", argv),
                 contextlib.redirect_stderr(io.StringIO()),
             ):
@@ -225,6 +288,13 @@ def _write_bridge_pack(path: Path) -> Path:
         encoding="utf-8",
     )
     return path
+
+
+def _rewrite_manifest_counts(bridge_pack: Path, *, event_count: int) -> None:
+    manifest_path = bridge_pack / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["event_count"] = event_count
+    manifest_path.write_text(canonical_json(manifest) + "\n", encoding="utf-8")
 
 
 def _base_event(*, agent_id: str, tick: int, x: int, y: int) -> dict[str, object]:
