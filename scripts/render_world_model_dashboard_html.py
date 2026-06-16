@@ -203,6 +203,17 @@ def _validate_observations(value: Any, *, hazard_trace_sha: str, width: int, hei
         score_milli = _require_int(observation, "score_milli")
         if not 0 <= score_milli <= 1000:
             raise ValueError("observation score_milli must be between 0 and 1000")
+        bbox = observation.get("bbox_2d_norm_1000")
+        if bbox is not None:
+            _validate_bbox_2d_norm_1000(bbox)
+
+
+def _validate_bbox_2d_norm_1000(value: Any) -> None:
+    if not isinstance(value, list) or len(value) != 4:
+        raise ValueError("bbox_2d_norm_1000 must contain four integers")
+    x0, y0, x1, y1 = (_require_nonbool_int(item, "bbox_2d_norm_1000 value") for item in value)
+    if not 0 <= x0 < x1 <= 1000 or not 0 <= y0 < y1 <= 1000:
+        raise ValueError("bbox_2d_norm_1000 must be within 0..1000 with positive area")
 
 
 def _validate_hazards(value: Any, *, width: int, height: int) -> None:
@@ -444,8 +455,20 @@ def _render_html(*, data: dict[str, Any], summary: dict[str, Any]) -> str:
         "    hazardSha.textContent = data.hazard_trace_summary_sha;\n"
         "    plannerReadout.textContent = `${data.planner_metrics.outcome || 'unknown'} / same-cell ${data.planner_metrics.same_cell_collision_count} / swap ${data.planner_metrics.swap_collision_count}`;\n"
         "    data.non_claims.forEach((claim) => { const span = document.createElement('span'); span.className = 'pill'; span.textContent = claim; nonclaims.appendChild(span); });\n"
+        "    function appendDetailRow(container, label, value){\n"
+        "      const row = document.createElement('div');\n"
+        "      row.className = 'detail-row';\n"
+        "      const strong = document.createElement('strong');\n"
+        "      strong.textContent = label;\n"
+        "      row.appendChild(strong);\n"
+        "      row.appendChild(document.createElement('br'));\n"
+        "      const code = document.createElement('code');\n"
+        "      code.textContent = String(value);\n"
+        "      row.appendChild(code);\n"
+        "      container.appendChild(row);\n"
+        "    }\n"
         "    function renderDimosStatus(){\n"
-        "      dimosStatus.innerHTML = '';\n"
+        "      dimosStatus.replaceChildren();\n"
         "      if(!data.dimos_export){ const empty = document.createElement('div'); empty.textContent = 'No DimOS bridge manifest was packaged for this run.'; dimosStatus.appendChild(empty); return; }\n"
         "      const rows = [\n"
         "        ['Bridge outcome', data.dimos_export.bridge_outcome],\n"
@@ -454,19 +477,28 @@ def _render_html(*, data: dict[str, Any], summary: dict[str, Any]) -> str:
         "        ['Events', String(data.dimos_export.event_count)],\n"
         "        ['Scenarios', String(data.dimos_export.scenario_count)],\n"
         "      ];\n"
-        "      rows.forEach(([label, value]) => { const row = document.createElement('div'); row.className = 'detail-row'; row.innerHTML = `<strong>${label}</strong><br><code>${value}</code>`; dimosStatus.appendChild(row); });\n"
+        "      rows.forEach(([label, value]) => appendDetailRow(dimosStatus, label, value));\n"
         "      const foot = document.createElement('div'); foot.className = 'notice'; foot.textContent = 'This panel proves replay/export status only. It does not claim DimOS executed, visualized, or controlled the swarm.'; dimosStatus.appendChild(foot);\n"
         "    }\n"
         "    function renderSourceFrame(frame){\n"
-        "      if(!bboxOverlay){ return; }\n"
+        "      if(!bboxOverlay || !sourceImage){ return; }\n"
         "      const observation = frame.observations && frame.observations[0];\n"
-        "      if(!observation || !Array.isArray(observation.bbox_2d_norm_1000) || observation.bbox_2d_norm_1000.length !== 4){ bboxOverlay.hidden = true; return; }\n"
+        "      if(!observation || !Array.isArray(observation.bbox_2d_norm_1000) || observation.bbox_2d_norm_1000.length !== 4 || !sourceImage.complete || !sourceImage.naturalWidth || !sourceImage.naturalHeight){ bboxOverlay.hidden = true; return; }\n"
         "      const [x0,y0,x1,y1] = observation.bbox_2d_norm_1000;\n"
+        "      const wrap = sourceImage.parentElement;\n"
+        "      if(!wrap){ bboxOverlay.hidden = true; return; }\n"
+        "      const wrapWidth = wrap.clientWidth;\n"
+        "      const wrapHeight = wrap.clientHeight;\n"
+        "      const scale = Math.min(wrapWidth / sourceImage.naturalWidth, wrapHeight / sourceImage.naturalHeight);\n"
+        "      const renderWidth = sourceImage.naturalWidth * scale;\n"
+        "      const renderHeight = sourceImage.naturalHeight * scale;\n"
+        "      const offsetX = (wrapWidth - renderWidth) / 2;\n"
+        "      const offsetY = (wrapHeight - renderHeight) / 2;\n"
         "      bboxOverlay.hidden = false;\n"
-        "      bboxOverlay.style.left = `${(x0 / 1000) * 100}%`;\n"
-        "      bboxOverlay.style.top = `${(y0 / 1000) * 100}%`;\n"
-        "      bboxOverlay.style.width = `${((x1 - x0) / 1000) * 100}%`;\n"
-        "      bboxOverlay.style.height = `${((y1 - y0) / 1000) * 100}%`;\n"
+        "      bboxOverlay.style.left = `${offsetX + renderWidth * (x0 / 1000)}px`;\n"
+        "      bboxOverlay.style.top = `${offsetY + renderHeight * (y0 / 1000)}px`;\n"
+        "      bboxOverlay.style.width = `${renderWidth * ((x1 - x0) / 1000)}px`;\n"
+        "      bboxOverlay.style.height = `${renderHeight * ((y1 - y0) / 1000)}px`;\n"
         "    }\n"
         "    function draw(){\n"
         "      const frame = data.timeline[tick];\n"
@@ -525,11 +557,11 @@ def _render_html(*, data: dict[str, Any], summary: dict[str, Any]) -> str:
         "    function renderInspector(){\n"
         "      const frame = data.timeline[tick];\n"
         "      const agent = frame.agents.find((entry) => entry.agent_id === selectedAgentId) || frame.agents[0];\n"
-        "      if(!agent){ traceInspector.innerHTML = ''; return; }\n"
+        "      if(!agent){ traceInspector.replaceChildren(); return; }\n"
         "      selectedAgentId = agent.agent_id;\n"
         "      const conflictCells = (frame.predicted_conflicts || []).map((conflict) => `(${conflict.cell.x},${conflict.cell.y})`).join(', ') || 'none';\n"
         "      const reservationCells = (frame.reservations || []).map((reservation) => `${reservation.agent_id}:${reservation.cell.x},${reservation.cell.y}`).join(' | ') || 'none';\n"
-        "      traceInspector.innerHTML = '';\n"
+        "      traceInspector.replaceChildren();\n"
         "      const rows = [\n"
         "        ['Agent', agent.agent_id],\n"
         "        ['Decision', agent.decision],\n"
@@ -541,7 +573,7 @@ def _render_html(*, data: dict[str, Any], summary: dict[str, Any]) -> str:
         "        ['Reservations', reservationCells],\n"
         "        ['Predicted conflicts', conflictCells],\n"
         "      ];\n"
-        "      rows.forEach(([label, value]) => { const row = document.createElement('div'); row.className = 'detail-row'; row.innerHTML = `<strong>${label}</strong><br><code>${String(value)}</code>`; traceInspector.appendChild(row); });\n"
+        "      rows.forEach(([label, value]) => appendDetailRow(traceInspector, label, value));\n"
         "    }\n"
         "    function update(){ draw(); renderRows(); renderInspector(); }\n"
         "    slider.addEventListener('input', () => { tick = Number(slider.value); update(); });\n"
@@ -549,6 +581,8 @@ def _render_html(*, data: dict[str, Any], summary: dict[str, Any]) -> str:
         "      if(timer){ clearInterval(timer); timer = null; button.textContent = 'Play'; return; }\n"
         "      button.textContent = 'Pause'; timer = setInterval(() => { tick = (tick + 1) % data.timeline.length; update(); }, 650);\n"
         "    });\n"
+        "    if(sourceImage){ sourceImage.addEventListener('load', update); }\n"
+        "    window.addEventListener('resize', update);\n"
         "    renderDimosStatus();\n"
         "    update();\n"
         "  })();\n"
@@ -631,6 +665,12 @@ def _require_int(value: dict[str, Any], key: str) -> int:
     if isinstance(item, bool) or not isinstance(item, int):
         raise ValueError(f"{key} must be an integer")
     return item
+
+
+def _require_nonbool_int(value: Any, name: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"{name} must be an integer")
+    return value
 
 
 def _require_positive_int(value: dict[str, Any], key: str) -> int:

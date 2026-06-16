@@ -146,9 +146,15 @@ def main() -> int:
         _display_path(repo_root, dashboard_dir),
         "--source-image",
         _display_path(repo_root, hazard_image),
-        "--dimos-bridge-manifest",
-        _display_path(repo_root, dimos_bridge_dir / "manifest.json"),
     ]
+    dimos_bridge_manifest_path = dimos_bridge_dir / "manifest.json"
+    if dimos_bridge_result.returncode == 0 and dimos_bridge_manifest_path.is_file():
+        dashboard_pack_command.extend(
+            [
+                "--dimos-bridge-manifest",
+                _display_path(repo_root, dimos_bridge_manifest_path),
+            ]
+        )
     dashboard_render_command = [
         sys.executable,
         "-m",

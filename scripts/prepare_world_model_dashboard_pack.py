@@ -61,15 +61,22 @@ def main() -> int:
             source_image_path=source_image_path,
             dimos_bridge_manifest_path=dimos_bridge_manifest_path,
         )
+        out_dir.mkdir(parents=True, exist_ok=True)
+        copied_asset_count = _copy_assets(
+            repo_root=repo_root,
+            out_dir=out_dir,
+            assets=pack["copied_assets"],
+        )
+        if source_image_path is not None and copied_asset_count != len(pack["copied_assets"]):
+            raise ValueError("source-image asset copy did not complete")
+        _set_source_image_copy_result(
+            pack=pack,
+            copied_ok=(source_image_path is None or copied_asset_count > 0),
+        )
     except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
         print(f"world-model dashboard pack failed: {exc}", file=sys.stderr)
         return 4
 
-    out_dir.mkdir(parents=True, exist_ok=True)
-    for asset in pack["copied_assets"]:
-        target_path = out_dir / asset["relative_path"]
-        target_path.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(asset["source_path"], target_path)
     data_path = out_dir / "data.json"
     manifest_path = out_dir / "manifest.json"
     data_path.write_text(canonical_json(pack["data"]) + "\n", encoding="utf-8")
@@ -191,7 +198,7 @@ def _build_pack(
         "world_model_timeline_verified": bool(state_hashes) and all(_is_hex_64(value) for value in state_hashes),
         "report_hashes_match_sources": True,
         "timeline_matches_traces": True,
-        "source_image_copied": source_image_path is None or "asset_path" in image_metadata,
+        "source_image_copied": source_image_path is None,
         "dimos_export_summary_valid": dimos_export is None or dimos_export.get("bridge_manifest_schema") == "dimos-bridge-pack-report.v1",
         "dashboard_data_contains_no_key_material": not _contains_secret_material(data_text),
         "dashboard_data_paths_are_relative": not _contains_absolute_path(data),
@@ -416,6 +423,28 @@ def _optional_repo_path(repo_root: Path, path: Path | None) -> Path | None:
     return _repo_path(repo_root, path)
 
 
+def _copy_assets(*, repo_root: Path, out_dir: Path, assets: list[dict[str, Any]]) -> int:
+    copied = 0
+    for asset in assets:
+        source_path = Path(asset["source_path"])
+        relative_path = Path(asset["relative_path"])
+        if not source_path.is_file():
+            raise ValueError(f"asset source file is required: {_display_path(repo_root, source_path)}")
+        target_path = out_dir / relative_path
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source_path, target_path)
+        if not target_path.is_file():
+            raise ValueError(f"asset copy did not produce a file: {_display_path(repo_root, target_path)}")
+        copied += 1
+    return copied
+
+
+def _set_source_image_copy_result(*, pack: dict[str, Any], copied_ok: bool) -> None:
+    pack["data"]["pass_conditions"]["source_image_copied"] = copied_ok
+    pack["manifest"]["pass_conditions"]["source_image_copied"] = copied_ok
+    pack["manifest"]["outcome"] = "GO" if all(pack["manifest"]["pass_conditions"].values()) else "NARROW_CLAIM"
+
+
 def _require_inside_repo(repo_root: Path, path: Path, name: str) -> None:
     _contained_path(repo_root, path, name)
 
@@ -443,11 +472,41 @@ def _require_dict(value: Any, name: str) -> dict[str, Any]:
     return value
 
 
+def _require_bool(value: Any, name: str) -> bool:
+    if not isinstance(value, bool):
+        raise ValueError(f"{name} must be a boolean")
+    return value
+
+
 def _require_int(value: dict[str, Any], key: str) -> int:
     item = value.get(key)
     if isinstance(item, bool) or not isinstance(item, int):
         raise ValueError(f"{key} must be an integer")
     return item
+
+
+def _require_nonbool_int(value: Any, name: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"{name} must be an integer")
+    return value
+
+
+def _require_string(value: dict[str, Any], key: str) -> str:
+    item = value.get(key)
+    if not isinstance(item, str) or not item:
+        raise ValueError(f"{key} must be a non-empty string")
+    return item
+
+
+def _require_non_empty_string_list(value: Any, name: str) -> list[str]:
+    if not isinstance(value, list) or not value:
+        raise ValueError(f"{name} must be a non-empty string list")
+    result: list[str] = []
+    for item in value:
+        if not isinstance(item, str) or not item:
+            raise ValueError(f"{name} must contain non-empty strings")
+        result.append(item)
+    return result
 
 
 def _is_hex_64(value: object) -> bool:
@@ -474,6 +533,11 @@ def _read_dimos_bridge_manifest(*, repo_root: Path, manifest_path: Path | None) 
     payload = _read_json_object(manifest_path, "dimos bridge manifest")
     if payload.get("schema_version") != "dimos-bridge-pack-report.v1":
         raise ValueError("dimos bridge manifest uses an unsupported schema")
+    bridge_outcome = _require_string(payload, "bridge_outcome")
+    overall_outcome = _require_string(payload, "outcome")
+    event_count = _require_nonbool_int(payload.get("event_count"), "dimos bridge event_count")
+    scenario_count = _require_nonbool_int(payload.get("scenario_count"), "dimos bridge scenario_count")
+    manifest_scenarios = _require_non_empty_string_list(payload.get("scenarios"), "dimos bridge scenarios")
     artifacts = _require_dict(payload.get("artifacts"), "dimos bridge artifacts")
     timeline_path = artifacts.get("timeline_ndjson")
     manifest_rel_path = artifacts.get("manifest")
@@ -486,17 +550,57 @@ def _read_dimos_bridge_manifest(*, repo_root: Path, manifest_path: Path | None) 
     if _contains_secret_material(canonical_json(payload)):
         raise ValueError("dimos bridge manifest contains secret material")
     dimos_probe = _require_dict(payload.get("dimos_probe"), "dimos bridge probe")
+    runtime_outcome = _require_string(dimos_probe, "runtime_outcome")
+    source_probe = _require_dict(dimos_probe.get("source"), "dimos source probe")
+    source_checkout_provided = _require_bool(source_probe.get("checkout_provided"), "dimos source checkout_provided")
+    timeline_abspath = _contained_path(repo_root, repo_root / timeline_path, "dimos bridge timeline")
+    timeline_events = _read_dimos_timeline_events(timeline_abspath)
+    timeline_scenarios = sorted({event["scenario"] for event in timeline_events})
+    if event_count != len(timeline_events):
+        raise ValueError("dimos bridge event_count does not match timeline")
+    if scenario_count != len(timeline_scenarios):
+        raise ValueError("dimos bridge scenario_count does not match timeline")
+    if manifest_scenarios != timeline_scenarios:
+        raise ValueError("dimos bridge scenarios do not match timeline")
+    expected_manifest_path = _display_path(repo_root, manifest_path)
+    expected_timeline_path = _display_path(repo_root, timeline_abspath)
+    if manifest_rel_path != expected_manifest_path:
+        raise ValueError("dimos bridge manifest artifact path does not match provided manifest")
+    if timeline_path != expected_timeline_path:
+        raise ValueError("dimos bridge timeline artifact path does not match referenced timeline")
     return {
         "bridge_manifest_schema": payload["schema_version"],
-        "bridge_outcome": payload.get("bridge_outcome"),
-        "overall_outcome": payload.get("outcome"),
-        "runtime_outcome": dimos_probe.get("runtime_outcome"),
-        "event_count": payload.get("event_count"),
-        "scenario_count": payload.get("scenario_count"),
+        "bridge_outcome": bridge_outcome,
+        "overall_outcome": overall_outcome,
+        "runtime_outcome": runtime_outcome,
+        "event_count": event_count,
+        "scenario_count": scenario_count,
         "timeline_path": timeline_path,
         "manifest_path": manifest_rel_path,
-        "source_checkout_provided": _require_dict(dimos_probe.get("source"), "dimos source probe").get("checkout_provided"),
+        "source_checkout_provided": source_checkout_provided,
     }
+
+
+def _read_dimos_timeline_events(path: Path) -> list[dict[str, Any]]:
+    if not path.is_file():
+        raise ValueError("dimos bridge timeline.ndjson is required")
+    events: list[dict[str, Any]] = []
+    for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        if not line:
+            raise ValueError(f"dimos bridge timeline line {line_number} is empty")
+        payload = _read_json_object_line(line, f"dimos bridge timeline line {line_number}")
+        if payload.get("schema_version") != "dimos-swarm-replay-event.v1":
+            raise ValueError("dimos bridge timeline uses an unsupported event schema")
+        _require_string(payload, "scenario")
+        events.append(payload)
+    if not events:
+        raise ValueError("dimos bridge timeline must contain at least one event")
+    return events
+
+
+def _read_json_object_line(line: str, name: str) -> dict[str, Any]:
+    payload = json.loads(line)
+    return _require_dict(payload, name)
 
 
 def _non_claims() -> list[str]:

@@ -136,18 +136,32 @@ class WorldModelDashboardPackCliTests(TestCase):
             report_path = base / "hazard_x_report.json"
             out_dir = base / "dashboard"
             dimos_manifest = base / "dimos_manifest.json"
+            dimos_timeline = base / "dimos_timeline.ndjson"
             _run_hazard_gate(trace_dir=trace_dir, report_path=report_path)
+            dimos_timeline.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "dimos-swarm-replay-event.v1",
+                        "scenario": "corridor",
+                    },
+                    sort_keys=True,
+                    separators=(",", ":"),
+                )
+                + "\n",
+                encoding="utf-8",
+            )
             dimos_manifest.write_text(
                 json.dumps(
                     {
                         "schema_version": "dimos-bridge-pack-report.v1",
                         "outcome": "GO",
                         "bridge_outcome": "GO",
-                        "event_count": 12,
-                        "scenario_count": 5,
+                        "event_count": 1,
+                        "scenario_count": 1,
+                        "scenarios": ["corridor"],
                         "artifacts": {
-                            "manifest": "runs/dimos/bridge/manifest.json",
-                            "timeline_ndjson": "runs/dimos/bridge/timeline.ndjson",
+                            "manifest": dimos_manifest.relative_to(ROOT).as_posix(),
+                            "timeline_ndjson": dimos_timeline.relative_to(ROOT).as_posix(),
                         },
                         "dimos_probe": {
                             "runtime_outcome": "NARROW_CLAIM",
@@ -180,6 +194,64 @@ class WorldModelDashboardPackCliTests(TestCase):
         self.assertEqual(data["dimos_export"]["bridge_outcome"], "GO")
         self.assertEqual(data["dimos_export"]["runtime_outcome"], "NARROW_CLAIM")
         self.assertTrue(copied_asset_exists)
+
+    def test_dashboard_pack_rejects_tampered_dimos_manifest_counts(self) -> None:
+        (ROOT / "runs").mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=ROOT / "runs") as tmpdir:
+            base = Path(tmpdir)
+            trace_dir = base / "hazard_x"
+            report_path = base / "hazard_x_report.json"
+            out_dir = base / "dashboard"
+            dimos_manifest = base / "dimos_manifest.json"
+            dimos_timeline = base / "dimos_timeline.ndjson"
+            _run_hazard_gate(trace_dir=trace_dir, report_path=report_path)
+            dimos_timeline.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "dimos-swarm-replay-event.v1",
+                        "scenario": "corridor",
+                    },
+                    sort_keys=True,
+                    separators=(",", ":"),
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            dimos_manifest.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "dimos-bridge-pack-report.v1",
+                        "outcome": "GO",
+                        "bridge_outcome": "GO",
+                        "event_count": 2,
+                        "scenario_count": 1,
+                        "scenarios": ["corridor"],
+                        "artifacts": {
+                            "manifest": dimos_manifest.relative_to(ROOT).as_posix(),
+                            "timeline_ndjson": dimos_timeline.relative_to(ROOT).as_posix(),
+                        },
+                        "dimos_probe": {
+                            "runtime_outcome": "NARROW_CLAIM",
+                            "source": {"checkout_provided": False},
+                        },
+                    },
+                    sort_keys=True,
+                    separators=(",", ":"),
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            result = _run_dashboard_pack(
+                trace_dir=trace_dir,
+                report_path=report_path,
+                out_dir=out_dir,
+                source_image=ROOT / "fixtures" / "hazard_marker.ppm",
+                dimos_manifest=dimos_manifest,
+            )
+
+        self.assertEqual(result.returncode, 4)
+        self.assertIn("dimos bridge event_count does not match timeline", result.stderr)
 
 
 def _run_hazard_gate(
