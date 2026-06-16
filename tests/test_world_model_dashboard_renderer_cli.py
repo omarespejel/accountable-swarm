@@ -22,18 +22,32 @@ class WorldModelDashboardRendererCliTests(TestCase):
         trace_dir = base / "hazard_x"
         report_path = base / "hazard_x_report.json"
         dimos_manifest = base / "dimos_manifest.json"
+        dimos_timeline = base / "dimos_timeline.ndjson"
         _run_hazard_gate(trace_dir=trace_dir, report_path=report_path)
+        dimos_timeline.write_text(
+            json.dumps(
+                {
+                    "schema_version": "dimos-swarm-replay-event.v1",
+                    "scenario": "corridor",
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+            + "\n",
+            encoding="utf-8",
+        )
         dimos_manifest.write_text(
             json.dumps(
                 {
                     "schema_version": "dimos-bridge-pack-report.v1",
                     "outcome": "GO",
                     "bridge_outcome": "GO",
-                    "event_count": 12,
-                    "scenario_count": 5,
+                    "event_count": 1,
+                    "scenario_count": 1,
+                    "scenarios": ["corridor"],
                     "artifacts": {
-                        "manifest": "runs/dimos/bridge/manifest.json",
-                        "timeline_ndjson": "runs/dimos/bridge/timeline.ndjson",
+                        "manifest": dimos_manifest.relative_to(ROOT).as_posix(),
+                        "timeline_ndjson": dimos_timeline.relative_to(ROOT).as_posix(),
                     },
                     "dimos_probe": {
                         "runtime_outcome": "NARROW_CLAIM",
@@ -150,6 +164,25 @@ class WorldModelDashboardRendererCliTests(TestCase):
 
         self.assertEqual(result.returncode, 4)
         self.assertIn("world_model_decision_event_sha mismatch", result.stderr)
+
+    def test_renderer_rejects_invalid_bbox_overlay_payload(self) -> None:
+        with TemporaryDirectory(dir=ROOT / "runs") as tmpdir:
+            base = Path(tmpdir)
+            pack_dir = base / "dashboard"
+            shutil.copytree(self._base_pack_dir, pack_dir)
+            data_path = pack_dir / "data.json"
+            data = json.loads(data_path.read_text(encoding="utf-8"))
+            data["timeline"][0]["observations"][0]["bbox_2d_norm_1000"] = [0, 0, 1001, 1000]
+            data_path.write_text(json.dumps(data, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8")
+
+            result = _run_renderer(
+                data_path=data_path,
+                html_path=pack_dir / "index.html",
+                summary_path=pack_dir / "summary.json",
+            )
+
+        self.assertEqual(result.returncode, 4)
+        self.assertIn("bbox_2d_norm_1000 must be within 0..1000 with positive area", result.stderr)
 
 
 def _run_hazard_gate(*, trace_dir: Path, report_path: Path) -> subprocess.CompletedProcess[str]:

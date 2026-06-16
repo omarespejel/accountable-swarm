@@ -53,11 +53,36 @@ class DemoRecordingPackCliTests(TestCase):
             if "scripts.prepare_dimos_bridge_pack" in args:
                 out_dir = ROOT / args[args.index("--out-dir") + 1]
                 out_dir.mkdir(parents=True, exist_ok=True)
-                (out_dir / "manifest.json").write_text(
-                    '{"schema_version":"dimos-bridge-pack-report.v1","outcome":"GO","bridge_outcome":"GO","event_count":12,"scenario_count":5,"artifacts":{"manifest":"runs/dimos/bridge/manifest.json","timeline_ndjson":"runs/dimos/bridge/timeline.ndjson"},"dimos_probe":{"runtime_outcome":"NARROW_CLAIM","source":{"checkout_provided":false}}}\n',
+                manifest_path = out_dir / "manifest.json"
+                timeline_path = out_dir / "timeline.ndjson"
+                timeline_path.write_text(
+                    '{"schema_version":"dimos-swarm-replay-event.v1","scenario":"corridor"}\n',
                     encoding="utf-8",
                 )
-                (out_dir / "timeline.ndjson").write_text("{}\n", encoding="utf-8")
+                (out_dir / "manifest.json").write_text(
+                    json.dumps(
+                        {
+                            "schema_version": "dimos-bridge-pack-report.v1",
+                            "outcome": "GO",
+                            "bridge_outcome": "GO",
+                            "event_count": 1,
+                            "scenario_count": 1,
+                            "scenarios": ["corridor"],
+                            "artifacts": {
+                                "manifest": manifest_path.relative_to(ROOT).as_posix(),
+                                "timeline_ndjson": timeline_path.relative_to(ROOT).as_posix(),
+                            },
+                            "dimos_probe": {
+                                "runtime_outcome": "NARROW_CLAIM",
+                                "source": {"checkout_provided": False},
+                            },
+                        },
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    )
+                    + "\n",
+                    encoding="utf-8",
+                )
                 return subprocess.CompletedProcess(args=args, returncode=0, stdout="outcome GO\n", stderr="")
             if "scripts/render_swarm_trace_html.py" in args:
                 self.assertIn("--obstacle", args)
@@ -178,6 +203,94 @@ class DemoRecordingPackCliTests(TestCase):
         self.assertIn("Open the animated swarm replay", shotlist)
         self.assertIn("Open the world-model dashboard", shotlist)
 
+    def test_prepare_recording_pack_omits_dimos_manifest_flag_when_bridge_pack_fails(self) -> None:
+        module = _load_module()
+
+        def fake_run_command(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
+            self.assertEqual(cwd, ROOT)
+            if "scripts/build_swarm_demo_bundle.py" in args:
+                out_dir = ROOT / args[args.index("--out-dir") + 1]
+                out_dir.mkdir(parents=True)
+                (out_dir / "index.html").write_text("<!doctype html><title>swarm</title>", encoding="utf-8")
+                (out_dir / "summary.json").write_text('{"outcome":"GO"}\n', encoding="utf-8")
+                return subprocess.CompletedProcess(args=args, returncode=0, stdout="outcome GO\n", stderr="")
+            if "scripts.run_hazard_formation_gate" in args:
+                trace_dir = ROOT / args[args.index("--trace-dir") + 1]
+                report_path = ROOT / args[args.index("--report-out") + 1]
+                trace_dir.mkdir(parents=True)
+                (trace_dir / "hazard.json").write_text('{"trace":"placeholder"}\n', encoding="utf-8")
+                report_path.parent.mkdir(parents=True, exist_ok=True)
+                report_path.write_text(
+                    '{"outcome":"GO","grid":{"width":7,"height":5},"hazard":{"cell":{"x":3,"y":2}}}\n',
+                    encoding="utf-8",
+                )
+                return subprocess.CompletedProcess(args=args, returncode=0, stdout="outcome GO\n", stderr="")
+            if "scripts.prepare_dimos_bridge_pack" in args:
+                return subprocess.CompletedProcess(args=args, returncode=4, stdout="", stderr="bridge failed\n")
+            if "scripts/render_swarm_trace_html.py" in args:
+                html_path = ROOT / args[args.index("--html-out") + 1]
+                summary_path = ROOT / args[args.index("--summary-out") + 1]
+                html_path.parent.mkdir(parents=True, exist_ok=True)
+                html_path.write_text("<!doctype html><title>hazard replay</title>", encoding="utf-8")
+                summary_path.write_text('{"outcome":"GO"}\n', encoding="utf-8")
+                return subprocess.CompletedProcess(args=args, returncode=0, stdout="outcome GO\n", stderr="")
+            if "scripts.prepare_world_model_dashboard_pack" in args:
+                self.assertIn("--source-image", args)
+                self.assertNotIn("--dimos-bridge-manifest", args)
+                out_dir = ROOT / args[args.index("--out-dir") + 1]
+                out_dir.mkdir(parents=True, exist_ok=True)
+                (out_dir / "data.json").write_text('{"schema_version":"world-model-dashboard-data.v1"}\n', encoding="utf-8")
+                (out_dir / "manifest.json").write_text('{"outcome":"GO"}\n', encoding="utf-8")
+                return subprocess.CompletedProcess(args=args, returncode=0, stdout="outcome GO\n", stderr="")
+            if "scripts.render_world_model_dashboard_html" in args:
+                html_path = ROOT / args[args.index("--html-out") + 1]
+                summary_path = ROOT / args[args.index("--summary-out") + 1]
+                html_path.parent.mkdir(parents=True, exist_ok=True)
+                html_path.write_text("<!doctype html><title>dashboard</title>", encoding="utf-8")
+                summary_path.write_text('{"outcome":"GO"}\n', encoding="utf-8")
+                return subprocess.CompletedProcess(args=args, returncode=0, stdout="outcome GO\n", stderr="")
+            raise AssertionError(f"unexpected command: {args}")
+
+        test_root = ROOT / "runs" / "demo"
+        test_root.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=test_root) as tmpdir:
+            out_dir = Path(tmpdir) / "recording-pack"
+            bundle_dir = Path(tmpdir) / "swarm"
+            hazard_trace_dir = Path(tmpdir) / "hazard"
+            hazard_report = Path(tmpdir) / "hazard_report.json"
+            hazard_replay_dir = Path(tmpdir) / "hazard_replay"
+            dashboard_dir = Path(tmpdir) / "dashboard"
+            dimos_bridge_dir = Path(tmpdir) / "dimos_bridge"
+            argv = [
+                "prepare_demo_recording_pack.py",
+                "--out-dir",
+                str(out_dir.relative_to(ROOT)),
+                "--bundle-dir",
+                str(bundle_dir.relative_to(ROOT)),
+                "--hazard-trace-dir",
+                str(hazard_trace_dir.relative_to(ROOT)),
+                "--hazard-report",
+                str(hazard_report.relative_to(ROOT)),
+                "--hazard-replay-dir",
+                str(hazard_replay_dir.relative_to(ROOT)),
+                "--dashboard-dir",
+                str(dashboard_dir.relative_to(ROOT)),
+                "--dimos-bridge-dir",
+                str(dimos_bridge_dir.relative_to(ROOT)),
+            ]
+            with (
+                patch.object(module, "_run_command", side_effect=fake_run_command),
+                patch.object(sys, "argv", argv),
+                contextlib.redirect_stdout(io.StringIO()),
+            ):
+                returncode = module.main()
+
+            self.assertEqual(returncode, 4)
+            manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
+
+        self.assertFalse(manifest["pass_conditions"]["dimos_bridge_command_succeeded"])
+        self.assertFalse(manifest["pass_conditions"]["dimos_bridge_manifest_go"])
+
     def test_prepare_recording_pack_accepts_existing_bundle_after_spawn_pressure(self) -> None:
         module = _load_module()
 
@@ -208,11 +321,36 @@ class DemoRecordingPackCliTests(TestCase):
             if "scripts.prepare_dimos_bridge_pack" in args:
                 out_dir = ROOT / args[args.index("--out-dir") + 1]
                 out_dir.mkdir(parents=True, exist_ok=True)
-                (out_dir / "manifest.json").write_text(
-                    '{"schema_version":"dimos-bridge-pack-report.v1","outcome":"GO","bridge_outcome":"GO","event_count":12,"scenario_count":5,"artifacts":{"manifest":"runs/dimos/bridge/manifest.json","timeline_ndjson":"runs/dimos/bridge/timeline.ndjson"},"dimos_probe":{"runtime_outcome":"NARROW_CLAIM","source":{"checkout_provided":false}}}\n',
+                manifest_path = out_dir / "manifest.json"
+                timeline_path = out_dir / "timeline.ndjson"
+                timeline_path.write_text(
+                    '{"schema_version":"dimos-swarm-replay-event.v1","scenario":"corridor"}\n',
                     encoding="utf-8",
                 )
-                (out_dir / "timeline.ndjson").write_text("{}\n", encoding="utf-8")
+                manifest_path.write_text(
+                    json.dumps(
+                        {
+                            "schema_version": "dimos-bridge-pack-report.v1",
+                            "outcome": "GO",
+                            "bridge_outcome": "GO",
+                            "event_count": 1,
+                            "scenario_count": 1,
+                            "scenarios": ["corridor"],
+                            "artifacts": {
+                                "manifest": manifest_path.relative_to(ROOT).as_posix(),
+                                "timeline_ndjson": timeline_path.relative_to(ROOT).as_posix(),
+                            },
+                            "dimos_probe": {
+                                "runtime_outcome": "NARROW_CLAIM",
+                                "source": {"checkout_provided": False},
+                            },
+                        },
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    )
+                    + "\n",
+                    encoding="utf-8",
+                )
                 return subprocess.CompletedProcess(args=args, returncode=0, stdout="outcome GO\n", stderr="")
             if "scripts/render_swarm_trace_html.py" in args:
                 html_path = ROOT / args[args.index("--html-out") + 1]

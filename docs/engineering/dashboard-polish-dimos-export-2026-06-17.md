@@ -27,6 +27,8 @@ hardware operation, or DimOS execution.
 
 ```bash
 python3 -m unittest \
+  tests.test_dimos_bridge_pack_cli \
+  tests.test_dimos_replay_consumer_cli \
   tests.test_world_model_dashboard_pack_cli \
   tests.test_world_model_dashboard_renderer_cli \
   tests.test_demo_recording_pack_cli
