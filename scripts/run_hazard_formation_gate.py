@@ -33,6 +33,14 @@ from accountable_swarm.trace.models import (
     trace_from_dict,
     verify_trace,
 )
+from accountable_swarm.world_model import (
+    WorldAgentState,
+    WorldModelState,
+    WorldObservation,
+    WorldReservation,
+    verify_world_model_state,
+    world_model_from_dict,
+)
 
 
 FIXTURE_RESPONSE = '[{"bbox_2d":[250,250,750,750],"label":"marked hazard"}]'
@@ -178,6 +186,17 @@ def _build_report(
         hazard_trace=hazard_trace,
         result=result,
     )
+    world_report = _write_world_model_timeline(
+        trace_dir=trace_dir,
+        result=result,
+        hazard_cell=hazard.cell,
+        hazard_trace_sha=hazard_trace_sha,
+        trace_summary_shas=agent_report["trace_summary_shas"],
+        observation_source="qwen_bbox" if mode == "dashscope" else "fixture_bbox",
+        observation_label=hazard.source_label,
+        observation_bbox=hazard.bbox_2d_norm_1000,
+        observation_score_milli=grounding.score_milli,
+    )
     sim_report = result.report_dict(agent_report["trace_summary_shas"])
     sim_report["replay"] = agent_report["replay"]
     pass_conditions = {
@@ -186,6 +205,7 @@ def _build_report(
         "formation_compiled": plan.agent_count == 4,
         "hazard_trace_replay_deterministic": agent_report["hazard_trace_replay_deterministic"],
         "agent_traces_replay_deterministic": agent_report["agent_traces_replay_deterministic"],
+        "world_model_timeline_replay_deterministic": world_report["timeline_replay_deterministic"],
         "formation_run_go": sim_report["outcome"] == "GO",
         "trace_replay_clean": (
             sim_report["replay"]["same_cell_collision_count"] == 0
@@ -209,6 +229,7 @@ def _build_report(
         },
         "hazard_trace_summary_sha": hazard_trace_sha,
         "trace_summary_shas": agent_report["trace_summary_shas"],
+        "world_model": world_report,
         "pass_conditions": pass_conditions,
         "sim_report": sim_report,
         "model_error": "",
@@ -266,6 +287,17 @@ def _build_degraded_report(
         hazard_trace=hazard_trace,
         result=result,
     )
+    world_report = _write_world_model_timeline(
+        trace_dir=trace_dir,
+        result=result,
+        hazard_cell=None,
+        hazard_trace_sha=verify_trace(hazard_trace),
+        trace_summary_shas=agent_report["trace_summary_shas"],
+        observation_source="degraded",
+        observation_label="degraded_no_model",
+        observation_bbox=None,
+        observation_score_milli=0,
+    )
     sim_report = result.report_dict(agent_report["trace_summary_shas"])
     sim_report["replay"] = agent_report["replay"]
     pass_conditions = {
@@ -273,6 +305,7 @@ def _build_degraded_report(
         "degraded_hold_selected": sim_report["hold_count"] == 4 and sim_report["outcome"] == "GO",
         "hazard_trace_replay_deterministic": agent_report["hazard_trace_replay_deterministic"],
         "agent_traces_replay_deterministic": agent_report["agent_traces_replay_deterministic"],
+        "world_model_timeline_replay_deterministic": world_report["timeline_replay_deterministic"],
         "trace_replay_clean": (
             sim_report["replay"]["same_cell_collision_count"] == 0
             and sim_report["replay"]["swap_collision_count"] == 0
@@ -296,6 +329,7 @@ def _build_degraded_report(
         },
         "hazard_trace_summary_sha": verify_trace(hazard_trace),
         "trace_summary_shas": agent_report["trace_summary_shas"],
+        "world_model": world_report,
         "pass_conditions": pass_conditions,
         "sim_report": sim_report,
         "model_error": model_error,
@@ -393,11 +427,118 @@ def _write_and_verify_traces(
     }
 
 
+def _write_world_model_timeline(
+    *,
+    trace_dir: Path,
+    result,
+    hazard_cell: GridPoint | None,
+    hazard_trace_sha: str,
+    trace_summary_shas: dict[str, str],
+    observation_source: str,
+    observation_label: str,
+    observation_bbox: tuple[int, int, int, int] | None,
+    observation_score_milli: int,
+) -> dict[str, Any]:
+    timeline_path = trace_dir / "world_model_timeline.jsonl"
+    timeline_path.parent.mkdir(parents=True, exist_ok=True)
+    states = []
+    for tick in result.ticks:
+        state = _world_state_for_tick(
+            result=result,
+            tick=tick,
+            hazard_cell=hazard_cell,
+            hazard_trace_sha=hazard_trace_sha,
+            trace_summary_shas=trace_summary_shas,
+            observation_source=observation_source,
+            observation_label=observation_label,
+            observation_bbox=observation_bbox,
+            observation_score_milli=observation_score_milli,
+        ).with_computed_sha()
+        states.append(state)
+    timeline_path.write_text(
+        "".join(state.to_canonical_json() + "\n" for state in states),
+        encoding="utf-8",
+    )
+    loaded = [
+        world_model_from_dict(json.loads(line))
+        for line in timeline_path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    replay_hashes = [verify_world_model_state(state) for state in loaded]
+    original_hashes = [verify_world_model_state(state) for state in states]
+    return {
+        "schema_version": "world-model-timeline-report.v1",
+        "path": _display_path(timeline_path),
+        "state_count": len(states),
+        "first_world_model_sha": original_hashes[0] if original_hashes else "",
+        "last_world_model_sha": original_hashes[-1] if original_hashes else "",
+        "timeline_replay_deterministic": replay_hashes == original_hashes,
+        "predicted_conflict_count": sum(len(state.predicted_conflicts) for state in states),
+    }
+
+
+def _world_state_for_tick(
+    *,
+    result,
+    tick,
+    hazard_cell: GridPoint | None,
+    hazard_trace_sha: str,
+    trace_summary_shas: dict[str, str],
+    observation_source: str,
+    observation_label: str,
+    observation_bbox: tuple[int, int, int, int] | None,
+    observation_score_milli: int,
+) -> WorldModelState:
+    observations = (
+        WorldObservation(
+            observation_id="hazard-observation-0000",
+            source=observation_source,
+            label=observation_label,
+            cell=hazard_cell or GridPoint(0, 0),
+            source_trace_sha=hazard_trace_sha,
+            bbox_2d_norm_1000=observation_bbox,
+            score_milli=observation_score_milli,
+        ),
+    )
+    goals = {config.agent_id: config.goal for config in result.configs}
+    agents = tuple(
+        WorldAgentState(
+            agent_id=step.agent_id,
+            cell=step.accepted,
+            goal=goals[step.agent_id],
+            decision_trace_sha=trace_summary_shas[step.agent_id],
+            last_decision=step.decision,
+        )
+        for step in tick.steps
+    )
+    reservations = tuple(
+        WorldReservation(tick=step.tick, agent_id=step.agent_id, cell=step.accepted)
+        for step in tick.steps
+    )
+    return WorldModelState(
+        tick=tick.tick,
+        grid_width=result.grid_width,
+        grid_height=result.grid_height,
+        observations=observations,
+        hazards=(hazard_cell,) if hazard_cell is not None else (),
+        agents=agents,
+        reservations=reservations,
+        predicted_conflicts=(),
+    )
+
+
 def _validate_image(image_path: Path) -> None:
     if not image_path.exists():
         raise ValueError(f"image does not exist: {image_path}")
     if not image_path.is_file():
         raise ValueError(f"image is not a file: {image_path}")
+
+
+def _display_path(path: Path) -> str:
+    try:
+        return path.resolve().relative_to(Path.cwd().resolve()).as_posix()
+    except ValueError:
+        return path.as_posix()
 
 
 def _safe_image_size(image_path: Path) -> tuple[int, int]:

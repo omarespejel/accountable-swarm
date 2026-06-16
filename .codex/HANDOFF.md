@@ -77,6 +77,11 @@ What is checked locally:
   reservations, predicted conflicts, and a deterministic `world_model_sha` while
   rejecting raw floats and booleans in hashed payloads. This is a data-contract
   proof only; it is not yet wired into the hazard-formation gate or dashboard.
+- The hazard-formation gate now emits `world_model_timeline.jsonl` and a
+  `world_model` report section with first/last `world_model_sha`, state count,
+  replay determinism, and predicted conflict count. Fixture and degraded modes
+  both emit world-model evidence; dashboard rendering and conflict heatmaps
+  remain follow-up work under #75.
 - deterministic N=2 integer-grid simulated swarm emits one DecisionTrace per
   agent, reaches goals, and reports zero same-cell or swap collisions.
 - deterministic N=2 center-block obstacle scenario reaches goals, reports zero
