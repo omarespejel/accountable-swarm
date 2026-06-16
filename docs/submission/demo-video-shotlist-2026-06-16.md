@@ -33,10 +33,13 @@ http://127.0.0.1:8000/swarm-demo/summary.json
 3. Open `runs/demo/swarm/index.html`.
 4. Open one scenario replay page and show the animated agents moving.
 5. Show the same page has static per-tick frames and trace hashes.
-6. Open `runs/hazard_formation/recording_x_report.json`.
-7. Show the hazard bbox, hazard cell, `x` formation, assigned goals, and
+6. Open `runs/hazard_formation/recording_x_replay/index.html`.
+7. Show the hazard cell obstacle and the four agents moving into the `x`
+   formation.
+8. Open `runs/hazard_formation/recording_x_report.json`.
+9. Show the hazard bbox, hazard cell, `x` formation, assigned goals, and
    trace summary hashes.
-8. Say the default fixture-recording boundary on camera:
+10. Say the default fixture-recording boundary on camera:
 
     ```text
     This recording shows the local audited execution path using a fixture
@@ -45,7 +48,7 @@ http://127.0.0.1:8000/swarm-demo/summary.json
     from hash-chained traces.
     ```
 
-9. Show the non-claims in `runs/demo/recording-pack/shotlist.md`.
+11. Show the non-claims in `runs/demo/recording-pack/shotlist.md`.
 
 ## Optional DimOS Bridge Insert
 
@@ -69,6 +72,16 @@ Show `runs/dimos/bridge-pack/manifest.json` and
 ```text
 This is a DimOS-ready replay export from verified DecisionTrace files. It does
 not prove DimOS executed the swarm yet.
+```
+
+## Server Replay Routes
+
+After `python3 scripts/serve_demo.py --host 127.0.0.1 --port 8000`, use these
+for the local recording:
+
+```text
+http://127.0.0.1:8000/swarm-demo
+http://127.0.0.1:8000/hazard-formation
 ```
 
 ## Optional Live Qwen Insert

@@ -39,12 +39,29 @@ class DemoRecordingPackCliTests(TestCase):
                 trace_dir.mkdir(parents=True)
                 (trace_dir / "hazard.json").write_text('{"trace":"placeholder"}\n', encoding="utf-8")
                 report_path.parent.mkdir(parents=True, exist_ok=True)
-                report_path.write_text('{"outcome":"GO"}\n', encoding="utf-8")
+                report_path.write_text(
+                    '{"outcome":"GO","grid":{"width":7,"height":5},"hazard":{"cell":{"x":3,"y":2}}}\n',
+                    encoding="utf-8",
+                )
                 return subprocess.CompletedProcess(
                     args=args,
                     returncode=0,
                     stdout="outcome GO\n",
                     stderr="ALIBABA_API_KEY=sk-anothertesttoken\n",
+                )
+            if "scripts/render_swarm_trace_html.py" in args:
+                self.assertIn("--obstacle", args)
+                self.assertEqual(args[args.index("--obstacle") + 1], "3,2")
+                html_path = ROOT / args[args.index("--html-out") + 1]
+                summary_path = ROOT / args[args.index("--summary-out") + 1]
+                html_path.parent.mkdir(parents=True, exist_ok=True)
+                html_path.write_text("<!doctype html><title>hazard replay</title>", encoding="utf-8")
+                summary_path.write_text('{"outcome":"GO"}\n', encoding="utf-8")
+                return subprocess.CompletedProcess(
+                    args=args,
+                    returncode=0,
+                    stdout="outcome GO\n",
+                    stderr="",
                 )
             raise AssertionError(f"unexpected command: {args}")
 
@@ -55,6 +72,7 @@ class DemoRecordingPackCliTests(TestCase):
             bundle_dir = Path(tmpdir) / "swarm"
             hazard_trace_dir = Path(tmpdir) / "hazard"
             hazard_report = Path(tmpdir) / "hazard_report.json"
+            hazard_replay_dir = Path(tmpdir) / "hazard_replay"
             argv = [
                 "prepare_demo_recording_pack.py",
                 "--out-dir",
@@ -65,6 +83,8 @@ class DemoRecordingPackCliTests(TestCase):
                 str(hazard_trace_dir.relative_to(ROOT)),
                 "--hazard-report",
                 str(hazard_report.relative_to(ROOT)),
+                "--hazard-replay-dir",
+                str(hazard_replay_dir.relative_to(ROOT)),
             ]
             with (
                 patch.object(module, "_run_command", side_effect=fake_run_command),
@@ -80,9 +100,14 @@ class DemoRecordingPackCliTests(TestCase):
         self.assertEqual(manifest["schema_version"], "demo-recording-pack-report.v1")
         self.assertEqual(manifest["outcome"], "GO")
         self.assertTrue(all(manifest["pass_conditions"].values()))
-        self.assertEqual(len(manifest["commands"]), 2)
+        self.assertEqual(len(manifest["commands"]), 3)
         self.assertEqual(manifest["artifacts"]["bundle_index"], bundle_dir.relative_to(ROOT).as_posix() + "/index.html")
+        self.assertEqual(
+            manifest["artifacts"]["hazard_replay_html"],
+            hazard_replay_dir.relative_to(ROOT).as_posix() + "/index.html",
+        )
         self.assertIn("http://127.0.0.1:8000/swarm-demo", manifest["serve"]["urls"])
+        self.assertIn("http://127.0.0.1:8000/hazard-formation", manifest["serve"]["urls"])
         self.assertEqual(manifest["key_material_redacted_count"], 2)
         self.assertTrue(manifest["pass_conditions"]["manifest_contains_no_key_material"])
         self.assertIn("Authorization: Bearer <redacted>", manifest["commands"][0]["stdout_tail"])
@@ -105,6 +130,7 @@ class DemoRecordingPackCliTests(TestCase):
             bundle_dir = Path(tmpdir) / "swarm"
             hazard_trace_dir = Path(tmpdir) / "hazard"
             hazard_report = Path(tmpdir) / "hazard_report.json"
+            hazard_replay_dir = Path(tmpdir) / "hazard_replay"
             argv = [
                 "prepare_demo_recording_pack.py",
                 "--out-dir",
@@ -115,6 +141,8 @@ class DemoRecordingPackCliTests(TestCase):
                 str(hazard_trace_dir.relative_to(ROOT)),
                 "--hazard-report",
                 str(hazard_report.relative_to(ROOT)),
+                "--hazard-replay-dir",
+                str(hazard_replay_dir.relative_to(ROOT)),
             ]
             with (
                 patch.object(module, "_run_command", side_effect=failed_run),
@@ -151,6 +179,7 @@ class DemoRecordingPackCliTests(TestCase):
             bundle_dir = Path(tmpdir) / "swarm"
             hazard_trace_dir = Path(tmpdir) / "hazard"
             hazard_report = Path(tmpdir) / "hazard_report.json"
+            hazard_replay_dir = Path(tmpdir) / "hazard_replay"
             argv = [
                 "prepare_demo_recording_pack.py",
                 "--out-dir",
@@ -161,6 +190,8 @@ class DemoRecordingPackCliTests(TestCase):
                 str(hazard_trace_dir.relative_to(ROOT)),
                 "--hazard-report",
                 str(hazard_report.relative_to(ROOT)),
+                "--hazard-replay-dir",
+                str(hazard_replay_dir.relative_to(ROOT)),
             ]
             with (
                 patch.object(module, "_run_command", side_effect=timeout_result),
@@ -204,6 +235,7 @@ class DemoRecordingPackCliTests(TestCase):
             bundle_dir = Path(tmpdir) / "swarm"
             hazard_trace_dir = Path(tmpdir) / "hazard"
             hazard_report = Path(tmpdir) / "hazard_report.json"
+            hazard_replay_dir = Path(tmpdir) / "hazard_replay"
             argv = [
                 "prepare_demo_recording_pack.py",
                 "--out-dir",
@@ -214,6 +246,8 @@ class DemoRecordingPackCliTests(TestCase):
                 str(hazard_trace_dir.relative_to(ROOT)),
                 "--hazard-report",
                 str(hazard_report.relative_to(ROOT)),
+                "--hazard-replay-dir",
+                str(hazard_replay_dir.relative_to(ROOT)),
             ]
             with (
                 patch.object(module, "_run_command", side_effect=invalid_json_run),
@@ -256,6 +290,7 @@ class DemoRecordingPackCliTests(TestCase):
             bundle_dir = Path(tmpdir) / "swarm"
             hazard_trace_dir = Path(tmpdir) / "hazard"
             hazard_report = Path(tmpdir) / "hazard_report.json"
+            hazard_replay_dir = Path(tmpdir) / "hazard_replay"
             argv = [
                 "prepare_demo_recording_pack.py",
                 "--out-dir",
@@ -266,6 +301,8 @@ class DemoRecordingPackCliTests(TestCase):
                 str(hazard_trace_dir.relative_to(ROOT)),
                 "--hazard-report",
                 str(hazard_report.relative_to(ROOT)),
+                "--hazard-replay-dir",
+                str(hazard_replay_dir.relative_to(ROOT)),
             ]
             with (
                 patch.object(module, "_run_command", side_effect=array_json_run),
@@ -299,6 +336,35 @@ class DemoRecordingPackCliTests(TestCase):
         self.assertEqual(result.stdout, "partial stdout")
         self.assertIn("partial stderr", result.stderr)
         self.assertIn("command timed out after 7s", result.stderr)
+
+    def test_run_command_retries_retryable_spawn_error(self) -> None:
+        module = _load_module()
+        completed = subprocess.CompletedProcess(
+            args=["python3", "child.py"],
+            returncode=0,
+            stdout="ok",
+            stderr="",
+        )
+        calls = [
+            BlockingIOError(35, "Resource temporarily unavailable"),
+            completed,
+        ]
+
+        def flaky_run(*args, **kwargs):
+            result = calls.pop(0)
+            if isinstance(result, BaseException):
+                raise result
+            return result
+
+        with (
+            patch.object(module.subprocess, "run", side_effect=flaky_run),
+            patch.object(module.time, "sleep"),
+        ):
+            result = module._run_command(["python3", "child.py"], cwd=ROOT, timeout_seconds=7)
+
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(result.stdout, "ok")
+        self.assertFalse(calls)
 
     def test_installed_entrypoint_resolves_repo_from_current_working_tree(self) -> None:
         module = _load_module()

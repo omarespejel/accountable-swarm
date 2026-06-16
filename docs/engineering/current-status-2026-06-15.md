@@ -95,6 +95,10 @@ This is the current repo state after the first 10-hour execution block began at
   hazard cell `{"x": 3, "y": 2}`, assigns four agents to an `x` formation
   around that hazard, runs the deterministic planner, persists hazard and agent
   traces, and replays zero same-cell, swap, or obstacle occupancy violations.
+- Hazard formation replay pack renders those persisted agent traces into
+  `runs/hazard_formation/recording_x_replay/index.html`, with the bbox-derived
+  hazard cell shown as the obstacle and the four-agent formation visible in the
+  recording path.
 - Hazard formation degraded mode emits local hold traces when cloud perception
   is unavailable or invalid, without claiming live Qwen or physical behavior.
 - DimOS bridge pack exports verified swarm `DecisionTrace` events into an
@@ -132,6 +136,9 @@ This is the current repo state after the first 10-hour execution block began at
   bridge. It is not validated 3D grounding, physical swarm behavior,
   arbitrary-map planning, latency, reliability, DimOS integration, or safety
   evidence.
+- The hazard formation replay pack is a deterministic 2D visualization over
+  persisted traces. It is not DimOS execution, physical robot behavior, 3D
+  physics, Qwen real-time control, latency, reliability, or safety evidence.
 - The swarm demo server endpoints serve existing local files only. They are not
   Alibaba ECS deployment proof and do not generate, mutate, or validate a
   bundle on request.
@@ -530,12 +537,13 @@ case mission-double-chicane-dashscope-qwen-plus-n4-go actual GO verified True
 
 ## Next Work
 
-1. Run the ECS manual deployment path on Alibaba Cloud and record proof.
-2. Record the true sensor-frame outcome on issue #3 and decide whether the demo
+1. Open and merge the hazard formation replay-pack PR if reviewer gates pass.
+2. Run the ECS manual deployment path on Alibaba Cloud and record proof.
+3. Record the true sensor-frame outcome on issue #3 and decide whether the demo
    video can use the webcam segment as the physical-device fallback.
-3. Keep SO-101 and physical-node motion pending until hardware is available and
+4. Keep SO-101 and physical-node motion pending until hardware is available and
    a separate safety gate is opened.
-4. Do not add new sim scenarios until #59 is GO or explicitly narrowed.
+5. Do not add new sim scenarios until #59 is GO or explicitly narrowed.
 
 ## Non-Claims
 

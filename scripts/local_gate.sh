@@ -79,6 +79,7 @@ required = [
     "docs/engineering/swarm-scenario-registry-2026-06-15.md",
     "docs/engineering/camera-go-gate-2026-06-15.md",
     "docs/engineering/hazard-formation-gate-2026-06-16.md",
+    "docs/engineering/hazard-formation-replay-pack-2026-06-16.md",
     "docs/engineering/alibaba-ecs-manual-deploy-2026-06-15.md",
     "docs/engineering/current-status-2026-06-15.md",
     "docs/submission/README.md",
