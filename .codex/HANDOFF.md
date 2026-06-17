@@ -220,6 +220,13 @@ What is checked locally:
 - the world-model dashboard now shows a Qwen source-frame pane with bbox
   overlay, a per-agent `DecisionTrace Inspector`, and a DimOS-ready export
   status panel in the same verified HTML artifact.
+- the world-model dashboard can now call a local-only `/replan` endpoint that
+  re-enters the reviewed reservation planner from current agent cells plus a
+  bounded formation enum. The interactive HTML surface supports click-to-toggle
+  obstacle placement, formation switches, deterministic planner rejection, and
+  redraws from returned world-model timeline rows. This is local interactive
+  replay only, not public deployment proof, physics, hardware, or live-Qwen
+  motion control.
 - the hazard-formation gate can now emit a separate bounded mission-choice
   `DecisionTrace` using a strict local allow-list:
   `{"mission":"surround_hazard|hold_position","risk":"cautious|balanced"}`.
