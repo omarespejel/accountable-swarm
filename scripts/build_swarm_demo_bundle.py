@@ -8,6 +8,7 @@ import errno
 import hashlib
 import html
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -31,7 +32,7 @@ BUNDLE_SCHEMA_VERSION = "swarm-demo-bundle-report.v1"
 DEFAULT_AGENT_COUNT = 4
 DEFAULT_TICKS = max(scenario_default_ticks(scenario) for scenario in scenario_names())
 DEFAULT_OUT_DIR = Path("runs/demo/swarm")
-RENDER_TIMEOUT_SECONDS = 60
+RENDER_TIMEOUT_SECONDS = int(os.getenv("SWARM_RENDER_TIMEOUT_SECONDS", "180"))
 SUBPROCESS_SPAWN_ATTEMPTS = 5
 SUBPROCESS_SPAWN_RETRY_DELAY_SECONDS = 0.5
 
