@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 import sys
 from typing import Any
@@ -13,15 +14,21 @@ from accountable_swarm.images import image_size
 from accountable_swarm.qwen.bbox import QwenGrounding, parse_qwen_bbox_response
 from accountable_swarm.qwen.client import DashScopeQwenClient, DashScopeResponseError, MissingAlibabaApiKey
 from accountable_swarm.swarm import (
+    FORMATION_MISSION_FIXTURE_MODEL_ID,
     SUPPORTED_FORMATIONS,
     AgentConfig,
+    FormationMissionChoice,
     GridPoint,
     assign_formation_slots,
+    build_formation_mission_trace,
     build_agent_traces,
     compile_formation,
     default_agent_configs,
+    fixture_formation_mission_response,
     hazard_cell_from_grounding,
     points_to_dicts,
+    parse_formation_mission_response,
+    qwen_formation_mission_prompt,
     replay_swarm_traces,
     run_swarm_custom,
 )
@@ -49,6 +56,7 @@ DEFAULT_GRID_WIDTH = 7
 DEFAULT_GRID_HEIGHT = 5
 DEFAULT_TICKS = 8
 DEFAULT_MODEL = "qwen3-vl-flash"
+DEFAULT_MISSION_SOURCE = "none"
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -59,6 +67,12 @@ def main() -> int:
     parser.add_argument("--degraded-on-error", action="store_true")
     parser.add_argument("--target", default="marked hazard")
     parser.add_argument("--model", default=DEFAULT_MODEL)
+    parser.add_argument(
+        "--mission-source",
+        choices=["none", "fixture", "dashscope", "auto"],
+        default=DEFAULT_MISSION_SOURCE,
+    )
+    parser.add_argument("--mission-model", default=DEFAULT_MODEL)
     parser.add_argument("--formation", choices=SUPPORTED_FORMATIONS, default="surround")
     parser.add_argument("--grid-width", type=int, default=DEFAULT_GRID_WIDTH)
     parser.add_argument("--grid-height", type=int, default=DEFAULT_GRID_HEIGHT)
@@ -73,6 +87,8 @@ def main() -> int:
             mode=args.mode,
             target=args.target,
             model=args.model,
+            mission_source=args.mission_source,
+            mission_model=args.mission_model,
             formation=args.formation,
             grid_width=args.grid_width,
             grid_height=args.grid_height,
@@ -122,6 +138,8 @@ def _build_report(
     mode: str,
     target: str,
     model: str,
+    mission_source: str,
+    mission_model: str,
     formation: str,
     grid_width: int,
     grid_height: int,
@@ -163,28 +181,54 @@ def _build_report(
         grid_height=grid_height,
     )
     hazard_trace_sha = verify_trace(hazard_trace)
-
-    plan = compile_formation(
-        formation=formation,
+    mission_choice_report = _mission_choice_report(
+        mission_source=mission_source,
+        mission_model=mission_model,
         hazard_cell=hazard.cell,
         grid_width=grid_width,
         grid_height=grid_height,
-        agent_count=4,
+        requested_formation=formation,
+        trace_dir=trace_dir,
     )
+
     starts = default_agent_configs(4, grid_width=grid_width, grid_height=grid_height)
-    configs = assign_formation_slots(starts=starts, plan=plan)
-    result = run_swarm_custom(
-        configs=configs,
-        obstacles=(hazard.cell,),
-        ticks=ticks,
-        grid_width=grid_width,
-        grid_height=grid_height,
-        scenario=f"hazard-{formation}-formation",
-        run_id=f"hazard-formation-{formation}-n4",
-    )
+    plan = None
+    if mission_choice_report is not None and mission_choice_report["choice"].mission == "hold_position":
+        configs = tuple(
+            AgentConfig(agent_id=config.agent_id, start=config.start, goal=config.start)
+            for config in starts
+        )
+        result = run_swarm_custom(
+            configs=configs,
+            obstacles=(hazard.cell,),
+            ticks=1,
+            grid_width=grid_width,
+            grid_height=grid_height,
+            scenario="hazard-hold-position",
+            run_id="hazard-formation-hold-position-n4",
+        )
+    else:
+        plan = compile_formation(
+            formation=formation,
+            hazard_cell=hazard.cell,
+            grid_width=grid_width,
+            grid_height=grid_height,
+            agent_count=4,
+        )
+        configs = assign_formation_slots(starts=starts, plan=plan)
+        result = run_swarm_custom(
+            configs=configs,
+            obstacles=(hazard.cell,),
+            ticks=ticks,
+            grid_width=grid_width,
+            grid_height=grid_height,
+            scenario=f"hazard-{formation}-formation",
+            run_id=f"hazard-formation-{formation}-n4",
+        )
     agent_report = _write_and_verify_traces(
         trace_dir=trace_dir,
         hazard_trace=hazard_trace,
+        mission_trace=mission_choice_report["trace"] if mission_choice_report is not None else None,
         result=result,
     )
     world_report = _write_world_model_timeline(
@@ -204,8 +248,11 @@ def _build_report(
     pass_conditions = {
         "hazard_perception_available": True,
         "hazard_cell_quantized": True,
-        "formation_compiled": plan.agent_count == 4,
+        "formation_compiled": plan is None or plan.agent_count == 4,
         "hazard_trace_replay_deterministic": agent_report["hazard_trace_replay_deterministic"],
+        "mission_trace_replay_deterministic": mission_choice_report is None
+        or agent_report["mission_trace_replay_deterministic"],
+        "mission_choice_validated": mission_choice_report is None or mission_choice_report["validated"],
         "agent_traces_replay_deterministic": agent_report["agent_traces_replay_deterministic"],
         "world_model_timeline_replay_deterministic": world_report["timeline_replay_deterministic"],
         "formation_run_go": sim_report["outcome"] == "GO",
@@ -222,10 +269,14 @@ def _build_report(
         "model": model if mode == "dashscope" else "fixture-qwen3-vl-shape",
         "image": {"name": image_path.name, "width": width, "height": height},
         "formation": formation,
+        "mission_choice": _mission_choice_payload(
+            report=mission_choice_report,
+            trace_summary_sha=agent_report["mission_trace_summary_sha"],
+        ),
         "grid": {"width": grid_width, "height": grid_height},
-        "ticks": ticks,
+        "ticks": len(result.ticks),
         "hazard": hazard.to_dict(),
-        "formation_plan": plan.to_dict(),
+        "formation_plan": None if plan is None else plan.to_dict(),
         "assigned_goals": {
             config.agent_id: config.goal.to_dict() for config in sorted(configs, key=lambda item: item.agent_id)
         },
@@ -287,6 +338,7 @@ def _build_degraded_report(
     agent_report = _write_and_verify_traces(
         trace_dir=trace_dir,
         hazard_trace=hazard_trace,
+        mission_trace=None,
         result=result,
     )
     world_report = _write_world_model_timeline(
@@ -346,6 +398,74 @@ def _grounding_response(*, mode: str, model: str, image_path: Path, target: str)
     return DashScopeQwenClient(model=model).detect_bbox(image_path=image_path, target=target)
 
 
+def _mission_choice_report(
+    *,
+    mission_source: str,
+    mission_model: str,
+    hazard_cell: GridPoint,
+    grid_width: int,
+    grid_height: int,
+    requested_formation: str,
+    trace_dir: Path,
+) -> dict[str, Any] | None:
+    resolved_source = _resolve_mission_source(mission_source)
+    if resolved_source == "none":
+        return None
+    response_text = _formation_mission_response(
+        source=resolved_source,
+        model=mission_model,
+        hazard_cell=hazard_cell,
+        grid_width=grid_width,
+        grid_height=grid_height,
+        requested_formation=requested_formation,
+    )
+    choice = parse_formation_mission_response(response_text)
+    trace = build_formation_mission_trace(
+        choice=choice,
+        mode=resolved_source,
+        model=mission_model if resolved_source == "dashscope" else FORMATION_MISSION_FIXTURE_MODEL_ID,
+        hazard_cell=hazard_cell,
+        grid_width=grid_width,
+        grid_height=grid_height,
+        requested_formation=requested_formation,
+    )
+    trace_path = trace_dir / "mission.json"
+    return {
+        "choice": choice,
+        "model": mission_model if resolved_source == "dashscope" else FORMATION_MISSION_FIXTURE_MODEL_ID,
+        "resolved_source": resolved_source,
+        "trace": trace,
+        "trace_path": trace_path,
+        "validated": True,
+    }
+
+
+def _formation_mission_response(
+    *,
+    source: str,
+    model: str,
+    hazard_cell: GridPoint,
+    grid_width: int,
+    grid_height: int,
+    requested_formation: str,
+) -> str:
+    if source == "fixture":
+        return fixture_formation_mission_response()
+    prompt = qwen_formation_mission_prompt(
+        hazard_cell=hazard_cell,
+        grid_width=grid_width,
+        grid_height=grid_height,
+        requested_formation=requested_formation,
+    )
+    return DashScopeQwenClient(model=model).chat_json_object(prompt=prompt, max_tokens=64)
+
+
+def _resolve_mission_source(source: str) -> str:
+    if source != "auto":
+        return source
+    return "dashscope" if os.getenv("ALIBABA_API_KEY") else "fixture"
+
+
 def _perception_from_grounding(
     *,
     grounding: QwenGrounding,
@@ -397,6 +517,7 @@ def _write_and_verify_traces(
     *,
     trace_dir: Path,
     hazard_trace,
+    mission_trace,
     result,
 ) -> dict[str, Any]:
     trace_dir.mkdir(parents=True, exist_ok=True)
@@ -405,6 +526,14 @@ def _write_and_verify_traces(
     hazard_loaded = trace_from_dict(json.loads(hazard_path.read_text(encoding="utf-8")))
     hazard_replay_sha = verify_trace(hazard_loaded)
     hazard_summary_sha = verify_trace(hazard_trace)
+    mission_replay_matches = True
+    mission_summary_sha = ""
+    if mission_trace is not None:
+        mission_path = trace_dir / "mission.json"
+        mission_path.write_text(mission_trace.to_canonical_json() + "\n", encoding="utf-8")
+        mission_loaded = trace_from_dict(json.loads(mission_path.read_text(encoding="utf-8")))
+        mission_replay_matches = verify_trace(mission_loaded) == verify_trace(mission_trace)
+        mission_summary_sha = verify_trace(mission_trace)
 
     agents_dir = trace_dir / "agents"
     agents_dir.mkdir(exist_ok=True)
@@ -426,6 +555,8 @@ def _write_and_verify_traces(
     )
     return {
         "hazard_trace_replay_deterministic": hazard_summary_sha == hazard_replay_sha,
+        "mission_trace_replay_deterministic": mission_replay_matches,
+        "mission_trace_summary_sha": mission_summary_sha,
         "agent_traces_replay_deterministic": agent_replay_matches,
         "trace_summary_shas": trace_summary_shas,
         "decision_event_shas": decision_event_shas,
@@ -605,6 +736,19 @@ def _safe_image_size(image_path: Path) -> tuple[int, int]:
     if image_path.exists() and image_path.is_file():
         return image_size(image_path)
     return (1, 1)
+
+
+def _mission_choice_payload(*, report: dict[str, Any] | None, trace_summary_sha: str) -> dict[str, Any] | None:
+    if report is None:
+        return None
+    choice: FormationMissionChoice = report["choice"]
+    return {
+        "source": report["resolved_source"],
+        "model": report["model"],
+        "choice": choice.to_dict(),
+        "trace_path": _display_path(report["trace_path"]),
+        "trace_summary_sha": trace_summary_sha,
+    }
 
 
 def _non_claims(*, mode: str) -> list[str]:
