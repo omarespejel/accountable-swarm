@@ -45,6 +45,7 @@ class HazardFormationGateCliTests(TestCase):
         self.assertEqual(report["formation"], "x")
         self.assertTrue(report["pass_conditions"]["hazard_cell_quantized"])
         self.assertTrue(report["pass_conditions"]["formation_run_go"])
+        self.assertIsNone(report["mission_choice"])
         self.assertEqual(report["sim_report"]["same_cell_collision_count"], 0)
         self.assertEqual(report["sim_report"]["swap_collision_count"], 0)
         self.assertEqual(report["sim_report"]["obstacle_occupancy_violation_count"], 0)
@@ -77,6 +78,44 @@ class HazardFormationGateCliTests(TestCase):
         )
         self.assertEqual(verify_trace(export_trace), report["world_model"]["export_trace_summary_sha"])
         self.assertEqual(export_trace.events[0].command["type"], "world_model_timeline_export")
+
+    def test_fixture_hazard_can_emit_bounded_mission_choice_trace(self) -> None:
+        trace_dir = ROOT / "runs/hazard_formation/test_fixture_x_mission"
+        report_path = ROOT / "runs/hazard_formation/test_fixture_x_mission_report.json"
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "scripts.run_hazard_formation_gate",
+                "--image",
+                "fixtures/hazard_marker.ppm",
+                "--mode",
+                "fixture",
+                "--mission-source",
+                "fixture",
+                "--formation",
+                "x",
+                "--trace-dir",
+                str(trace_dir),
+                "--report-out",
+                str(report_path),
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(report["outcome"], "GO")
+        self.assertEqual(report["mission_choice"]["source"], "fixture")
+        self.assertEqual(report["mission_choice"]["choice"]["mission"], "surround_hazard")
+        self.assertEqual(report["mission_choice"]["choice"]["risk"], "cautious")
+        self.assertEqual(len(report["mission_choice"]["trace_summary_sha"]), 64)
+        self.assertTrue(report["pass_conditions"]["mission_choice_validated"])
+        self.assertTrue(report["pass_conditions"]["mission_trace_replay_deterministic"])
+        self.assertTrue((trace_dir / "mission.json").is_file())
 
     def test_degraded_mode_writes_hold_traces_without_model(self) -> None:
         trace_dir = ROOT / "runs/hazard_formation/test_degraded"

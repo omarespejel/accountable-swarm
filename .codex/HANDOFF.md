@@ -179,6 +179,15 @@ What is checked locally:
 - the world-model dashboard now shows a Qwen source-frame pane with bbox
   overlay, a per-agent `DecisionTrace Inspector`, and a DimOS-ready export
   status panel in the same verified HTML artifact.
+- the hazard-formation gate can now emit a separate bounded mission-choice
+  `DecisionTrace` using a strict local allow-list:
+  `{"mission":"surround_hazard|hold_position","risk":"cautious|balanced"}`.
+  The validator is local, not API-enforced. The persisted `mission.json` trace
+  is threaded into the hazard report, dashboard data pack, and rendered
+  dashboard when `--mission-source fixture|dashscope|auto` is enabled.
+- the recording pack now prefers live DashScope for both the hazard bbox and
+  bounded mission path when `ALIBABA_API_KEY` is present, and otherwise falls
+  back to fixture mode without changing the local deterministic replay surface.
 - read-only stdlib server endpoints serve existing swarm bundle artifacts at
   `/swarm-demo` and `/swarm-demo/summary.json` with path traversal rejection.
 - read-only stdlib server endpoints serve the generated hazard formation replay
@@ -207,10 +216,11 @@ What is not checked yet:
 
 ## Active GitHub Work
 
-- Issue #75: Qwen-grounded world-model dashboard for accountable swarm.
-- Issue #3: physical-node safety contract and true sensor-frame proof. This is
-  parked during the dashboard sprint, not closed.
-- Issue #1 and #73 are closed or superseded by the current dashboard plan.
+- Issue #91: operator-run Alibaba ECS proof from a public endpoint.
+- PR #92: bounded mission choice and Node 24 workflow-pin update on
+  `codex/bounded-qwen-demo-2026-06-17`.
+- Issues #87 and #90 are closed against that branch/PR.
+- Issues #3, #75, and #88 are closed; #3 remains historical context only.
 - Issue #2, #6, #11, #13, #15, #17, #19, #21, #23, #25, #27, #29, #33,
   #35, #37, #39, #41, #43, #45, #48, #50, #52, #54, #59, and #68 are closed
   as GO or scoped NARROW_CLAIM where documented.

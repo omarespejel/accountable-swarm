@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import errno
 import json
+import os
 from pathlib import Path
 import re
 import shlex
@@ -51,7 +52,8 @@ def main() -> int:
     parser.add_argument("--dashboard-dir", type=Path, default=DEFAULT_DASHBOARD_DIR)
     parser.add_argument("--dimos-bridge-dir", type=Path, default=DEFAULT_DIMOS_BRIDGE_DIR)
     parser.add_argument("--dimos-checkout", type=Path, default=None)
-    parser.add_argument("--hazard-mode", choices=["fixture", "dashscope", "degraded"], default="fixture")
+    parser.add_argument("--hazard-mode", choices=["auto", "fixture", "dashscope", "degraded"], default="auto")
+    parser.add_argument("--mission-source", choices=["auto", "none", "fixture", "dashscope"], default="auto")
     parser.add_argument("--hazard-model", default="qwen3-vl-flash")
     parser.add_argument("--formation", choices=["surround", "x", "line", "diamond"], default="x")
     parser.add_argument("--host", default=DEFAULT_HOST)
@@ -72,6 +74,8 @@ def main() -> int:
     dimos_bridge_dir = _repo_path(repo_root, args.dimos_bridge_dir)
     hazard_image = _repo_path(repo_root, args.hazard_image)
     dimos_checkout = _repo_path(repo_root, args.dimos_checkout) if args.dimos_checkout is not None else None
+    resolved_hazard_mode = _resolve_hazard_mode(args.hazard_mode)
+    resolved_mission_source = _resolve_mission_source(args.mission_source, hazard_mode=resolved_hazard_mode)
 
     commands = []
     bundle_command = [
@@ -87,8 +91,12 @@ def main() -> int:
         "--image",
         _display_path(repo_root, hazard_image),
         "--mode",
-        args.hazard_mode,
+        resolved_hazard_mode,
         "--model",
+        args.hazard_model,
+        "--mission-source",
+        resolved_mission_source,
+        "--mission-model",
         args.hazard_model,
         "--formation",
         args.formation,
@@ -225,6 +233,8 @@ def main() -> int:
         },
         "notes": {
             "bundle_existing_artifacts_reused": bundle_existing_artifacts_reused,
+            "resolved_hazard_mode": resolved_hazard_mode,
+            "resolved_mission_source": resolved_mission_source,
         },
         "serve": {
             "command": (
@@ -347,6 +357,20 @@ def _command_report(
         "stderr_tail": stderr_tail,
         "key_material_redacted_count": argv_count + stdout_count + stderr_count,
     }
+
+
+def _resolve_hazard_mode(mode: str) -> str:
+    if mode != "auto":
+        return mode
+    return "dashscope" if os.getenv("ALIBABA_API_KEY") else "fixture"
+
+
+def _resolve_mission_source(source: str, *, hazard_mode: str) -> str:
+    if source != "auto":
+        return source
+    if hazard_mode == "degraded":
+        return "none"
+    return "dashscope" if hazard_mode == "dashscope" else "fixture"
 
 
 def _hazard_replay_command(

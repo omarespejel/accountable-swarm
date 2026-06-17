@@ -90,6 +90,7 @@ required = [
     "docs/engineering/so101-operator-probe-pack-2026-06-17.md",
     "docs/engineering/hazard-formation-gate-2026-06-16.md",
     "docs/engineering/hazard-formation-replay-pack-2026-06-16.md",
+    "docs/engineering/bounded-qwen-mission-choice-2026-06-17.md",
     "docs/engineering/alibaba-ecs-manual-deploy-2026-06-15.md",
     "docs/engineering/current-status-2026-06-15.md",
     "docs/submission/README.md",

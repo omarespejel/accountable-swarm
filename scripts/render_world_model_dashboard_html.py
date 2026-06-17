@@ -96,6 +96,7 @@ def _validate_data(data: dict[str, Any]) -> None:
     height = _require_positive_int(grid, "height")
     _validate_image(data.get("image"))
     _validate_dimos_export(data.get("dimos_export"))
+    _validate_mission_choice(data.get("mission_choice"), data.get("mission_trace_summary_sha"))
     timeline = _require_list(data.get("timeline"), "timeline")
     if not timeline:
         raise ValueError("timeline must contain at least one frame")
@@ -186,6 +187,23 @@ def _validate_dimos_export(value: Any) -> None:
         item = export.get(key)
         if isinstance(item, bool) or not isinstance(item, int):
             raise ValueError(f"dimos_export {key} must be an integer")
+
+
+def _validate_mission_choice(value: Any, trace_summary_sha: Any) -> None:
+    if value is None:
+        if trace_summary_sha not in ("", None):
+            raise ValueError("mission_trace_summary_sha requires mission_choice")
+        return
+    mission = _require_dict(value, "mission_choice")
+    if not _is_hex_64(trace_summary_sha):
+        raise ValueError("mission_trace_summary_sha must be a 64-character lowercase hex string")
+    for key in ("source", "model"):
+        if not isinstance(mission.get(key), str) or not mission[key]:
+            raise ValueError(f"mission_choice {key} must be a non-empty string")
+    choice = _require_dict(mission.get("choice"), "mission_choice choice")
+    for key in ("mission", "risk"):
+        if not isinstance(choice.get(key), str) or not choice[key]:
+            raise ValueError(f"mission_choice choice {key} must be a non-empty string")
 
 
 def _validate_observations(value: Any, *, hazard_trace_sha: str, width: int, height: int) -> None:
@@ -344,10 +362,10 @@ def _render_html(*, data: dict[str, Any], summary: dict[str, Any]) -> str:
         "    .lane{display:grid;grid-template-columns:28px 1fr;gap:9px;align-items:start;margin:8px 0;}\n"
         "    .dot{width:18px;height:18px;border-radius:50%;margin-top:2px;}\n"
         "    .dot.qwen{background:var(--violet);} .dot.local{background:var(--teal);} .dot.trace{background:var(--amber);}\n"
-        "    code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11px;word-break:break-all;color:#243b53;}\n"
+        "    code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11px;white-space:normal;overflow-wrap:anywhere;word-break:break-word;color:#243b53;}\n"
         "    .hash-list{display:grid;gap:8px;font-size:12px;}\n"
-        "    .agent-row{display:grid;grid-template-columns:78px 74px 1fr;gap:8px;align-items:center;border-top:1px solid var(--line);padding:7px 0;font-size:12px;}\n"
-        "    .agent-row button{all:unset;display:grid;grid-template-columns:78px 74px 1fr;gap:8px;align-items:center;width:100%;cursor:pointer;border-top:1px solid var(--line);padding:7px 0;font-size:12px;}\n"
+        "    .agent-row{display:grid;grid-template-columns:78px 110px minmax(0,1fr);gap:8px;align-items:start;border-top:1px solid var(--line);padding:7px 0;font-size:12px;}\n"
+        "    .agent-row button{all:unset;display:grid;grid-template-columns:78px 110px minmax(0,1fr);gap:8px;align-items:start;width:100%;cursor:pointer;border-top:1px solid var(--line);padding:7px 0;font-size:12px;}\n"
         "    .agent-row button[data-selected=\"true\"]{background:#f5f8fc;border-radius:6px;padding-left:6px;padding-right:6px;}\n"
         "    .agent-chip{display:inline-flex;align-items:center;gap:6px;font-weight:700;}\n"
         "    .agent-swatch{width:10px;height:10px;border-radius:50%;display:inline-block;}\n"
@@ -358,7 +376,7 @@ def _render_html(*, data: dict[str, Any], summary: dict[str, Any]) -> str:
         "    .legend span{display:inline-flex;gap:5px;align-items:center;}\n"
         "    .legend i{width:10px;height:10px;border-radius:2px;display:inline-block;}\n"
         "    .detail-grid{display:grid;gap:8px;font-size:12px;}\n"
-        "    .detail-grid code{font-size:11px;}\n"
+        "    .detail-grid code{display:block;font-size:11px;max-width:100%;}\n"
         "    .detail-row{border-top:1px solid var(--line);padding-top:8px;}\n"
         "    .status-stack{display:grid;gap:8px;font-size:12px;}\n"
         "    .status-stack strong{font-size:13px;}\n"
@@ -369,7 +387,7 @@ def _render_html(*, data: dict[str, Any], summary: dict[str, Any]) -> str:
         "<body>\n"
         "  <header>\n"
         f"    <h1>{title}</h1>\n"
-        "    <p class=\"subtitle\">Qwen supplies bounded keyframe evidence. A deterministic local planner updates the world model and emits hash-bound DecisionTrace events. This page is a verified 2D replay artifact, not a physics or hardware claim.</p>\n"
+        "    <p class=\"subtitle\">Qwen supplies bounded keyframe evidence and an optional bounded mission choice. A deterministic local planner updates the world model and emits hash-bound DecisionTrace events. This page is a verified 2D replay artifact, not a physics or hardware claim.</p>\n"
         "  </header>\n"
         "  <main>\n"
         "    <section class=\"stage\" aria-label=\"world model replay stage\">\n"
@@ -404,11 +422,14 @@ def _render_html(*, data: dict[str, Any], summary: dict[str, Any]) -> str:
         f"          <div class=\"metric\"><span>Ticks</span><strong>{len(data['timeline'])}</strong></div>\n"
         f"          <div class=\"metric\"><span>Agents</span><strong>{summary['agent_count']}</strong></div>\n"
         f"          <div class=\"metric\"><span>Hazard</span><strong>{html.escape(hazard_cell)}</strong></div>\n"
+        f"          <div class=\"metric\"><span>Mission</span><strong>{html.escape(str(_mission_metric(data, 'mission')))}</strong></div>\n"
+        f"          <div class=\"metric\"><span>Risk</span><strong>{html.escape(str(_mission_metric(data, 'risk')))}</strong></div>\n"
         "        </div>\n"
         "      </section>\n"
         "      <section class=\"panel\">\n"
         "        <h2>Accountability Pipeline</h2>\n"
         "        <div class=\"lane\"><span class=\"dot qwen\"></span><div><strong>Qwen evidence</strong><br><code id=\"hazard-sha\"></code></div></div>\n"
+        "        <div class=\"lane\"><span class=\"dot qwen\"></span><div><strong>Bounded mission</strong><br><code id=\"mission-sha\"></code><br><span id=\"mission-readout\"></span></div></div>\n"
         "        <div class=\"lane\"><span class=\"dot local\"></span><div><strong>Deterministic local planner</strong><br><span id=\"planner-readout\"></span></div></div>\n"
         "        <div class=\"lane\"><span class=\"dot trace\"></span><div><strong>World model hash</strong><br><code id=\"world-model-sha\"></code></div></div>\n"
         "      </section>\n"
@@ -441,6 +462,8 @@ def _render_html(*, data: dict[str, Any], summary: dict[str, Any]) -> str:
         "    const button = document.getElementById('play-toggle');\n"
         "    const worldModelSha = document.getElementById('world-model-sha');\n"
         "    const hazardSha = document.getElementById('hazard-sha');\n"
+        "    const missionSha = document.getElementById('mission-sha');\n"
+        "    const missionReadout = document.getElementById('mission-readout');\n"
         "    const plannerReadout = document.getElementById('planner-readout');\n"
         "    const agentList = document.getElementById('agent-list');\n"
         "    const traceInspector = document.getElementById('trace-inspector');\n"
@@ -453,8 +476,11 @@ def _render_html(*, data: dict[str, Any], summary: dict[str, Any]) -> str:
         "    let selectedAgentId = null;\n"
         "    let timer = null;\n"
         "    hazardSha.textContent = data.hazard_trace_summary_sha;\n"
+        "    missionSha.textContent = data.mission_trace_summary_sha || 'not packaged';\n"
+        "    missionReadout.textContent = data.mission_choice ? `${data.mission_choice.choice.mission} / ${data.mission_choice.choice.risk}` : 'no bounded mission recorded';\n"
         "    plannerReadout.textContent = `${data.planner_metrics.outcome || 'unknown'} / same-cell ${data.planner_metrics.same_cell_collision_count} / swap ${data.planner_metrics.swap_collision_count}`;\n"
         "    data.non_claims.forEach((claim) => { const span = document.createElement('span'); span.className = 'pill'; span.textContent = claim; nonclaims.appendChild(span); });\n"
+        "    function shortSha(value){ return typeof value === 'string' && value.length > 16 ? `${value.slice(0,12)}…` : String(value || ''); }\n"
         "    function appendDetailRow(container, label, value){\n"
         "      const row = document.createElement('div');\n"
         "      row.className = 'detail-row';\n"
@@ -557,7 +583,7 @@ def _render_html(*, data: dict[str, Any], summary: dict[str, Any]) -> str:
         "        const chip = document.createElement('span'); chip.className = 'agent-chip';\n"
         "        const swatch = document.createElement('span'); swatch.className = 'agent-swatch'; swatch.style.background = colors[agent.agent_id] || '#0891b2'; chip.appendChild(swatch); chip.append(agent.agent_id.replace('sim-agent-','A'));\n"
         "        const cell = document.createElement('span'); cell.textContent = `(${agent.cell.x},${agent.cell.y}) -> (${agent.goal.x},${agent.goal.y})`;\n"
-        "        const code = document.createElement('code'); code.textContent = `${agent.decision} ${agent.event_sha256}`;\n"
+        "        const code = document.createElement('code'); code.textContent = `${agent.decision} ${shortSha(agent.event_sha256)}`; code.title = agent.event_sha256;\n"
         "        button.append(chip, cell, code); button.addEventListener('click', () => { selectedAgentId = agent.agent_id; renderRows(); renderInspector(); }); row.appendChild(button); agentList.appendChild(row);\n"
         "      });\n"
         "    }\n"
@@ -606,6 +632,17 @@ def _hazard_cell_label(value: Any) -> str:
         cell = value["cell"]
         return f"({cell.get('x')}, {cell.get('y')})"
     return "unknown"
+
+
+def _mission_metric(data: dict[str, Any], key: str) -> str:
+    mission = data.get("mission_choice")
+    if not isinstance(mission, dict):
+        return "none"
+    choice = mission.get("choice")
+    if not isinstance(choice, dict):
+        return "none"
+    value = choice.get(key)
+    return value if isinstance(value, str) and value else "none"
 
 
 def _safe_json(value: Any) -> str:
