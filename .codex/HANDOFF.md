@@ -179,6 +179,13 @@ What is checked locally:
 - the world-model dashboard now shows a Qwen source-frame pane with bbox
   overlay, a per-agent `DecisionTrace Inspector`, and a DimOS-ready export
   status panel in the same verified HTML artifact.
+- the world-model dashboard can now call a local-only `/replan` endpoint that
+  re-enters the reviewed reservation planner from current agent cells plus a
+  bounded formation enum. The interactive HTML surface supports click-to-toggle
+  obstacle placement, formation switches, deterministic planner rejection, and
+  redraws from returned world-model timeline rows. This is local interactive
+  replay only, not public deployment proof, physics, hardware, or live-Qwen
+  motion control.
 - the hazard-formation gate can now emit a separate bounded mission-choice
   `DecisionTrace` using a strict local allow-list:
   `{"mission":"surround_hazard|hold_position","risk":"cautious|balanced"}`.
@@ -217,6 +224,7 @@ What is not checked yet:
 ## Active GitHub Work
 
 - Issue #91: operator-run Alibaba ECS proof from a public endpoint.
+- Issue #93: interactive replan dashboard over the real reservation planner.
 - PR #92: bounded mission choice and Node 24 workflow-pin update on
   `codex/bounded-qwen-demo-2026-06-17`.
 - Issues #87 and #90 are closed against that branch/PR.
