@@ -8,11 +8,18 @@ from unittest.mock import patch
 from urllib import request
 from urllib.error import HTTPError
 
-from accountable_swarm.server import AccountableSwarmHandler
+from accountable_swarm.server import AccountableSwarmHandler, _is_loopback_host
 from http.server import ThreadingHTTPServer
 
 
 class ServerTests(TestCase):
+    def test_is_loopback_host(self) -> None:
+        self.assertTrue(_is_loopback_host("127.0.0.1"))
+        self.assertTrue(_is_loopback_host("::1"))
+        self.assertTrue(_is_loopback_host("localhost"))
+        self.assertFalse(_is_loopback_host("10.0.0.5"))
+        self.assertFalse(_is_loopback_host("example.com"))
+
     def test_health_ready_and_fixture_endpoints(self) -> None:
         with _test_server() as base_url:
             health = _get_json(f"{base_url}/healthz")
@@ -259,6 +266,55 @@ class ServerTests(TestCase):
                 self.assertEqual(payload["status"], "rejected")
                 self.assertIn("world model dashboard", payload["error"])
 
+    def test_replan_endpoint_is_deterministic_for_identical_request(self) -> None:
+        with _test_server() as base_url:
+            request_body = {
+                "grid": {"w": 7, "h": 5},
+                "agents": [
+                    {"id": "sim-agent-0", "cell": [0, 2]},
+                    {"id": "sim-agent-1", "cell": [6, 2]},
+                    {"id": "sim-agent-2", "cell": [3, 0]},
+                    {"id": "sim-agent-3", "cell": [3, 4]},
+                ],
+                "hazard": [3, 2],
+                "obstacles": [[1, 2]],
+                "formation": "x",
+                "ticks": 8,
+            }
+            first = _post_json_bytes(f"{base_url}/replan", request_body)
+            second = _post_json_bytes(f"{base_url}/replan", request_body)
+            payload = json.loads(first.decode("utf-8"))
+
+        self.assertEqual(first, second)
+        self.assertEqual(payload["schema_version"], "interactive-replan-response.v1")
+        self.assertEqual(payload["outcome"], "GO")
+        self.assertEqual(payload["formation"], "x")
+        self.assertEqual(payload["hazard"]["cell"], {"x": 3, "y": 2})
+        self.assertEqual(payload["obstacles"], [{"x": 1, "y": 2}])
+        self.assertTrue(any(agent["decision"] == "REROUTE" for agent in payload["timeline"][0]["agents"]))
+
+    def test_replan_endpoint_rejects_obstacle_on_hazard(self) -> None:
+        with _test_server() as base_url:
+            request_body = {
+                "grid": {"w": 7, "h": 5},
+                "agents": [
+                    {"id": "sim-agent-0", "cell": [0, 2]},
+                    {"id": "sim-agent-1", "cell": [6, 2]},
+                    {"id": "sim-agent-2", "cell": [3, 0]},
+                    {"id": "sim-agent-3", "cell": [3, 4]},
+                ],
+                "hazard": [3, 2],
+                "obstacles": [[3, 2]],
+                "formation": "x",
+            }
+            with self.assertRaises(HTTPError) as ctx:
+                _post_json_bytes(f"{base_url}/replan", request_body)
+
+        self.assertEqual(ctx.exception.code, 400)
+        payload = json.loads(ctx.exception.read().decode("utf-8"))
+        self.assertEqual(payload["status"], "rejected")
+        self.assertIn("obstacle must not overlap the hazard cell", payload["error"])
+
 
 class _test_server:
     def __enter__(self) -> str:
@@ -282,3 +338,15 @@ def _get_json(url: str) -> dict[str, object]:
 def _get_text(url: str) -> str:
     with request.urlopen(url, timeout=5) as resp:
         return resp.read().decode("utf-8")
+
+
+def _post_json_bytes(url: str, payload: dict[str, object]) -> bytes:
+    body = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    req = request.Request(
+        url,
+        data=body,
+        method="POST",
+        headers={"Content-Type": "application/json", "Content-Length": str(len(body))},
+    )
+    with request.urlopen(req, timeout=5) as resp:
+        return resp.read()

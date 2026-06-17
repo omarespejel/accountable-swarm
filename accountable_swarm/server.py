@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import ipaddress
 import json
 import os
 from pathlib import Path
@@ -13,7 +14,17 @@ from urllib.parse import parse_qs, unquote, urlparse
 from accountable_swarm.images import image_size
 from accountable_swarm.qwen.bbox import parse_qwen_bbox_response
 from accountable_swarm.qwen.client import DashScopeQwenClient, DashScopeResponseError, MissingAlibabaApiKey
+from accountable_swarm.swarm import (
+    AgentConfig,
+    GridPoint,
+    SUPPORTED_FORMATIONS,
+    assign_formation_slots,
+    build_agent_traces,
+    compile_formation,
+    run_swarm_custom,
+)
 from accountable_swarm.trace.models import PerceptionEvent, build_single_event_trace, canonical_json, verify_trace
+from accountable_swarm.world_model import WorldAgentState, WorldModelState, WorldReservation
 
 
 FIXTURE_RESPONSE = '[{"bbox_2d":[250,250,750,750],"label":"marked hazard"}]'
@@ -24,6 +35,7 @@ DEFAULT_WORLD_MODEL_DASHBOARD_DIR = REPO_ROOT / "runs/dashboard/recording_x"
 SWARM_DEMO_BUILD_COMMAND = "python3 scripts/build_swarm_demo_bundle.py"
 HAZARD_FORMATION_BUILD_COMMAND = "python3 scripts/prepare_demo_recording_pack.py"
 WORLD_MODEL_DASHBOARD_BUILD_COMMAND = "python3 scripts/prepare_demo_recording_pack.py"
+INTERACTIVE_REPLAN_SCHEMA_VERSION = "interactive-replan-response.v1"
 
 
 class AccountableSwarmHandler(BaseHTTPRequestHandler):
@@ -71,6 +83,13 @@ class AccountableSwarmHandler(BaseHTTPRequestHandler):
             query = parse_qs(parsed.query)
             model = query.get("model", ["qwen-plus"])[0]
             self._handle_qwen_ping(model=model)
+            return
+        self._send_json({"error": "not_found"}, status=404)
+
+    def do_POST(self) -> None:  # noqa: N802
+        parsed = urlparse(self.path)
+        if parsed.path == "/replan":
+            self._handle_replan()
             return
         self._send_json({"error": "not_found"}, status=404)
 
@@ -126,6 +145,18 @@ class AccountableSwarmHandler(BaseHTTPRequestHandler):
             self._send_json({"status": "failed", "model": model, "content_prefix": content_prefix}, status=502)
             return
         self._send_json({"status": "ok", "model": model, "content_prefix": content_prefix})
+
+    def _handle_replan(self) -> None:
+        if not _is_loopback_host(self.client_address[0]):
+            self._send_json({"status": "rejected", "error": "replan endpoint is localhost-only"}, status=403)
+            return
+        try:
+            payload = self._read_json_body()
+            response = _interactive_replan_response(payload)
+        except ValueError as exc:
+            self._send_json({"status": "rejected", "error": str(exc)}, status=400)
+            return
+        self._send_json(response)
 
     def _handle_swarm_demo_file(self, rel_url_path: str) -> None:
         root = _swarm_demo_bundle_root()
@@ -222,6 +253,27 @@ class AccountableSwarmHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def _read_json_body(self) -> dict[str, Any]:
+        length_header = self.headers.get("Content-Length")
+        if length_header is None:
+            raise ValueError("Content-Length header required")
+        try:
+            length = int(length_header)
+        except ValueError as exc:
+            raise ValueError("Content-Length must be an integer") from exc
+        if length <= 0:
+            raise ValueError("request body must be non-empty")
+        if length > 64_000:
+            raise ValueError("request body too large")
+        body = self.rfile.read(length)
+        try:
+            parsed = json.loads(body.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise ValueError("request body must be valid UTF-8 JSON") from exc
+        if not isinstance(parsed, dict):
+            raise ValueError("request body must be a JSON object")
+        return parsed
+
     def _send_file(
         self,
         path: Path,
@@ -248,6 +300,276 @@ class AccountableSwarmHandler(BaseHTTPRequestHandler):
                 shutil.copyfileobj(source, self.wfile)
         except OSError:
             return
+
+
+def _interactive_replan_response(payload: dict[str, Any]) -> dict[str, Any]:
+    grid = _require_dict(payload.get("grid"), "grid")
+    grid_width = _require_positive_int(grid.get("w"), "grid.w")
+    grid_height = _require_positive_int(grid.get("h"), "grid.h")
+    if grid_width < 5 or grid_height < 5:
+        raise ValueError("grid must be at least 5x5")
+
+    formation = payload.get("formation")
+    if not isinstance(formation, str) or formation not in SUPPORTED_FORMATIONS:
+        raise ValueError(f"formation must be one of: {', '.join(SUPPORTED_FORMATIONS)}")
+
+    hazard = _grid_point_from_pair(payload.get("hazard"), "hazard")
+    _validate_point_in_grid(hazard, grid_width=grid_width, grid_height=grid_height, name="hazard")
+
+    obstacles = tuple(sorted(_grid_points_from_pairs(payload.get("obstacles", []), "obstacles")))
+    for obstacle in obstacles:
+        _validate_point_in_grid(obstacle, grid_width=grid_width, grid_height=grid_height, name="obstacle")
+        if obstacle == hazard:
+            raise ValueError("obstacle must not overlap the hazard cell")
+
+    agent_positions = _agent_positions_from_request(payload.get("agents"), grid_width=grid_width, grid_height=grid_height)
+    starts = tuple(
+        AgentConfig(agent_id=agent_id, start=cell, goal=cell)
+        for agent_id, cell in sorted(agent_positions.items())
+    )
+    plan = compile_formation(
+        formation=formation,
+        hazard_cell=hazard,
+        grid_width=grid_width,
+        grid_height=grid_height,
+        agent_count=len(starts),
+    )
+    configs = assign_formation_slots(starts=starts, plan=plan)
+    ticks = _require_optional_positive_int(payload.get("ticks"), "ticks", default=8)
+    planner_obstacles = tuple(sorted({*obstacles, hazard}))
+    result = run_swarm_custom(
+        configs=configs,
+        obstacles=planner_obstacles,
+        ticks=ticks,
+        grid_width=grid_width,
+        grid_height=grid_height,
+        scenario=f"interactive-{formation}-replan",
+        run_id=f"interactive-{formation}-n{len(configs)}",
+    )
+    traces = build_agent_traces(result)
+    trace_summary_shas = {
+        agent_id: verify_trace(trace)
+        for agent_id, trace in sorted(traces.items())
+    }
+    sim_report = result.report_dict(trace_summary_shas)
+    goals = {config.agent_id: config.goal for config in result.configs}
+    decision_event_shas = {
+        agent_id: {event.tick: event.sha256 for event in trace.events}
+        for agent_id, trace in sorted(traces.items())
+    }
+    states = tuple(
+        _interactive_world_state_for_tick(
+            result=result,
+            tick=tick_record,
+            hazard=hazard,
+            trace_summary_shas=trace_summary_shas,
+            decision_event_shas=decision_event_shas,
+        ).with_computed_sha()
+        for tick_record in result.ticks
+    )
+    replay = {
+        "same_cell_collision_count": result.same_cell_collision_count,
+        "swap_collision_count": result.swap_collision_count,
+        "obstacle_occupancy_violation_count": result.obstacle_occupancy_violation_count,
+        "all_goals_reached": result.all_goals_reached,
+    }
+    return {
+        "schema_version": INTERACTIVE_REPLAN_SCHEMA_VERSION,
+        "outcome": sim_report["outcome"],
+        "formation": formation,
+        "grid": {"width": grid_width, "height": grid_height},
+        "hazard": {"cell": hazard.to_dict()},
+        "obstacles": [point.to_dict() for point in obstacles],
+        "assigned_goals": {
+            config.agent_id: config.goal.to_dict()
+            for config in sorted(configs, key=lambda item: item.agent_id)
+        },
+        "agent_trace_summary_shas": trace_summary_shas,
+        "traces": {
+            agent_id: trace.to_dict()
+            for agent_id, trace in sorted(traces.items())
+        },
+        "planner_metrics": {
+            "outcome": sim_report["outcome"],
+            "same_cell_collision_count": result.same_cell_collision_count,
+            "swap_collision_count": result.swap_collision_count,
+            "obstacle_occupancy_violation_count": result.obstacle_occupancy_violation_count,
+            "all_goals_reached": result.all_goals_reached,
+            "reroute_count": result.reroute_count,
+            "hold_count": result.hold_count,
+        },
+        "reservation_table": [
+            {"tick": reservation.tick, "agent_id": reservation.agent_id, "cell": reservation.cell.to_dict()}
+            for state in states
+            for reservation in state.reservations
+        ],
+        "world_model": {
+            "state_count": len(states),
+            "first_world_model_sha": states[0].world_model_sha if states else "",
+            "last_world_model_sha": states[-1].world_model_sha if states else "",
+            "predicted_conflict_count": sum(len(state.predicted_conflicts) for state in states),
+        },
+        "timeline": [
+            {
+                "tick": tick_record.tick,
+                "agents": [
+                    {
+                        "agent_id": step.agent_id,
+                        "cell": step.accepted.to_dict(),
+                        "goal": goals[step.agent_id].to_dict(),
+                        "decision": step.decision,
+                        "reason": step.reason,
+                        "event_sha256": decision_event_shas[step.agent_id][step.tick],
+                        "trace_summary_sha": trace_summary_shas[step.agent_id],
+                        "world_model_decision_event_sha": decision_event_shas[step.agent_id][step.tick],
+                        "command": step.command_dict(grid_width=grid_width, grid_height=grid_height),
+                    }
+                    for step in tick_record.steps
+                ],
+                "reservations": [
+                    {"tick": reservation.tick, "agent_id": reservation.agent_id, "cell": reservation.cell.to_dict()}
+                    for reservation in states[tick_record.tick].reservations
+                ],
+                "predicted_conflicts": [
+                    {
+                        "tick": conflict.tick,
+                        "conflict_type": conflict.conflict_type,
+                        "agent_ids": list(conflict.agent_ids),
+                        "cell": conflict.cell.to_dict(),
+                        "reason": conflict.reason,
+                    }
+                    for conflict in states[tick_record.tick].predicted_conflicts
+                ],
+                "world_model_sha": states[tick_record.tick].world_model_sha,
+            }
+            for tick_record in result.ticks
+        ],
+        "replay": replay,
+        "non_claims": [
+            "no physical robot behavior",
+            "no live Qwen control",
+            "no DimOS execution",
+            "no safety, latency, or reliability claim",
+            "no learned world model",
+        ],
+    }
+
+
+def _interactive_world_state_for_tick(
+    *,
+    result: Any,
+    tick: Any,
+    hazard: GridPoint,
+    trace_summary_shas: dict[str, str],
+    decision_event_shas: dict[str, dict[int, str]],
+) -> WorldModelState:
+    goals = {config.agent_id: config.goal for config in result.configs}
+    agents = tuple(
+        WorldAgentState(
+            agent_id=step.agent_id,
+            cell=step.accepted,
+            goal=goals[step.agent_id],
+            decision_trace_sha=trace_summary_shas[step.agent_id],
+            last_decision=step.decision,
+            decision_event_sha=decision_event_shas[step.agent_id][step.tick],
+        )
+        for step in tick.steps
+    )
+    reservations = tuple(
+        WorldReservation(tick=step.tick, agent_id=step.agent_id, cell=step.accepted)
+        for step in tick.steps
+    )
+    return WorldModelState(
+        tick=tick.tick,
+        grid_width=result.grid_width,
+        grid_height=result.grid_height,
+        observations=(),
+        hazards=(hazard,),
+        agents=agents,
+        reservations=reservations,
+        predicted_conflicts=(),
+    )
+
+
+def _agent_positions_from_request(value: Any, *, grid_width: int, grid_height: int) -> dict[str, GridPoint]:
+    items = _require_list(value, "agents")
+    if len(items) != 4:
+        raise ValueError("agents must contain exactly 4 items")
+    positions: dict[str, GridPoint] = {}
+    for item in items:
+        agent = _require_dict(item, "agent")
+        agent_id = agent.get("id")
+        if not isinstance(agent_id, str) or not agent_id.strip():
+            raise ValueError("agent id must be a non-empty string")
+        if agent_id in positions:
+            raise ValueError("agent ids must be unique")
+        point = _grid_point_from_pair(agent.get("cell"), f"agent {agent_id} cell")
+        _validate_point_in_grid(point, grid_width=grid_width, grid_height=grid_height, name=f"agent {agent_id} cell")
+        positions[agent_id] = point
+    if len(set(positions.values())) != len(positions):
+        raise ValueError("agent cells must be unique")
+    return positions
+
+
+def _grid_points_from_pairs(value: Any, name: str) -> tuple[GridPoint, ...]:
+    items = _require_list(value, name)
+    points = tuple(_grid_point_from_pair(item, f"{name} item") for item in items)
+    if len(set(points)) != len(points):
+        raise ValueError(f"{name} must be unique")
+    return points
+
+
+def _grid_point_from_pair(value: Any, name: str) -> GridPoint:
+    if not isinstance(value, list) or len(value) != 2:
+        raise ValueError(f"{name} must be a two-item array")
+    x = _require_int(value[0], f"{name}[0]")
+    y = _require_int(value[1], f"{name}[1]")
+    return GridPoint(x=x, y=y)
+
+
+def _require_positive_int(value: Any, name: str) -> int:
+    integer = _require_int(value, name)
+    if integer <= 0:
+        raise ValueError(f"{name} must be positive")
+    return integer
+
+
+def _require_optional_positive_int(value: Any, name: str, *, default: int) -> int:
+    if value is None:
+        return default
+    return _require_positive_int(value, name)
+
+
+def _require_int(value: Any, name: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"{name} must be an integer")
+    return value
+
+
+def _validate_point_in_grid(point: GridPoint, *, grid_width: int, grid_height: int, name: str) -> None:
+    if not (0 <= point.x < grid_width and 0 <= point.y < grid_height):
+        raise ValueError(f"{name} must stay inside the {grid_width}x{grid_height} grid")
+
+
+def _require_dict(value: Any, name: str) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise ValueError(f"{name} must be an object")
+    return value
+
+
+def _require_list(value: Any, name: str) -> list[Any]:
+    if not isinstance(value, list):
+        raise ValueError(f"{name} must be an array")
+    return value
+
+
+def _is_loopback_host(value: str) -> bool:
+    if value == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(value).is_loopback
+    except ValueError:
+        return False
 
 
 def _swarm_demo_bundle_root() -> Path:

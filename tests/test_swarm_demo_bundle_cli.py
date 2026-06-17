@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class SwarmDemoBundleCliTests(TestCase):
     def test_bundle_generates_deterministic_reviewed_scenario_artifacts(self) -> None:
-        with TemporaryDirectory() as first_tmp, TemporaryDirectory() as second_tmp:
+        with TemporaryDirectory(dir="/tmp") as first_tmp, TemporaryDirectory(dir="/tmp") as second_tmp:
             first_dir = Path(first_tmp) / "bundle"
             second_dir = Path(second_tmp) / "bundle"
 
@@ -77,7 +77,7 @@ class SwarmDemoBundleCliTests(TestCase):
             )
 
     def test_bundle_defaults_to_runs_demo_swarm(self) -> None:
-        with TemporaryDirectory() as tmpdir:
+        with TemporaryDirectory(dir="/tmp") as tmpdir:
             result = subprocess.run(
                 [
                     sys.executable,
@@ -96,7 +96,7 @@ class SwarmDemoBundleCliTests(TestCase):
             self.assertIn("wrote runs/demo/swarm/index.html", result.stdout)
 
     def test_bundle_canonicalizes_reversed_reviewed_scenarios(self) -> None:
-        with TemporaryDirectory() as tmpdir:
+        with TemporaryDirectory(dir="/tmp") as tmpdir:
             out_dir = Path(tmpdir) / "bundle"
             args = []
             for scenario in reversed(scenario_names()):
@@ -114,7 +114,7 @@ class SwarmDemoBundleCliTests(TestCase):
             )
 
     def test_bundle_surfaces_short_run_as_narrow_claim(self) -> None:
-        with TemporaryDirectory() as tmpdir:
+        with TemporaryDirectory(dir="/tmp") as tmpdir:
             out_dir = Path(tmpdir) / "bundle"
 
             result = _run_bundle(out_dir, "--scenario", "center-block", "--ticks", "1")

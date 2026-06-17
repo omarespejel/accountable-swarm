@@ -99,6 +99,10 @@ class WorldModelDashboardRendererCliTests(TestCase):
         self.assertIn("Qwen evidence", html_text)
         self.assertIn("Deterministic local planner", html_text)
         self.assertIn("DecisionTrace", html_text)
+        self.assertIn("Interactive Replan", html_text)
+        self.assertIn("Add obstacle", html_text)
+        self.assertIn("Clear obstacles", html_text)
+        self.assertIn("Surround", html_text)
         self.assertIn("DimOS-ready Export", html_text)
         self.assertIn("assets/hazard_marker.ppm", html_text)
         self.assertIn("No DimOS bridge manifest was packaged", html_text)  # script contains fallback string
