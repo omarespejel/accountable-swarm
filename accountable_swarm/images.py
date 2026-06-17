@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from pathlib import Path
 import base64
-import imghdr
 import struct
 from typing import BinaryIO
 
@@ -27,12 +26,21 @@ def image_size(path: Path) -> tuple[int, int]:
 
 
 def image_data_url(path: Path) -> str:
-    kind = imghdr.what(path)
+    kind = _image_kind(path)
     if kind not in {"png", "jpeg"}:
         raise ValueError("DashScope mode currently requires a PNG or JPEG image")
     mime = "image/jpeg" if kind == "jpeg" else "image/png"
     encoded = base64.b64encode(path.read_bytes()).decode("ascii")
     return f"data:{mime};base64,{encoded}"
+
+
+def _image_kind(path: Path) -> str | None:
+    header = path.read_bytes()[:12]
+    if header.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "png"
+    if header.startswith(b"\xff\xd8"):
+        return "jpeg"
+    return None
 
 
 def _png_size(header: bytes) -> tuple[int, int]:
