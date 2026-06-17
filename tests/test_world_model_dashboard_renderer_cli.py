@@ -108,6 +108,29 @@ class WorldModelDashboardRendererCliTests(TestCase):
         self.assertIn("no Qwen real-time control", html_text)
         self.assertNotIn("sk-", html_text)
 
+    def test_renderer_surfaces_bounded_mission_choice_when_present(self) -> None:
+        with TemporaryDirectory(dir=ROOT / "runs") as tmpdir:
+            base = Path(tmpdir)
+            trace_dir = base / "hazard_x"
+            report_path = base / "hazard_x_report.json"
+            pack_dir = base / "dashboard"
+            _run_hazard_gate(trace_dir=trace_dir, report_path=report_path, mission_source="fixture")
+            _run_dashboard_pack(trace_dir=trace_dir, report_path=report_path, out_dir=pack_dir)
+
+            result = _run_renderer(
+                data_path=pack_dir / "data.json",
+                html_path=pack_dir / "index.html",
+                summary_path=pack_dir / "summary.json",
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            html_text = (pack_dir / "index.html").read_text(encoding="utf-8")
+
+        self.assertIn("Bounded mission", html_text)
+        self.assertIn("mission-sha", html_text)
+        self.assertIn("surround_hazard", html_text)
+        self.assertIn("cautious", html_text)
+
     def test_renderer_rejects_unverified_schema(self) -> None:
         with TemporaryDirectory(dir=ROOT / "runs") as tmpdir:
             base = Path(tmpdir)
@@ -185,7 +208,12 @@ class WorldModelDashboardRendererCliTests(TestCase):
         self.assertIn("bbox_2d_norm_1000 must be within 0..1000 with positive area", result.stderr)
 
 
-def _run_hazard_gate(*, trace_dir: Path, report_path: Path) -> subprocess.CompletedProcess[str]:
+def _run_hazard_gate(
+    *,
+    trace_dir: Path,
+    report_path: Path,
+    mission_source: str = "none",
+) -> subprocess.CompletedProcess[str]:
     result = subprocess.run(
         [
             sys.executable,
@@ -195,6 +223,8 @@ def _run_hazard_gate(*, trace_dir: Path, report_path: Path) -> subprocess.Comple
             "fixtures/hazard_marker.ppm",
             "--mode",
             "fixture",
+            "--mission-source",
+            mission_source,
             "--formation",
             "x",
             "--trace-dir",

@@ -220,6 +220,15 @@ What is checked locally:
 - the world-model dashboard now shows a Qwen source-frame pane with bbox
   overlay, a per-agent `DecisionTrace Inspector`, and a DimOS-ready export
   status panel in the same verified HTML artifact.
+- the hazard-formation gate can now emit a separate bounded mission-choice
+  `DecisionTrace` using a strict local allow-list:
+  `{"mission":"surround_hazard|hold_position","risk":"cautious|balanced"}`.
+  The validator is local, not API-enforced. The persisted `mission.json` trace
+  is threaded into the hazard report, dashboard data pack, and rendered
+  dashboard when `--mission-source fixture|dashscope|auto` is enabled.
+- the recording pack now prefers live DashScope for both the hazard bbox and
+  bounded mission path when `ALIBABA_API_KEY` is present, and otherwise falls
+  back to fixture mode without changing the local deterministic replay surface.
 - read-only stdlib server endpoints serve existing swarm bundle artifacts at
   `/swarm-demo` and `/swarm-demo/summary.json` with path traversal rejection.
 - read-only stdlib server endpoints serve the generated hazard formation replay
@@ -253,10 +262,16 @@ What is not checked yet:
 - Issue #95: QwenGuard SO-101 physical edge-cloud manipulation demo. This is
   the current umbrella for selector, evaluator, outcome gate, ACT training,
   physical GO gates, trace evidence, and claim boundaries.
+- PR #92: bounded Qwen mission-choice dashboard flow. It must keep Qwen as a
+  bounded mission proposer only, derive dashboard mission state from verified
+  traces, and validate mission/risk enums locally before rendering.
 - Issue #93 / PR #94: interactive dashboard, stacked on PR #92. Useful for
   visualization, but not on the QwenGuard critical path.
 - Issue #91: operator-run Alibaba ECS proof from a public endpoint. This remains
   the submission blocker to move in parallel with SO-101 work.
+- Issues #87 and #90 are resolved by the bounded mission-choice/dashboard pack
+  once PR #92 lands.
+- Issues #3, #75, and #88 are closed; #3 remains historical context only.
 - Issue #2, #6, #11, #13, #15, #17, #19, #21, #23, #25, #27, #29, #33,
   #35, #37, #39, #41, #43, #45, #48, #50, #52, #54, #59, and #68 are closed
   as GO or scoped NARROW_CLAIM where documented.

@@ -67,7 +67,10 @@ Prepare the world-model dashboard artifact:
 ```bash
 python3 -m scripts.run_hazard_formation_gate \
   --image fixtures/hazard_marker.ppm \
-  --mode fixture \
+  --mode dashscope \
+  --mission-source dashscope \
+  --model qwen3-vl-flash \
+  --mission-model qwen3-vl-flash \
   --formation x \
   --trace-dir runs/hazard_formation/world_model_x \
   --report-out runs/hazard_formation/world_model_x_report.json
@@ -91,7 +94,9 @@ runs/dashboard/world_model_x/index.html
 
 This dashboard is the recommended recording surface for the accountable
 world-model path because it shows Qwen evidence, deterministic local planning,
-world-model hashes, and per-agent trace hashes in one page.
+the bounded mission choice, world-model hashes, and per-agent trace hashes in
+one page. If `ALIBABA_API_KEY` is unavailable, switch `--mode fixture
+--mission-source fixture` and keep the same local validation surface.
 
 ## Checked Local Evidence
 
@@ -151,10 +156,12 @@ shown as the obstacle. This makes the perception-to-formation path visible
 without changing the claim boundary.
 
 When `ALIBABA_API_KEY` is available, the live hazard-to-formation proof uses
-`qwen3-vl-flash` on a generated PNG keyframe. The checked 2026-06-16 run
-returned `outcome GO`, bbox `[241,238,756,759]`, hazard cell `{"x":3,"y":2}`,
-and replay-verified hazard plus four agent traces. It remains a keyframe
-perception proof feeding deterministic local planning, not live Qwen control.
+`qwen3-vl-flash` on a generated PNG keyframe and the same model for the bounded
+mission JSON. The checked 2026-06-16 run returned `outcome GO`, bbox
+`[241,238,756,759]`, hazard cell `{"x":3,"y":2}`, and replay-verified hazard
+plus four agent traces. The mission JSON is locally validated against the
+allow-list before planning. This remains keyframe perception and low-rate
+mission reasoning feeding deterministic local planning, not live Qwen control.
 
 ## Checked Live-Qwen Evidence
 
@@ -261,6 +268,10 @@ Prepare the local recording pack:
 python3 scripts/prepare_demo_recording_pack.py
 ```
 
+By default the recording pack now prefers live DashScope for the hazard and
+bounded mission path when `ALIBABA_API_KEY` is present, and otherwise falls
+back to fixture mode without changing the local deterministic replay surface.
+
 Expected high-level output:
 
 ```text
@@ -279,10 +290,11 @@ shotlist runs/demo/recording-pack/shotlist.md
    counters.
 6. Open `runs/hazard_formation/recording_x_replay/index.html` and show the
    hazard cell obstacle plus the four-agent X formation replay.
-7. Open `runs/dashboard/recording_x/index.html` and show the Qwen evidence,
-   local planner, world-model hash, and per-agent DecisionTrace hashes.
+7. Open `runs/dashboard/recording_x/index.html` and show the Qwen bbox, bounded
+   mission choice, local planner, world-model hash, and per-agent
+   `DecisionTrace` hashes.
 8. Show `runs/hazard_formation/recording_x_report.json` with bbox, hazard cell,
-   formation, assigned goals, and trace hashes.
+   bounded mission choice, formation, assigned goals, and trace hashes.
 9. Show `docs/submission/architecture.md` and point out that Qwen is not in the
    real-time loop.
 10. Optional, if the DimOS bridge pack exists: show its manifest and state that
