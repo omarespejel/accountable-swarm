@@ -262,7 +262,8 @@ What is not checked yet:
 - Issue #95: QwenGuard SO-101 physical edge-cloud manipulation demo. This is
   the current umbrella for selector, evaluator, outcome gate, ACT training,
   physical GO gates, trace evidence, and claim boundaries.
-- PR #92: bounded Qwen mission-choice dashboard flow. It must keep Qwen as a
+- PR #92: bounded Qwen mission-choice dashboard flow and Node 24 workflow-pin
+  update on `codex/bounded-qwen-demo-2026-06-17`. It must keep Qwen as a
   bounded mission proposer only, derive dashboard mission state from verified
   traces, and validate mission/risk enums locally before rendering.
 - Issue #93 / PR #94: interactive dashboard, stacked on PR #92. Useful for
