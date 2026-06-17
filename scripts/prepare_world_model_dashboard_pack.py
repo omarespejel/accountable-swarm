@@ -100,11 +100,17 @@ def _build_pack(
 ) -> dict[str, Any]:
     hazard_report = _read_json_object(hazard_report_path, "hazard report")
     hazard_trace_path = _contained_path(repo_root, trace_dir / "hazard.json", "hazard trace")
+    mission_choice_report = hazard_report.get("mission_choice")
     agent_trace_dir = _contained_path(repo_root, trace_dir / "agents", "agent trace dir")
     export_trace_path = _contained_path(repo_root, trace_dir / "world_model_export.json", "world model export trace")
     timeline_path = _contained_path(repo_root, trace_dir / "world_model_timeline.jsonl", "world model timeline")
     hazard_trace = _read_trace(hazard_trace_path, "hazard trace")
     hazard_trace_sha = verify_trace(hazard_trace)
+    mission_trace_info = _read_optional_mission_trace(
+        repo_root=repo_root,
+        trace_dir=trace_dir,
+        mission_choice_report=mission_choice_report,
+    )
     agent_traces = _read_agent_traces(agent_trace_dir, repo_root=repo_root)
     agent_trace_shas = {agent_id: verify_trace(trace) for agent_id, trace in sorted(agent_traces.items())}
     export_trace = _read_trace(export_trace_path, "world model export trace")
@@ -117,6 +123,7 @@ def _build_pack(
         trace_dir=trace_dir,
         hazard_report=hazard_report,
         hazard_trace_sha=hazard_trace_sha,
+        mission_trace_info=mission_trace_info,
         agent_trace_shas=agent_trace_shas,
         export_trace_sha=export_trace_sha,
         states=states,
@@ -145,24 +152,31 @@ def _build_pack(
         repo_root=repo_root,
         manifest_path=dimos_bridge_manifest_path,
     )
+    source = {
+        "hazard_report": _display_path(repo_root, hazard_report_path),
+        "hazard_trace": _display_path(repo_root, hazard_trace_path),
+        "agent_trace_dir": _display_path(repo_root, agent_trace_dir),
+        "world_model_timeline": _display_path(repo_root, timeline_path),
+        "world_model_export_trace": _display_path(repo_root, export_trace_path),
+    }
+    if mission_trace_info is not None:
+        source["mission_trace"] = mission_trace_info["path"]
     data = {
         "schema_version": DASHBOARD_DATA_SCHEMA_VERSION,
-        "source": {
-            "hazard_report": _display_path(repo_root, hazard_report_path),
-            "hazard_trace": _display_path(repo_root, hazard_trace_path),
-            "agent_trace_dir": _display_path(repo_root, agent_trace_dir),
-            "world_model_timeline": _display_path(repo_root, timeline_path),
-            "world_model_export_trace": _display_path(repo_root, export_trace_path),
-        },
+        "source": source,
         "image": image_metadata,
         "mode": hazard_report.get("mode", ""),
         "model": hazard_report.get("model", ""),
         "formation": hazard_report.get("formation"),
+        "mission_choice": mission_trace_info["payload"] if mission_trace_info is not None else None,
         "grid": hazard_report.get("grid", {}),
         "hazard": hazard_report.get("hazard"),
         "formation_plan": hazard_report.get("formation_plan"),
         "assigned_goals": hazard_report.get("assigned_goals", {}),
         "hazard_trace_summary_sha": hazard_trace_sha,
+        "mission_trace_summary_sha": (
+            mission_trace_info["trace_summary_sha"] if mission_trace_info is not None else ""
+        ),
         "agent_trace_summary_shas": dict(sorted(agent_trace_shas.items())),
         "world_model": {
             "state_count": len(states),
@@ -232,6 +246,7 @@ def _validate_report_and_sources(
     trace_dir: Path,
     hazard_report: dict[str, Any],
     hazard_trace_sha: str,
+    mission_trace_info: dict[str, Any] | None,
     agent_trace_shas: dict[str, str],
     export_trace_sha: str,
     states: list[WorldModelState],
@@ -243,6 +258,16 @@ def _validate_report_and_sources(
         raise ValueError("hazard report outcome must be GO or DEGRADED")
     if hazard_report.get("hazard_trace_summary_sha") != hazard_trace_sha:
         raise ValueError("hazard report hazard_trace_summary_sha does not match hazard trace")
+    report_mission = hazard_report.get("mission_choice")
+    if mission_trace_info is None:
+        if report_mission not in (None, {}):
+            raise ValueError("hazard report mission_choice requires mission trace evidence")
+    else:
+        report_mission = _require_dict(report_mission, "hazard report mission_choice")
+        if report_mission.get("trace_summary_sha") != mission_trace_info["trace_summary_sha"]:
+            raise ValueError("hazard report mission_choice trace_summary_sha does not match mission trace")
+        if report_mission.get("choice") != mission_trace_info["payload"]["choice"]:
+            raise ValueError("hazard report mission_choice choice does not match mission trace")
     if hazard_report.get("trace_summary_shas") != agent_trace_shas:
         raise ValueError("hazard report trace_summary_shas do not match agent traces")
     report_world_model = _require_dict(hazard_report.get("world_model"), "hazard report world_model")
@@ -354,6 +379,30 @@ def _read_trace(path: Path, name: str) -> DecisionTrace:
     trace = trace_from_dict(payload)
     verify_trace(trace)
     return trace
+
+
+def _read_optional_mission_trace(
+    *,
+    repo_root: Path,
+    trace_dir: Path,
+    mission_choice_report: Any,
+) -> dict[str, Any] | None:
+    if mission_choice_report in (None, {}):
+        return None
+    report = _require_dict(mission_choice_report, "hazard report mission_choice")
+    trace_path = _contained_path(repo_root, trace_dir / "mission.json", "mission trace")
+    mission_trace = _read_trace(trace_path, "mission trace")
+    trace_summary_sha = verify_trace(mission_trace)
+    payload = {
+        "source": _require_string(report, "source"),
+        "model": _require_string(report, "model"),
+        "choice": _require_dict(report.get("choice"), "mission choice payload"),
+    }
+    return {
+        "path": _display_path(repo_root, trace_path),
+        "trace_summary_sha": trace_summary_sha,
+        "payload": payload,
+    }
 
 
 def _read_agent_traces(path: Path, *, repo_root: Path) -> dict[str, DecisionTrace]:
