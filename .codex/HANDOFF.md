@@ -217,8 +217,9 @@ What is not checked yet:
 ## Active GitHub Work
 
 - Issue #91: operator-run Alibaba ECS proof from a public endpoint.
-- Issues #87 and #90 are resolved locally on `codex/bounded-qwen-demo-2026-06-17`
-  and should be closed once the branch state is published.
+- PR #92: bounded mission choice and Node 24 workflow-pin update on
+  `codex/bounded-qwen-demo-2026-06-17`.
+- Issues #87 and #90 are closed against that branch/PR.
 - Issues #3, #75, and #88 are closed; #3 remains historical context only.
 - Issue #2, #6, #11, #13, #15, #17, #19, #21, #23, #25, #27, #29, #33,
   #35, #37, #39, #41, #43, #45, #48, #50, #52, #54, #59, and #68 are closed
