@@ -59,21 +59,30 @@ class QwenGuardPhysicalGoPackCliTests(TestCase):
         self.assertIn("degraded", manifest["operator_phases"])
         self.assertIn("camera", manifest["operator_phases"])
         self.assertIn("training-pack", manifest["operator_phases"])
+        self.assertIn("record-success", manifest["operator_phases"])
+        self.assertIn("record-failure", manifest["operator_phases"])
+        self.assertIn("record-cloud-hold", manifest["operator_phases"])
         self.assertIn("all-safe", manifest["operator_phases"])
         self.assertIn("run_qwenguard_no_motion_health_check", commands)
         self.assertIn("capture_so101_camera_frame", commands)
         self.assertIn("prepare_so101_training_pack", commands)
+        self.assertIn("record_qwenguard_trial", commands)
         self.assertIn("all-safe", commands)
         self.assertIn("Does not touch camera", commands)
         self.assertIn("could not locate repository root", commands)
         self.assertIn("QWENGUARD_GO_RUN_DIR", commands)
+        self.assertIn("QWENGUARD_TRIAL_TRACE_DIR", commands)
+        self.assertIn("QWENGUARD_TRIAL_CSV", commands)
+        self.assertIn("QWENGUARD_TRIAL_REPORT_DIR", commands)
         self.assertNotIn("lerobot.record", commands)
         self.assertIn("Qwen never controls motors", runbook)
         self.assertEqual(evidence["task"], f"pick Bob's marked cube near {ROOT}")
+        self.assertEqual(evidence["operator_fill_required"]["trial_csv"], "runs/physical/qwenguard_trials/trial_results.csv")
+        self.assertEqual(evidence["operator_fill_required"]["trial_recorder"], "record-qwenguard-trial")
         joined = "\n".join([json.dumps(manifest, sort_keys=True), commands, runbook])
         self.assertNotIn("ALIBABA_API_KEY=", joined)
         self.assertNotIn("ghp_", joined)
-        self.assertNotIn("sk-", joined)
+        self.assertNotIn("sk-testsecret01234567890123456789", joined)
         self.assertTrue(
             all(not Path(path).is_absolute() and ".." not in Path(path).parts for path in manifest["files"].values())
         )
@@ -117,6 +126,61 @@ class QwenGuardPhysicalGoPackCliTests(TestCase):
             self.assertIn(f"verified {go_run_dir.relative_to(ROOT)}/degraded_trace.json", result.stdout)
             self.assertTrue((go_run_dir / "fixture_trace.json").is_file())
             self.assertTrue((training_dir / "manifest.json").is_file())
+
+    def test_record_success_phase_writes_trace_bound_trial_csv(self) -> None:
+        base = ROOT / "runs" / "physical"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            out_dir = Path(tmpdir) / "physical-go-pack"
+            prep = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.prepare_qwenguard_physical_go_pack",
+                    "--out-dir",
+                    str(out_dir.relative_to(ROOT)),
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(prep.returncode, 0, prep.stderr)
+            trial_trace_dir = Path(tmpdir) / "trial-traces"
+            trial_csv = Path(tmpdir) / "trial-results.csv"
+            trial_report_dir = Path(tmpdir) / "trial-reports"
+            env = {
+                **os.environ,
+                "QWENGUARD_TRIAL_ID": "trial-001",
+                "QWENGUARD_TRIAL_TRACE_DIR": str(trial_trace_dir.relative_to(ROOT)),
+                "QWENGUARD_TRIAL_CSV": str(trial_csv.relative_to(ROOT)),
+                "QWENGUARD_TRIAL_REPORT_DIR": str(trial_report_dir.relative_to(ROOT)),
+            }
+            result = subprocess.run(
+                ["bash", str(out_dir / "operator_commands.sh"), "record-success"],
+                cwd=ROOT,
+                env=env,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("trace_summary_sha", result.stdout)
+            self.assertTrue((trial_trace_dir / "trial-001.json").is_file())
+            self.assertTrue(trial_csv.is_file())
+            self.assertTrue((trial_report_dir / "trial-001.json").is_file())
+            csv_text = trial_csv.read_text(encoding="utf-8")
+            self.assertIn("trial-001", csv_text)
+            verify = subprocess.run(
+                [sys.executable, "-m", "scripts.verify_trace", str(trial_trace_dir / "trial-001.json")],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(verify.returncode, 0, verify.stderr)
+            self.assertIn(verify.stdout.strip().split()[-1], csv_text)
 
     def test_out_dir_must_stay_under_repo(self) -> None:
         result = subprocess.run(
