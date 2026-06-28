@@ -63,11 +63,12 @@ class QwenGuardSubmissionPackCliTests(TestCase):
         )
         self.assertEqual(
             expected_paths["act_physical_trials"],
-            "runs/physical/qwenguard_so101_training_pack/trial_template.csv",
+            "runs/physical/qwenguard_trials/trial_results.csv",
         )
         self.assertNotIn("selector_trace.json", json.dumps(evidence, sort_keys=True))
         self.assertNotIn("evaluator_trace.json", json.dumps(evidence, sort_keys=True))
-        self.assertNotIn("trial_results.csv", json.dumps(evidence, sort_keys=True))
+        self.assertIn("record-qwenguard-trial", readme)
+        self.assertIn("trial_results.csv", json.dumps(evidence, sort_keys=True))
         self.assertTrue(
             all(not Path(path).is_absolute() and ".." not in Path(path).parts for path in manifest["files"].values())
         )

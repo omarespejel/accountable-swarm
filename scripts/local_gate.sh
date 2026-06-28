@@ -40,6 +40,7 @@ required = [
     "scripts/prepare_sensor_frame_proof_pack.py",
     "scripts/capture_so101_camera_frame.py",
     "scripts/prepare_so101_operator_probe_pack.py",
+    "scripts/record_qwenguard_trial.py",
     "scripts/run_hazard_formation_gate.py",
     "scripts/run_swarm_mission_gate.py",
     "scripts/run_swarm_mission_suite.py",
@@ -88,6 +89,7 @@ required = [
     "docs/engineering/sensor-frame-proof-pack-2026-06-17.md",
     "docs/engineering/so101-trace-only-sensor-frame-adapter-2026-06-17.md",
     "docs/engineering/so101-operator-probe-pack-2026-06-17.md",
+    "docs/engineering/qwenguard-trial-recorder-2026-06-29.md",
     "docs/engineering/hazard-formation-gate-2026-06-16.md",
     "docs/engineering/hazard-formation-replay-pack-2026-06-16.md",
     "docs/engineering/bounded-qwen-mission-choice-2026-06-17.md",
@@ -164,6 +166,17 @@ python3 -m venv "$gate_tmp/venv"
     --image fixtures/hazard_marker.ppm \
     --mode fixture \
     --out-dir runs/physical/local_gate_sensor_frame_proof
+
+"$gate_tmp/venv/bin/record-qwenguard-trial" \
+    --trial-id local-gate-trial \
+    --outcome success \
+    --motion-executed false \
+    --control-label SCRIPTED \
+    --trace-dir runs/physical/local_gate_qwenguard_trials/traces \
+    --csv-out runs/physical/local_gate_qwenguard_trials/trial_results.csv \
+    --report-out runs/physical/local_gate_qwenguard_trials/reports/local-gate-trial.json \
+    --overwrite
+"$gate_tmp/venv/bin/verify-trace" runs/physical/local_gate_qwenguard_trials/traces/local-gate-trial.json
 
 "$gate_tmp/venv/bin/run-hazard-formation-gate" \
     --image fixtures/hazard_marker.ppm \

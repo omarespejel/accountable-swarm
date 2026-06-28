@@ -1,6 +1,6 @@
 # Accountable Swarm Handoff
 
-Last updated: 2026-06-28 JST
+Last updated: 2026-06-29 JST
 
 ## Active Thesis
 
@@ -118,6 +118,28 @@ What is checked locally:
   to verified per-trial `decisiontrace.v2` JSON files under
   `runs/physical/qwenguard_trials/traces/`; fixture/degraded no-motion traces
   no longer satisfy the measured-trial binding by themselves.
+- QwenGuard physical trial recorder now exists as `record-qwenguard-trial`.
+  It writes one per-trial `decisiontrace.v2` JSON file, verifies the summary
+  SHA, appends a bound row to
+  `runs/physical/qwenguard_trials/trial_results.csv`, and writes a non-secret
+  per-trial report. This is evidence plumbing only; it is not SO-101
+  connectivity, ACT success, or physical success proof.
+- QwenGuard physical GO pack now exposes `record-success`, `record-failure`,
+  and `record-cloud-hold` operator phases. These phases call
+  `record-qwenguard-trial` and keep measured trial rows bound to verified
+  trace summaries instead of asking the operator to hand-copy hashes.
+- QwenGuard submission pack and readiness audit now use
+  `runs/physical/qwenguard_trials/trial_results.csv` as the default measured
+  trial CSV path. The old training-pack `trial_template.csv` remains a header
+  reference, not the promoted measured-result artifact.
+- Focused QwenGuard evidence tests passed with
+  `python3 -m unittest tests.test_record_qwenguard_trial_cli tests.test_qwenguard_physical_go_pack_cli tests.test_qwenguard_submission_pack_cli tests.test_qwenguard_submission_readiness_audit_cli tests.test_packaging`
+  -> `Ran 30 tests`, `OK`.
+- Full test discovery passed with `python3 -m unittest discover -s tests` ->
+  `Ran 360 tests`, `OK`.
+- Full local gate passed with `./scripts/local_gate.sh` -> `Ran 360 tests`,
+  `local gate passed`; the installed `record-qwenguard-trial` entry point wrote
+  and verified `runs/physical/local_gate_qwenguard_trials/traces/local-gate-trial.json`.
 - minimal stdlib HTTP server and Dockerfile exist for manual Alibaba ECS proof;
   operator still needs to provision ECS and run the smoke checks.
 - ECS operator proof pack generator prepares a non-secret runbook, command

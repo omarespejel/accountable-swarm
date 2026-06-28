@@ -173,6 +173,20 @@ phase that attempts an SO-101 frame capture. Physical success, ACT success, and
 SO-101 connectivity remain non-claims until the operator fills the generated
 evidence manifest with checked run artifacts.
 
+After each measured physical attempt, record the outcome through the trace
+recorder instead of editing CSV hashes by hand:
+
+```bash
+QWENGUARD_TRIAL_ID=trial-001 \
+  bash runs/physical/qwenguard-physical-go-pack/operator_commands.sh record-success
+```
+
+For failed trials use `record-failure` with `QWENGUARD_TRIAL_OUTCOME` set to
+`wrong_object`, `missed_grasp`, `dropped_object`, or `not_in_bin`. For the
+degraded-cloud take use `record-cloud-hold`. These phases write one verified
+trace under `runs/physical/qwenguard_trials/traces/` and append the matching row
+to `runs/physical/qwenguard_trials/trial_results.csv`.
+
 To prepare a claim-safe Track 5 submission scaffold before the physical session:
 
 ```bash
