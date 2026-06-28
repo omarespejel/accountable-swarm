@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 import errno
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -193,6 +194,21 @@ class SwarmDemoBundleCliTests(TestCase):
                 )
 
         self.assertEqual(len(calls), module.SUBPROCESS_SPAWN_ATTEMPTS)
+
+    def test_render_timeout_env_is_parsed_at_runtime(self) -> None:
+        with patch.dict(os.environ, {"SWARM_RENDER_TIMEOUT_SECONDS": "invalid"}):
+            module = _load_bundle_module()
+            with self.assertRaisesRegex(ValueError, "must be an integer"):
+                module._render_timeout_seconds()
+
+        with patch.dict(os.environ, {"SWARM_RENDER_TIMEOUT_SECONDS": "0"}):
+            module = _load_bundle_module()
+            with self.assertRaisesRegex(ValueError, "must be positive"):
+                module._render_timeout_seconds()
+
+        with patch.dict(os.environ, {"SWARM_RENDER_TIMEOUT_SECONDS": "12"}):
+            module = _load_bundle_module()
+            self.assertEqual(module._render_timeout_seconds(), 12)
 
 
 def _run_bundle(out_dir: Path, *extra_args: str) -> subprocess.CompletedProcess[str]:

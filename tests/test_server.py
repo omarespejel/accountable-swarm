@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import os
 from pathlib import Path
@@ -315,6 +317,45 @@ class ServerTests(TestCase):
         self.assertEqual(payload["status"], "rejected")
         self.assertIn("obstacle must not overlap the hazard cell", payload["error"])
 
+    def test_replan_endpoint_rejects_non_loopback_origin(self) -> None:
+        with _test_server() as base_url:
+            request_body = _valid_replan_request()
+            with self.assertRaises(HTTPError) as ctx:
+                _post_json_bytes(
+                    f"{base_url}/replan",
+                    request_body,
+                    headers={"Origin": "https://example.com"},
+                )
+
+        self.assertEqual(ctx.exception.code, 403)
+        payload = json.loads(ctx.exception.read().decode("utf-8"))
+        self.assertEqual(payload["status"], "rejected")
+        self.assertIn("loopback Origin", payload["error"])
+
+    def test_replan_endpoint_rejects_unbounded_request_shape(self) -> None:
+        with _test_server() as base_url:
+            request_body = _valid_replan_request()
+            request_body["grid"] = {"w": 64, "h": 64}
+            with self.assertRaises(HTTPError) as grid_ctx:
+                _post_json_bytes(f"{base_url}/replan", request_body)
+
+            request_body = _valid_replan_request()
+            request_body["ticks"] = 64
+            with self.assertRaises(HTTPError) as ticks_ctx:
+                _post_json_bytes(f"{base_url}/replan", request_body)
+
+            request_body = _valid_replan_request()
+            request_body["obstacles"] = [[x % 7, (x // 7) % 5] for x in range(25)]
+            with self.assertRaises(HTTPError) as obstacles_ctx:
+                _post_json_bytes(f"{base_url}/replan", request_body)
+
+        self.assertEqual(grid_ctx.exception.code, 400)
+        self.assertIn("grid.w must be between", grid_ctx.exception.read().decode("utf-8"))
+        self.assertEqual(ticks_ctx.exception.code, 400)
+        self.assertIn("ticks must be at most", ticks_ctx.exception.read().decode("utf-8"))
+        self.assertEqual(obstacles_ctx.exception.code, 400)
+        self.assertIn("obstacles must contain at most", obstacles_ctx.exception.read().decode("utf-8"))
+
 
 class _test_server:
     def __enter__(self) -> str:
@@ -340,13 +381,37 @@ def _get_text(url: str) -> str:
         return resp.read().decode("utf-8")
 
 
-def _post_json_bytes(url: str, payload: dict[str, object]) -> bytes:
+def _valid_replan_request() -> dict[str, object]:
+    return {
+        "grid": {"w": 7, "h": 5},
+        "agents": [
+            {"id": "sim-agent-0", "cell": [0, 2]},
+            {"id": "sim-agent-1", "cell": [6, 2]},
+            {"id": "sim-agent-2", "cell": [3, 0]},
+            {"id": "sim-agent-3", "cell": [3, 4]},
+        ],
+        "hazard": [3, 2],
+        "obstacles": [[1, 2]],
+        "formation": "x",
+        "ticks": 8,
+    }
+
+
+def _post_json_bytes(
+    url: str,
+    payload: dict[str, object],
+    *,
+    headers: dict[str, str] | None = None,
+) -> bytes:
     body = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    request_headers = {"Content-Type": "application/json", "Content-Length": str(len(body))}
+    if headers:
+        request_headers.update(headers)
     req = request.Request(
         url,
         data=body,
         method="POST",
-        headers={"Content-Type": "application/json", "Content-Length": str(len(body))},
+        headers=request_headers,
     )
     with request.urlopen(req, timeout=5) as resp:
         return resp.read()

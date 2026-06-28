@@ -35,7 +35,8 @@ def image_data_url(path: Path) -> str:
 
 
 def _image_kind(path: Path) -> str | None:
-    header = path.read_bytes()[:12]
+    with path.open("rb") as f:
+        header = f.read(12)
     if header.startswith(b"\x89PNG\r\n\x1a\n"):
         return "png"
     if header.startswith(b"\xff\xd8"):
