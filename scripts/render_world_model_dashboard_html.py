@@ -373,6 +373,7 @@ def _render_html(*, data: dict[str, Any], summary: dict[str, Any]) -> str:
         "    .hash-list{display:grid;gap:8px;font-size:12px;}\n"
         "    .agent-row{display:grid;grid-template-columns:78px 110px minmax(0,1fr);gap:8px;align-items:start;border-top:1px solid var(--line);padding:7px 0;font-size:12px;}\n"
         "    .agent-row button{all:unset;display:grid;grid-template-columns:78px 110px minmax(0,1fr);gap:8px;align-items:start;width:100%;cursor:pointer;border-top:1px solid var(--line);padding:7px 0;font-size:12px;}\n"
+        "    .agent-row button:focus-visible{outline:3px solid #2563eb;outline-offset:2px;border-radius:6px;}\n"
         "    .agent-row button[data-selected=\"true\"]{background:#f5f8fc;border-radius:6px;padding-left:6px;padding-right:6px;}\n"
         "    .agent-chip{display:inline-flex;align-items:center;gap:6px;font-weight:700;}\n"
         "    .agent-swatch{width:10px;height:10px;border-radius:50%;display:inline-block;}\n"

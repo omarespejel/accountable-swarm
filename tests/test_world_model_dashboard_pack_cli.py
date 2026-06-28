@@ -8,7 +8,7 @@ import sys
 from tempfile import TemporaryDirectory
 from unittest import TestCase
 
-from accountable_swarm.trace.models import GENESIS_SHA, DecisionTrace, trace_from_dict
+from accountable_swarm.trace.models import GENESIS_SHA, DecisionTrace, trace_from_dict, verify_trace
 from accountable_swarm.world_model import world_model_from_dict
 
 
@@ -85,12 +85,32 @@ class WorldModelDashboardPackCliTests(TestCase):
             report_path = base / "hazard_x_report.json"
             out_dir = base / "dashboard"
             _run_hazard_gate(trace_dir=trace_dir, report_path=report_path, mission_source="fixture")
-            _rewrite_mission_trace_choice(trace_dir / "mission.json", mission="hold_position", risk="balanced")
+            rewritten_sha = _rewrite_mission_trace_choice(
+                trace_dir / "mission.json",
+                mission="hold_position",
+                risk="balanced",
+            )
+            _rewrite_report_mission_trace_sha(report_path, rewritten_sha)
 
             result = _run_dashboard_pack(trace_dir=trace_dir, report_path=report_path, out_dir=out_dir)
 
         self.assertEqual(result.returncode, 4)
         self.assertIn("hazard report mission_choice choice does not match mission trace", result.stderr)
+
+    def test_dashboard_pack_rejects_stale_mission_trace_without_report_choice(self) -> None:
+        (ROOT / "runs").mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=ROOT / "runs") as tmpdir:
+            base = Path(tmpdir)
+            trace_dir = base / "hazard_x"
+            report_path = base / "hazard_x_report.json"
+            out_dir = base / "dashboard"
+            _run_hazard_gate(trace_dir=trace_dir, report_path=report_path)
+            _run_hazard_gate(trace_dir=trace_dir, report_path=base / "with_mission_report.json", mission_source="fixture")
+
+            result = _run_dashboard_pack(trace_dir=trace_dir, report_path=report_path, out_dir=out_dir)
+
+        self.assertEqual(result.returncode, 4)
+        self.assertIn("mission trace exists but hazard report has no mission_choice", result.stderr)
 
     def test_dashboard_pack_rejects_world_model_trace_drift_even_when_rehashed(self) -> None:
         (ROOT / "runs").mkdir(parents=True, exist_ok=True)
@@ -387,7 +407,7 @@ def _rewrite_agent_trace_actor_id(trace_path: Path, actor_id: str) -> None:
     trace_path.write_text(rewritten_trace.to_canonical_json() + "\n", encoding="utf-8")
 
 
-def _rewrite_mission_trace_choice(trace_path: Path, *, mission: str, risk: str) -> None:
+def _rewrite_mission_trace_choice(trace_path: Path, *, mission: str, risk: str) -> str:
     trace = trace_from_dict(json.loads(trace_path.read_text(encoding="utf-8")))
     events = []
     prev_sha = GENESIS_SHA
@@ -405,3 +425,10 @@ def _rewrite_mission_trace_choice(trace_path: Path, *, mission: str, risk: str) 
         genesis_sha=trace.genesis_sha,
     ).with_computed_summary()
     trace_path.write_text(rewritten_trace.to_canonical_json() + "\n", encoding="utf-8")
+    return verify_trace(rewritten_trace)
+
+
+def _rewrite_report_mission_trace_sha(report_path: Path, trace_summary_sha: str) -> None:
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    report["mission_choice"]["trace_summary_sha"] = trace_summary_sha
+    report_path.write_text(json.dumps(report, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8")

@@ -208,9 +208,11 @@ def _build_report(
             AgentConfig(agent_id=config.agent_id, start=config.start, goal=config.start)
             for config in starts
         )
+        hold_start_cells = {config.start for config in configs}
+        hold_obstacles = () if hazard.cell in hold_start_cells else (hazard.cell,)
         result = run_swarm_custom(
             configs=configs,
-            obstacles=(hazard.cell,),
+            obstacles=hold_obstacles,
             ticks=1,
             grid_width=grid_width,
             grid_height=grid_height,

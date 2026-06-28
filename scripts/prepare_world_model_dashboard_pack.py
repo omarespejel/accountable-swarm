@@ -393,6 +393,9 @@ def _read_optional_mission_trace(
     mission_choice_report: Any,
 ) -> dict[str, Any] | None:
     if mission_choice_report in (None, {}):
+        stale_trace_path = _contained_path(repo_root, trace_dir / "mission.json", "mission trace")
+        if stale_trace_path.exists():
+            raise ValueError("mission trace exists but hazard report has no mission_choice")
         return None
     report = _require_dict(mission_choice_report, "hazard report mission_choice")
     trace_path = _contained_path(repo_root, trace_dir / "mission.json", "mission trace")
