@@ -42,12 +42,15 @@ operator explicitly passes `--allow-narrow-claim`.
 
 Run this against the ECS public endpoint after the Docker container is running.
 `local-smoke` mode and localhost are useful diagnostics, but they intentionally
-produce `NARROW_CLAIM` rather than deployment proof.
+produce `NARROW_CLAIM` rather than deployment proof. For IPv6 literals, bracket
+the host in `BASE_URL`, for example `http://[2001:db8::1]:8000`.
 
 ```bash
+BASE_URL="http://${ECS_PUBLIC_IP}:8000"  # IPv4
+# BASE_URL="http://[${ECS_PUBLIC_IP}]:8000"  # IPv6
 mkdir -p runs/ecs
 collect-ecs-smoke-report \
-  --base-url "http://${ECS_PUBLIC_IP}:8000" \
+  --base-url "${BASE_URL}" \
   --commit "$(git rev-parse HEAD)" \
   --proof-mode ecs-public \
   --ecs-region "${ECS_REGION}" \
@@ -61,8 +64,10 @@ The same command can be run as a module if the package entry point is not
 installed:
 
 ```bash
+BASE_URL="http://${ECS_PUBLIC_IP}:8000"  # IPv4
+# BASE_URL="http://[${ECS_PUBLIC_IP}]:8000"  # IPv6
 python3 -m scripts.collect_ecs_smoke_report \
-  --base-url "http://${ECS_PUBLIC_IP}:8000" \
+  --base-url "${BASE_URL}" \
   --commit "$(git rev-parse HEAD)" \
   --proof-mode ecs-public \
   --ecs-region "${ECS_REGION}" \

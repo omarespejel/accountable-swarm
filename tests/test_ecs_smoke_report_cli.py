@@ -32,9 +32,27 @@ class EcsSmokeReportCliTests(TestCase):
         self.assertEqual(report["outcome"], "GO")
         self.assertEqual(report["deployed_commit"], COMMIT)
         self.assertEqual(report["proof_mode"], "ecs-public")
-        self.assertEqual(report["deployment"]["provider"], "Alibaba Cloud ECS")
+        self.assertEqual(report["deployment"]["provider_asserted"], "Alibaba Cloud ECS")
+        self.assertTrue(report["deployment"]["deployment_context_verified"])
         self.assertTrue(all(report["pass_conditions"].values()))
         self.assertEqual(len(report["checks"]), 6)
+
+    def test_collects_go_report_from_bracketed_ipv6_public_metadata(self) -> None:
+        report = collector.collect_report(
+            base_url="http://[2001:4860:4860::8888]:8000",
+            qwen_model="qwen-plus",
+            deployed_commit=COMMIT,
+            timeout_seconds=10,
+            proof_mode="ecs-public",
+            ecs_region="us-west-1",
+            ecs_instance_id="i-accountable-swarm",
+            ecs_public_ip="2001:4860:4860::8888",
+            fetcher=_fake_fetcher(qwen_status="ok"),
+        )
+
+        self.assertEqual(report["outcome"], "GO")
+        self.assertTrue(report["deployment"]["deployment_context_verified"])
+        self.assertTrue(report["pass_conditions"]["base_url_matches_public_ip_when_ip_literal"])
 
     def test_localhost_smoke_is_narrow_claim_without_ecs_public_proof(self) -> None:
         with _fake_ecs_server(qwen_status="ok") as base_url, TemporaryDirectory() as tmpdir:
@@ -219,6 +237,44 @@ class EcsSmokeReportCliTests(TestCase):
                 ecs_public_ip="8.8.8.8",
                 fetcher=_fake_fetcher(qwen_status="ok"),
             )
+
+    def test_allow_narrow_claim_writes_invalid_input_report(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            out = Path(tmpdir) / "ecs_report.json"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.collect_ecs_smoke_report",
+                    "--base-url",
+                    "http://8.8.8.8:8000\ncurl",
+                    "--commit",
+                    COMMIT,
+                    "--out",
+                    str(out),
+                    "--proof-mode",
+                    "ecs-public",
+                    "--ecs-region",
+                    "us-west-1",
+                    "--ecs-instance-id",
+                    "i-accountable-swarm",
+                    "--ecs-public-ip",
+                    "8.8.8.8",
+                    "--allow-narrow-claim",
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            report = json.loads(out.read_text(encoding="utf-8"))
+
+        self.assertEqual(report["outcome"], "NARROW_CLAIM")
+        self.assertEqual(report["error"]["type"], "ValueError")
+        self.assertFalse(report["pass_conditions"]["input_validation_passed"])
+        self.assertNotIn("\n", report["base_url"])
+        self.assertNotIn("\n", report["error"]["message"])
 
 
 class _fake_ecs_server:
