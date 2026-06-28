@@ -100,6 +100,7 @@ def _build_bundle(
         raise ValueError("at least one scenario is required")
     if len(set(scenarios)) != len(scenarios):
         raise ValueError("scenarios must be unique")
+    render_timeout_seconds = _render_timeout_seconds()
     out_dir.mkdir(parents=True, exist_ok=True)
 
     cases = []
@@ -109,6 +110,7 @@ def _build_bundle(
             scenario=scenario,
             agent_count=agent_count,
             ticks=ticks,
+            render_timeout_seconds=render_timeout_seconds,
         )
         cases.append(case)
 
@@ -163,6 +165,7 @@ def _build_scenario_case(
     scenario: str,
     agent_count: int,
     ticks: int,
+    render_timeout_seconds: int,
 ) -> dict[str, Any]:
     scenario_dir = out_dir / "scenarios" / scenario
     trace_dir = scenario_dir / "traces"
@@ -213,10 +216,10 @@ def _build_scenario_case(
         render_args.extend(["--obstacle", f"{obstacle.x},{obstacle.y}"])
     try:
         render_result = _run_child_command(
-        render_args,
-        cwd=Path(__file__).resolve().parents[1],
-        timeout=_render_timeout_seconds(),
-    )
+            render_args,
+            cwd=Path(__file__).resolve().parents[1],
+            timeout=render_timeout_seconds,
+        )
     except subprocess.TimeoutExpired as exc:
         raise ValueError(f"trace renderer timed out for {scenario}") from exc
     if render_result.returncode != 0:

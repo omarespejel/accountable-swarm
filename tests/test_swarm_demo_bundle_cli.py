@@ -210,8 +210,25 @@ class SwarmDemoBundleCliTests(TestCase):
             module = _load_bundle_module()
             self.assertEqual(module._render_timeout_seconds(), 12)
 
+    def test_invalid_render_timeout_fails_before_artifact_creation(self) -> None:
+        with TemporaryDirectory(dir="/tmp") as tmpdir:
+            out_dir = Path(tmpdir) / "bundle"
 
-def _run_bundle(out_dir: Path, *extra_args: str) -> subprocess.CompletedProcess[str]:
+            result = _run_bundle(
+                out_dir,
+                env={**os.environ, "SWARM_RENDER_TIMEOUT_SECONDS": "invalid"},
+            )
+
+            self.assertEqual(result.returncode, 4)
+            self.assertIn("SWARM_RENDER_TIMEOUT_SECONDS must be an integer", result.stderr)
+            self.assertFalse(out_dir.exists())
+
+
+def _run_bundle(
+    out_dir: Path,
+    *extra_args: str,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
     args = [
         sys.executable,
         "scripts/build_swarm_demo_bundle.py",
@@ -227,6 +244,7 @@ def _run_bundle(out_dir: Path, *extra_args: str) -> subprocess.CompletedProcess[
                 text=True,
                 capture_output=True,
                 check=False,
+                env=env,
             )
             if (
                 result.returncode == 4
