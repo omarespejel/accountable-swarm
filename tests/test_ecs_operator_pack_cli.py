@@ -59,6 +59,7 @@ class EcsOperatorPackCliTests(TestCase):
         self.assertIn('if [[ "${ECS_PUBLIC_IP}" == *:* ]]; then', commands)
         self.assertIn('BASE_URL="http://[${ECS_PUBLIC_IP}]:8000"', commands)
         self.assertIn('BASE_URL="http://${ECS_PUBLIC_IP}:8000"', commands)
+        self.assertIn("BASE_URL must be the Alibaba ECS public IP/DNS for proof capture", commands)
         self.assertIn('PACK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"', commands)
         self.assertIn("${PACK_DIR}/.env.template", commands)
         self.assertIn("${ENV_FILE}", commands)
