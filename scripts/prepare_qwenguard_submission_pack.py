@@ -48,6 +48,9 @@ def main() -> int:
     except ValueError as exc:
         print(f"qwenguard submission pack failed: {exc}", file=sys.stderr)
         return 2
+    if _contains_secret_material(_display_path(repo_root, out_dir)):
+        print("qwenguard submission pack failed: output path contains secret-like material", file=sys.stderr)
+        return 2
 
     out_dir.mkdir(parents=True, exist_ok=True)
     files = {
@@ -125,9 +128,9 @@ def _render_readme(*, repo_root: Path, files: dict[str, Path], task: str, repo_u
             "",
             "## One-Sentence Pitch",
             "",
-            "> Qwen identifies the right object from an edge camera frame, local",
-            "> code validates and gates the action, a local SO-101 policy acts only",
-            "> when the gate allows it, cloud failure causes HOLD, and every decision",
+            "> Qwen proposes an object candidate from an edge camera frame, local",
+            "> code validates and gates that proposal, a local SO-101 policy acts",
+            "> only when the gate allows it, cloud failure causes HOLD, and every decision",
             "> is replayable as a hash-chained DecisionTrace.",
             "",
             "## Current Hero Task",
@@ -318,19 +321,16 @@ def _evidence_manifest(*, task: str, repo_url: str) -> dict[str, Any]:
                 "expected_path": "runs/physical/qwenguard_physical_go/so101_capture_report.json",
             },
             {
-                "name": "qwen_selector_on_real_frame",
+                "name": "qwenguard_no_motion_selector_gate_eval",
                 "status": "pending",
-                "expected_path": "runs/physical/qwenguard_physical_go/selector_trace.json",
-            },
-            {
-                "name": "qwen_evaluator_before_after",
-                "status": "pending",
-                "expected_path": "runs/physical/qwenguard_physical_go/evaluator_trace.json",
+                "expected_path": "runs/physical/qwenguard_physical_go/fixture_trace.json",
+                "note": "current physical-go pack writes one multi-stage no-motion trace, not separate selector/evaluator traces",
             },
             {
                 "name": "act_physical_trials",
                 "status": "pending",
-                "expected_path": "runs/physical/qwenguard_so101_training_pack/trial_results.csv",
+                "expected_path": "runs/physical/qwenguard_so101_training_pack/trial_template.csv",
+                "note": "operator fills this template or copies it to a measured trial-results CSV after physical attempts",
             },
             {
                 "name": "cloud_degraded_hold_take",
