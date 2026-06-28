@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 import shlex
 import stat
@@ -157,7 +157,7 @@ def main() -> int:
     }
     manifest_text = canonical_json(manifest)
     pass_conditions["manifest_contains_no_secret_material"] = not _contains_secret_material(manifest_text)
-    pass_conditions["output_paths_are_repo_relative"] = str(repo_root.resolve()) not in manifest_text
+    pass_conditions["output_paths_are_repo_relative"] = _manifest_file_paths_are_repo_relative(manifest["files"])
     manifest["outcome"] = "GO" if all(pass_conditions.values()) else "NARROW_CLAIM"
     files["manifest"].write_text(canonical_json(manifest) + "\n", encoding="utf-8")
 
@@ -265,8 +265,23 @@ def _render_commands(
             "",
             'PHASE="${1:-help}"',
             'PACK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"',
-            'REPO_ROOT="$(git -C "${PACK_DIR}" rev-parse --show-toplevel 2>/dev/null || pwd)"',
+            'if [[ -z "${REPO_ROOT:-}" ]]; then',
+            '  if REPO_ROOT="$(git -C "${PACK_DIR}" rev-parse --show-toplevel 2>/dev/null)"; then',
+            "    :",
+            "  else",
+            '    echo "could not locate repository root; set REPO_ROOT or run this pack inside the git checkout" >&2',
+            "    exit 2",
+            "  fi",
+            "fi",
+            'if [[ ! -f "${REPO_ROOT}/pyproject.toml" || ! -d "${REPO_ROOT}/scripts" ]]; then',
+            '  echo "REPO_ROOT does not look like the accountable-swarm checkout: ${REPO_ROOT}" >&2',
+            "  exit 2",
+            "fi",
             'cd "${REPO_ROOT}"',
+            'RUN_DIR="${QWENGUARD_GO_RUN_DIR:-runs/physical/qwenguard_physical_go}"',
+            'TRAINING_PACK_DIR="${QWENGUARD_TRAINING_PACK_DIR:-runs/physical/qwenguard_so101_training_pack}"',
+            'case "${RUN_DIR}" in /*|..|../*|*/..|*/../*) echo "QWENGUARD_GO_RUN_DIR must be repo-relative and must not contain .." >&2; exit 2 ;; esac',
+            'case "${TRAINING_PACK_DIR}" in /*|..|../*|*/..|*/../*) echo "QWENGUARD_TRAINING_PACK_DIR must be repo-relative and must not contain .." >&2; exit 2 ;; esac',
             "",
             f"export QWENGUARD_TASK={q_task}",
             f"export QWENGUARD_CAMERA_NAME={q_camera_name}",
@@ -292,50 +307,48 @@ def _render_commands(
             "}",
             "",
             "run_fixture() {",
-            "  mkdir -p runs/physical/qwenguard_physical_go",
+            "  mkdir -p \"${RUN_DIR}\"",
             "  python3 -m scripts.run_qwenguard_no_motion_health_check \\",
             "    --image fixtures/hazard_marker.ppm \\",
             "    --mode fixture \\",
             "    --policy-available \\",
             "    --simulate-safe-motion-authority \\",
             "    --instruction \"${QWENGUARD_TASK}\" \\",
-            "    --trace-out runs/physical/qwenguard_physical_go/fixture_trace.json \\",
-            "    --report-out runs/physical/qwenguard_physical_go/fixture_report.json",
+            "    --trace-out \"${RUN_DIR}/fixture_trace.json\" \\",
+            "    --report-out \"${RUN_DIR}/fixture_report.json\"",
             "}",
             "",
             "run_degraded() {",
-            "  mkdir -p runs/physical/qwenguard_physical_go",
+            "  mkdir -p \"${RUN_DIR}\"",
             "  python3 -m scripts.run_qwenguard_no_motion_health_check \\",
             "    --image fixtures/hazard_marker.ppm \\",
             "    --mode degraded \\",
             "    --policy-available \\",
             "    --simulate-safe-motion-authority \\",
             "    --instruction \"${QWENGUARD_TASK}\" \\",
-            "    --trace-out runs/physical/qwenguard_physical_go/degraded_trace.json \\",
-            "    --report-out runs/physical/qwenguard_physical_go/degraded_report.json",
+            "    --trace-out \"${RUN_DIR}/degraded_trace.json\" \\",
+            "    --report-out \"${RUN_DIR}/degraded_report.json\"",
             "}",
             "",
             "run_camera() {",
-            "  mkdir -p runs/physical/qwenguard_physical_go",
+            "  mkdir -p \"${RUN_DIR}\"",
             "  python3 -m scripts.capture_so101_camera_frame \\",
             "    --camera-name \"${QWENGUARD_CAMERA_NAME}\" \\",
             "    --index-or-path \"${QWENGUARD_CAMERA_ID}\" \\",
-            "    --out runs/physical/qwenguard_physical_go/so101_frame.png \\",
-            "    --report-out runs/physical/qwenguard_physical_go/so101_capture_report.json",
+            "    --out \"${RUN_DIR}/so101_frame.png\" \\",
+            "    --report-out \"${RUN_DIR}/so101_capture_report.json\"",
             "}",
             "",
             "run_training_pack() {",
             "  python3 -m scripts.prepare_so101_training_pack \\",
-            "    --out-dir runs/physical/qwenguard_so101_training_pack \\",
+            "    --out-dir \"${TRAINING_PACK_DIR}\" \\",
             "    --task \"${QWENGUARD_TASK}\" \\",
             "    --dataset-repo-id \"${QWENGUARD_DATASET_REPO_ID}\" \\",
             "    --policy-out-dir \"${QWENGUARD_POLICY_OUT_DIR}\"",
             "}",
             "",
             "run_verify() {",
-            "  for trace in \\",
-            "    runs/physical/qwenguard_physical_go/fixture_trace.json \\",
-            "    runs/physical/qwenguard_physical_go/degraded_trace.json; do",
+            "  for trace in \"${RUN_DIR}/fixture_trace.json\" \"${RUN_DIR}/degraded_trace.json\"; do",
             "    if [[ -f \"${trace}\" ]]; then",
             "      python3 -m scripts.verify_trace \"${trace}\"",
             "    fi",
@@ -433,6 +446,18 @@ def _display_path(repo_root: Path, path: Path) -> str:
 
 def _contains_secret_material(text: str) -> bool:
     return any(pattern.search(text) for pattern in SECRET_PATTERNS)
+
+
+def _manifest_file_paths_are_repo_relative(files: object) -> bool:
+    if not isinstance(files, dict):
+        return False
+    for value in files.values():
+        if not isinstance(value, str) or not value:
+            return False
+        path = PurePosixPath(value)
+        if path.is_absolute() or ".." in path.parts:
+            return False
+    return True
 
 
 def _has_control_chars(value: str) -> bool:
