@@ -97,6 +97,13 @@ What is checked locally:
 - QwenGuard SO-101 training pack generator now emits a no-secret runbook,
   operator command script, and trial CSV template. This is preparation for
   tomorrow's hardware session, not SO-101 connectivity or ACT success.
+- QwenGuard physical GO pack generator now consolidates the SO-101 camera
+  probe, fixture/degraded no-motion traces, ACT training-pack generation, trial
+  template, evidence template, and demo shotlist into one non-secret
+  phase-driven operator bundle. Its generated `all-safe` phase runs without
+  hardware and verifies fixture/degraded `decisiontrace.v2` traces. This is
+  still preparation, not SO-101 connectivity, camera success, ACT success, or
+  physical motion evidence.
 - minimal stdlib HTTP server and Dockerfile exist for manual Alibaba ECS proof;
   operator still needs to provision ECS and run the smoke checks.
 - ECS operator proof pack generator prepares a non-secret runbook, command
