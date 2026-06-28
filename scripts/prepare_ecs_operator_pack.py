@@ -25,7 +25,9 @@ DEFAULT_REPO_URL = "https://github.com/omarespejel/accountable-swarm"
 SECRET_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"Authorization:[ \t]*Bearer[ \t]+(?!<redacted>)\S+", re.IGNORECASE),
     re.compile(r"ALIBABA_API_KEY[ \t]*=[ \t]*\S+", re.IGNORECASE),
-    re.compile(r"sk-[A-Za-z0-9._-]{6,}"),
+    re.compile(r"github_pat_[A-Za-z0-9_]{20,}"),
+    re.compile(r"gh(?:p|o|u|s|r)_[A-Za-z0-9_]{12,}"),
+    re.compile(r"(?<![A-Za-z0-9_-])sk-[A-Za-z0-9._-]{20,}"),
 )
 
 
@@ -43,6 +45,14 @@ def main() -> int:
     if args.commit is not None and _has_control_chars(args.commit):
         print("commit must not contain control characters", file=sys.stderr)
         return 2
+    for name, value in {
+        "base URL": args.base_url,
+        "repo URL": args.repo_url,
+        "commit": args.commit or "",
+    }.items():
+        if _contains_secret_material(value):
+            print(f"{name} must not contain secret-like material", file=sys.stderr)
+            return 2
 
     try:
         repo_root = _find_repo_root(Path.cwd())

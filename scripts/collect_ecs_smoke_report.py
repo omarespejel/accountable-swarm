@@ -8,6 +8,7 @@ import hashlib
 import ipaddress
 import json
 from pathlib import Path
+import re
 import subprocess
 import sys
 from typing import Any, Callable
@@ -24,6 +25,13 @@ DEFAULT_OUT = Path("runs/ecs/ecs_smoke_report.json")
 DEFAULT_MODEL = "qwen-plus"
 TEXT_PREVIEW_LIMIT = 128
 PROOF_MODES = ("local-smoke", "ecs-public")
+SECRET_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"Authorization:[ \t]*Bearer[ \t]+(?!<redacted>)\S+", re.IGNORECASE),
+    re.compile(r"ALIBABA_API_KEY[ \t]*=[ \t]*\S+", re.IGNORECASE),
+    re.compile(r"github_pat_[A-Za-z0-9_]{20,}"),
+    re.compile(r"gh(?:p|o|u|s|r)_[A-Za-z0-9_]{12,}"),
+    re.compile(r"(?<![A-Za-z0-9_-])sk-[A-Za-z0-9._-]{20,}"),
+)
 
 
 def main() -> int:
@@ -51,6 +59,20 @@ def main() -> int:
 
     if args.timeout_seconds <= 0:
         print("timeout must be positive", file=sys.stderr)
+        return 2
+    try:
+        _validate_no_secret_inputs(
+            base_url=args.base_url,
+            qwen_model=args.qwen_model,
+            deployed_commit=args.commit or "",
+            proof_mode=args.proof_mode,
+            ecs_region=args.ecs_region,
+            ecs_instance_id=args.ecs_instance_id,
+            ecs_public_ip=args.ecs_public_ip,
+            out=str(args.out),
+        )
+    except ValueError as exc:
+        print(f"ecs smoke report failed: {exc}", file=sys.stderr)
         return 2
 
     try:
@@ -108,6 +130,15 @@ def collect_report(
 ) -> dict[str, Any]:
     if proof_mode not in PROOF_MODES:
         raise ValueError(f"proof mode must be one of {', '.join(PROOF_MODES)}")
+    _validate_no_secret_inputs(
+        base_url=base_url,
+        qwen_model=qwen_model,
+        deployed_commit=deployed_commit,
+        proof_mode=proof_mode,
+        ecs_region=ecs_region,
+        ecs_instance_id=ecs_instance_id,
+        ecs_public_ip=ecs_public_ip,
+    )
     if _has_control_chars(ecs_region) or _has_control_chars(ecs_instance_id) or _has_control_chars(ecs_public_ip):
         raise ValueError("ECS metadata must not contain control characters")
     normalized_base_url = _normalize_base_url(base_url)
@@ -442,7 +473,7 @@ def _input_validation_failure_report(
         "schema_version": REPORT_SCHEMA_VERSION,
         "outcome": "NARROW_CLAIM",
         "base_url": _sanitize_text(base_url),
-        "deployed_commit": deployed_commit,
+        "deployed_commit": _sanitize_text(deployed_commit),
         "proof_mode": proof_mode,
         "deployment": {
             "provider_asserted": "Alibaba Cloud ECS" if proof_mode == "ecs-public" else "local smoke",
@@ -451,7 +482,7 @@ def _input_validation_failure_report(
             "ecs_instance_id": _sanitize_text(ecs_instance_id.strip()),
             "ecs_public_ip": _sanitize_text(ecs_public_ip.strip()),
         },
-        "qwen_model": qwen_model,
+        "qwen_model": _sanitize_text(qwen_model),
         "checks": [],
         "pass_conditions": {
             "input_validation_passed": False,
@@ -476,6 +507,16 @@ def _input_validation_failure_report(
 
 def _sanitize_text(value: str) -> str:
     return "".join(character if ord(character) >= 32 else " " for character in value)
+
+
+def _validate_no_secret_inputs(**values: str) -> None:
+    for name, value in values.items():
+        if _contains_secret_material(value):
+            raise ValueError(f"{name} must not contain secret-like material")
+
+
+def _contains_secret_material(value: str) -> bool:
+    return any(pattern.search(value) for pattern in SECRET_PATTERNS)
 
 
 def _metadata_value_ok(value: str) -> bool:
