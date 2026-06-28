@@ -447,13 +447,19 @@ def _check_ecs_report(repo_root: Path, path: Path) -> dict[str, Any]:
 
 
 def _check_video_review(repo_root: Path, path: Path) -> dict[str, Any]:
-    check = _base_check("human_video_review_present", repo_root, path)
     if not path.is_file():
+        check = _base_check("human_video_review_present", repo_root, path)
         return _fail(check, "final video review note is missing")
     try:
         text = path.read_text(encoding="utf-8")
     except UnicodeDecodeError as exc:
+        check = _base_check("human_video_review_present", repo_root, path)
         return _fail(check, f"final video review note is not UTF-8: {exc}")
+    return check_video_review_text(repo_root=repo_root, path=path, text=text)
+
+
+def check_video_review_text(*, repo_root: Path, path: Path, text: str) -> dict[str, Any]:
+    check = _base_check("human_video_review_present", repo_root, path)
     missing_phrases = [phrase for phrase in VIDEO_REVIEW_REQUIRED_PHRASES if phrase not in text]
     fields, duplicate_fields = _parse_review_fields(text)
     missing_fields = [field for field in VIDEO_REVIEW_REQUIRED_FIELDS if field.lower() not in fields]
