@@ -14,15 +14,16 @@ browser.
 ## Change
 
 - Added a local-only `/replan` endpoint to the stdlib server.
-- The endpoint validates an integer-only request body with:
+- The endpoint validates a bounded canonical request body with:
   - grid size
   - four current agent cells
   - one hazard cell
   - zero or more obstacle cells
   - a bounded formation enum
+  - optional bounded observations copied from verified dashboard evidence
 - The endpoint re-enters the existing reservation planner, rebuilds agent
-  `DecisionTrace` files in memory, recomputes world-model rows, and returns a
-  deterministic canonical JSON response.
+  `DecisionTrace` objects in memory, recomputes world-model rows, and returns a
+  deterministic canonical JSON response. It does not write new trace files.
 - The HTML dashboard now exposes:
   - `Add obstacle`
   - `Clear obstacles`
@@ -50,12 +51,16 @@ curl -s -X POST http://127.0.0.1:8766/replan \
   | jq '{schema_version,outcome,planner_metrics,first_tick:.timeline[0].agents}'
 ```
 
-Manual browser proof:
+Manual browser preview:
 
 - open `http://127.0.0.1:8766/world-model-dashboard`
 - click a free grid cell to toggle an obstacle
 - verify the status line changes to `Planner GO ...` or a deterministic reject
 - verify the current-tick decisions and `World model hash` update
+
+This preview is for operator inspection and screen recording only. The
+reproducible evidence surface is the `curl` request above plus the endpoint and
+renderer tests; manual browser clicks are not promoted as standalone evidence.
 
 ## Required Evidence
 
@@ -70,12 +75,8 @@ The checked surface is `GO` only when:
 
 ## Non-Claims
 
-- No physical robot behavior.
-- No SO-101 operation.
-- No learned world model.
-- No 3D physics simulation.
-- No DimOS runtime execution.
-- No Open-RMF compatibility claim.
+- No physical robot behavior or SO-101 operation.
+- No learned world model or 3D physics simulation.
+- No DimOS runtime execution or Open-RMF compatibility claim.
 - No Qwen real-time control.
-- No safety, latency, or reliability claim.
-- No Alibaba ECS deployment proof.
+- No safety, latency, reliability, or Alibaba ECS deployment proof.

@@ -371,6 +371,30 @@ class ServerTests(TestCase):
         self.assertEqual(payload["status"], "rejected")
         self.assertIn("loopback Origin", payload["error"])
 
+    def test_replan_endpoint_rejects_non_loopback_host(self) -> None:
+        with _test_server() as base_url:
+            with self.assertRaises(HTTPError) as ctx:
+                _post_json_bytes(
+                    f"{base_url}/replan",
+                    _valid_replan_request(),
+                    headers={"Host": "example.com"},
+                )
+
+        self.assertEqual(ctx.exception.code, 403)
+        payload = json.loads(ctx.exception.read().decode("utf-8"))
+        self.assertEqual(payload["status"], "rejected")
+        self.assertIn("loopback Host", payload["error"])
+
+    def test_replan_endpoint_rejects_malformed_json_body(self) -> None:
+        with _test_server() as base_url:
+            with self.assertRaises(HTTPError) as ctx:
+                _post_raw_bytes(f"{base_url}/replan", b'{"grid":{"w":7')
+
+        self.assertEqual(ctx.exception.code, 400)
+        payload = json.loads(ctx.exception.read().decode("utf-8"))
+        self.assertEqual(payload["status"], "rejected")
+        self.assertIn("valid UTF-8 JSON", payload["error"])
+
     def test_replan_endpoint_rejects_unbounded_request_shape(self) -> None:
         with _test_server() as base_url:
             request_body = _valid_replan_request()
