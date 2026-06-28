@@ -37,6 +37,27 @@ class EcsSmokeReportCliTests(TestCase):
         self.assertTrue(all(report["pass_conditions"].values()))
         self.assertEqual(len(report["checks"]), 6)
 
+        for field_name, updates in [
+            ("ecs_region", {"ecs_region": ""}),
+            ("ecs_instance_id", {"ecs_instance_id": ""}),
+            ("ecs_public_ip", {"ecs_public_ip": ""}),
+        ]:
+            kwargs = {
+                "base_url": "http://8.8.8.8:8000",
+                "qwen_model": "qwen-plus",
+                "deployed_commit": COMMIT,
+                "timeout_seconds": 10,
+                "proof_mode": "ecs-public",
+                "ecs_region": "us-west-1",
+                "ecs_instance_id": "i-accountable-swarm",
+                "ecs_public_ip": "8.8.8.8",
+                "fetcher": _fake_fetcher(qwen_status="ok"),
+            }
+            kwargs.update(updates)
+            narrowed = collector.collect_report(**kwargs)
+            self.assertEqual(narrowed["outcome"], "NARROW_CLAIM", field_name)
+            self.assertFalse(narrowed["deployment"]["deployment_context_verified"], field_name)
+
     def test_collects_go_report_from_bracketed_ipv6_public_metadata(self) -> None:
         report = collector.collect_report(
             base_url="http://[2001:4860:4860::8888]:8000",
@@ -224,6 +245,23 @@ class EcsSmokeReportCliTests(TestCase):
         self.assertEqual(report["outcome"], "NARROW_CLAIM")
         self.assertFalse(report["pass_conditions"]["base_url_matches_public_ip_when_ip_literal"])
 
+    def test_ecs_public_mode_rejects_hostname_base_url(self) -> None:
+        report = collector.collect_report(
+            base_url="http://example.com:8000",
+            qwen_model="qwen-plus",
+            deployed_commit=COMMIT,
+            timeout_seconds=10,
+            proof_mode="ecs-public",
+            ecs_region="us-west-1",
+            ecs_instance_id="i-accountable-swarm",
+            ecs_public_ip="8.8.8.8",
+            fetcher=_fake_fetcher(qwen_status="ok"),
+        )
+
+        self.assertEqual(report["outcome"], "NARROW_CLAIM")
+        self.assertFalse(report["pass_conditions"]["base_url_is_public_endpoint"])
+        self.assertFalse(report["pass_conditions"]["base_url_matches_public_ip_when_ip_literal"])
+
     def test_rejects_base_url_control_characters_before_fetch(self) -> None:
         with self.assertRaises(ValueError):
             collector.collect_report(
@@ -235,7 +273,7 @@ class EcsSmokeReportCliTests(TestCase):
                 ecs_region="us-west-1",
                 ecs_instance_id="i-accountable-swarm",
                 ecs_public_ip="8.8.8.8",
-                fetcher=_fake_fetcher(qwen_status="ok"),
+                fetcher=_raising_fetcher,
             )
 
     def test_allow_narrow_claim_writes_invalid_input_report(self) -> None:
@@ -411,6 +449,10 @@ def _fake_fetcher(*, qwen_status: str, summary_schema: str = "swarm-demo-bundle-
         return _json_response({"error": "not_found"}, status=404)
 
     return fetcher
+
+
+def _raising_fetcher(*, base_url: str, path: str, timeout_seconds: int) -> dict[str, object]:
+    raise AssertionError(f"fetcher should not be called for {base_url} {path} {timeout_seconds}")
 
 
 def _json_response(payload: dict[str, object], *, status: int = 200) -> dict[str, object]:

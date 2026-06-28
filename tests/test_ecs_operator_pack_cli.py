@@ -51,6 +51,9 @@ class EcsOperatorPackCliTests(TestCase):
         self.assertIn("--ecs-region", commands)
         self.assertIn("--ecs-instance-id", commands)
         self.assertIn("--ecs-public-ip", commands)
+        self.assertIn('REPO_ROOT="$(git -C "${PACK_DIR}" rev-parse --show-toplevel', commands)
+        self.assertIn('ENV_FILE="${REPO_ROOT}/.env"', commands)
+        self.assertIn('cd "${REPO_ROOT}"', commands)
         self.assertIn("PACK_DEFAULT_BASE_URL=", commands)
         self.assertIn('if [ "${BASE_URL}" = "http://<ECS_PUBLIC_IP>:8000" ]', commands)
         self.assertIn('if [[ "${ECS_PUBLIC_IP}" == *:* ]]; then', commands)
@@ -58,6 +61,7 @@ class EcsOperatorPackCliTests(TestCase):
         self.assertIn('BASE_URL="http://${ECS_PUBLIC_IP}:8000"', commands)
         self.assertIn('PACK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"', commands)
         self.assertIn("${PACK_DIR}/.env.template", commands)
+        self.assertIn("${ENV_FILE}", commands)
         self.assertNotIn("copy runs/ecs/operator-pack/.env.template", commands)
         self.assertEqual(
             env_template,

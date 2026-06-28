@@ -89,7 +89,8 @@ curl -fsS 'http://127.0.0.1:8000/qwen-ping?model=qwen-plus'
 
 Then collect the sanitized machine-readable proof report against the public
 endpoint. A localhost report is only diagnostic and must not be promoted as an
-Alibaba ECS deployment proof. For IPv6 literals, bracket the host in `BASE_URL`.
+Alibaba ECS deployment proof. Use the ECS public IP literal in `BASE_URL`, not
+a hostname. For IPv6 literals, bracket the host in `BASE_URL`.
 
 ```bash
 BASE_URL="http://${ECS_PUBLIC_IP}:8000"  # IPv4
