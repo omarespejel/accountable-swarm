@@ -78,7 +78,11 @@ def audit_readiness(*, repo_root: Path, paths: dict[str, Path]) -> dict[str, Any
     fixture_trace_check = _check_trace(repo_root, paths["fixture_trace"], mode="fixture", expected_gate_decision="ALLOW")
     degraded_trace_check = _check_trace(repo_root, paths["degraded_trace"], mode="degraded", expected_gate_decision="HOLD")
     trial_trace_check = _check_trial_trace_dir(repo_root, paths["trial_trace_dir"])
-    verified_trial_trace_summaries = set(trial_trace_check["evidence"].get("summary_shas", []))
+    verified_trial_trace_summaries = (
+        set(trial_trace_check["evidence"].get("summary_shas", []))
+        if trial_trace_check["ok"]
+        else set()
+    )
     checks = [
         _check_submission_manifest(repo_root, paths["submission_manifest"]),
         _check_camera_report(repo_root, paths["so101_camera_report"]),
@@ -295,6 +299,7 @@ def _check_trial_csv(repo_root: Path, path: Path, *, verified_trace_summaries: s
         "invalid_row_count": len(invalid_reasons),
         "invalid_reasons": invalid_reasons[:5],
         "verified_trace_summary_count": len(verified_trace_summaries),
+        "trace_dependency_satisfied": bool(verified_trace_summaries),
     }
     return check
 
