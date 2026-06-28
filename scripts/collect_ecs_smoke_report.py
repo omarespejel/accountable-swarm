@@ -5,14 +5,15 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import ipaddress
 import json
 from pathlib import Path
 import subprocess
 import sys
-from typing import Any
+from typing import Any, Callable
 from urllib import request
 from urllib.error import HTTPError, URLError
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 from accountable_swarm.trace.models import canonical_json
 
@@ -22,6 +23,7 @@ SWARM_BUNDLE_SCHEMA_VERSION = "swarm-demo-bundle-report.v1"
 DEFAULT_OUT = Path("runs/ecs/ecs_smoke_report.json")
 DEFAULT_MODEL = "qwen-plus"
 TEXT_PREVIEW_LIMIT = 128
+PROOF_MODES = ("local-smoke", "ecs-public")
 
 
 def main() -> int:
@@ -31,6 +33,15 @@ def main() -> int:
     parser.add_argument("--commit", default=None, help="Deployed commit SHA. Defaults to local git HEAD when available.")
     parser.add_argument("--qwen-model", default=DEFAULT_MODEL)
     parser.add_argument("--timeout-seconds", type=int, default=10)
+    parser.add_argument(
+        "--proof-mode",
+        choices=PROOF_MODES,
+        default="local-smoke",
+        help="Use ecs-public for submission proof; local-smoke is explicitly not deployment proof.",
+    )
+    parser.add_argument("--ecs-region", default="", help="Alibaba ECS region, for example us-west-1.")
+    parser.add_argument("--ecs-instance-id", default="", help="Alibaba ECS instance ID recorded by the operator.")
+    parser.add_argument("--ecs-public-ip", default="", help="Public IPv4/IPv6 address for the ECS instance.")
     parser.add_argument(
         "--allow-narrow-claim",
         action="store_true",
@@ -48,6 +59,10 @@ def main() -> int:
             qwen_model=args.qwen_model,
             deployed_commit=args.commit or _git_head(),
             timeout_seconds=args.timeout_seconds,
+            proof_mode=args.proof_mode,
+            ecs_region=args.ecs_region,
+            ecs_instance_id=args.ecs_instance_id,
+            ecs_public_ip=args.ecs_public_ip,
         )
     except ValueError as exc:
         print(f"ecs smoke report failed: {exc}", file=sys.stderr)
@@ -62,54 +77,86 @@ def main() -> int:
     return 0
 
 
-def collect_report(*, base_url: str, qwen_model: str, deployed_commit: str, timeout_seconds: int) -> dict[str, Any]:
+def collect_report(
+    *,
+    base_url: str,
+    qwen_model: str,
+    deployed_commit: str,
+    timeout_seconds: int,
+    proof_mode: str = "local-smoke",
+    ecs_region: str = "",
+    ecs_instance_id: str = "",
+    ecs_public_ip: str = "",
+    fetcher: Callable[..., dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    if proof_mode not in PROOF_MODES:
+        raise ValueError(f"proof mode must be one of {', '.join(PROOF_MODES)}")
+    if _has_control_chars(ecs_region) or _has_control_chars(ecs_instance_id) or _has_control_chars(ecs_public_ip):
+        raise ValueError("ECS metadata must not contain control characters")
     normalized_base_url = _normalize_base_url(base_url)
+    fetch = fetcher or _fetch
     checks = [
         _check_json(
             base_url=normalized_base_url,
             path="/healthz",
             timeout_seconds=timeout_seconds,
             validator=_validate_healthz,
+            fetcher=fetch,
         ),
         _check_json(
             base_url=normalized_base_url,
             path="/readyz",
             timeout_seconds=timeout_seconds,
             validator=_validate_readyz,
+            fetcher=fetch,
         ),
         _check_json(
             base_url=normalized_base_url,
             path="/camera-fixture",
             timeout_seconds=timeout_seconds,
             validator=_validate_camera_fixture,
+            fetcher=fetch,
         ),
         _check_text(
             base_url=normalized_base_url,
             path="/swarm-demo",
             timeout_seconds=timeout_seconds,
             validator=_validate_swarm_demo_html,
+            fetcher=fetch,
         ),
         _check_json(
             base_url=normalized_base_url,
             path="/swarm-demo/summary.json",
             timeout_seconds=timeout_seconds,
             validator=_validate_swarm_summary,
+            fetcher=fetch,
         ),
         _check_json(
             base_url=normalized_base_url,
             path=f"/qwen-ping?model={qwen_model}",
             timeout_seconds=timeout_seconds,
             validator=lambda payload: _validate_qwen_ping(payload, qwen_model=qwen_model),
+            fetcher=fetch,
         ),
     ]
+    deployment = _deployment_evidence(
+        base_url=normalized_base_url,
+        proof_mode=proof_mode,
+        ecs_region=ecs_region,
+        ecs_instance_id=ecs_instance_id,
+        ecs_public_ip=ecs_public_ip,
+    )
     pass_conditions = {check["name"]: check["ok"] for check in checks}
     pass_conditions["deployed_commit_recorded"] = _is_git_oid(deployed_commit)
+    pass_conditions.update(deployment["pass_conditions"])
     outcome = "GO" if all(pass_conditions.values()) else "NARROW_CLAIM"
     return {
         "schema_version": REPORT_SCHEMA_VERSION,
         "outcome": outcome,
         "base_url": normalized_base_url,
         "deployed_commit": deployed_commit,
+        "proof_mode": proof_mode,
+        "deployment": deployment["evidence"],
         "qwen_model": qwen_model,
         "checks": checks,
         "pass_conditions": pass_conditions,
@@ -120,6 +167,7 @@ def collect_report(*, base_url: str, qwen_model: str, deployed_commit: str, time
             "not physical robot behavior",
             "not SO-101 operation",
             "not Qwen onboard execution",
+            "local-smoke mode is not an Alibaba ECS deployment proof",
         ],
     }
 
@@ -130,8 +178,9 @@ def _check_json(
     path: str,
     timeout_seconds: int,
     validator: Any,
+    fetcher: Callable[..., dict[str, Any]],
 ) -> dict[str, Any]:
-    response = _fetch(base_url=base_url, path=path, timeout_seconds=timeout_seconds)
+    response = fetcher(base_url=base_url, path=path, timeout_seconds=timeout_seconds)
     check = _base_check(name=_check_name(path), path=path, response=response)
     payload = response.get("json")
     if not isinstance(payload, dict):
@@ -151,8 +200,9 @@ def _check_text(
     path: str,
     timeout_seconds: int,
     validator: Any,
+    fetcher: Callable[..., dict[str, Any]],
 ) -> dict[str, Any]:
-    response = _fetch(base_url=base_url, path=path, timeout_seconds=timeout_seconds)
+    response = fetcher(base_url=base_url, path=path, timeout_seconds=timeout_seconds)
     check = _base_check(name=_check_name(path), path=path, response=response)
     validation = validator(response)
     check["ok"] = bool(validation["ok"])
@@ -315,10 +365,90 @@ def _check_name(path: str) -> str:
 
 
 def _normalize_base_url(base_url: str) -> str:
+    if _has_control_chars(base_url):
+        raise ValueError("base URL must not contain control characters")
     normalized = base_url.rstrip("/")
     if not normalized.startswith(("http://", "https://")):
         raise ValueError("base URL must start with http:// or https://")
+    parsed = urlparse(normalized)
+    if parsed.hostname is None:
+        raise ValueError("base URL must include a host")
     return normalized
+
+
+def _deployment_evidence(
+    *,
+    base_url: str,
+    proof_mode: str,
+    ecs_region: str,
+    ecs_instance_id: str,
+    ecs_public_ip: str,
+) -> dict[str, Any]:
+    region = ecs_region.strip()
+    instance_id = ecs_instance_id.strip()
+    public_ip_text = ecs_public_ip.strip()
+    public_ip = _parse_ip(public_ip_text)
+    base_url_public = _base_url_uses_public_host(base_url)
+    base_url_matches_ip = _base_url_matches_ip(base_url=base_url, public_ip=public_ip)
+    evidence = {
+        "provider": "Alibaba Cloud ECS" if proof_mode == "ecs-public" else "local smoke",
+        "ecs_region": region,
+        "ecs_instance_id": instance_id,
+        "ecs_public_ip": public_ip_text,
+        "base_url_is_public_endpoint": base_url_public,
+        "base_url_matches_public_ip_when_ip_literal": base_url_matches_ip,
+    }
+    pass_conditions = {
+        "proof_mode_is_ecs_public": proof_mode == "ecs-public",
+        "ecs_region_recorded": _metadata_value_ok(region),
+        "ecs_instance_id_recorded": _metadata_value_ok(instance_id),
+        "ecs_public_ip_is_global": public_ip is not None and public_ip.is_global,
+        "base_url_is_public_endpoint": base_url_public,
+        "base_url_matches_public_ip_when_ip_literal": base_url_matches_ip,
+    }
+    return {"evidence": evidence, "pass_conditions": pass_conditions}
+
+
+def _metadata_value_ok(value: str) -> bool:
+    return bool(value.strip()) and not _has_control_chars(value)
+
+
+def _parse_ip(value: str) -> ipaddress.IPv4Address | ipaddress.IPv6Address | None:
+    try:
+        return ipaddress.ip_address(value.strip())
+    except ValueError:
+        return None
+
+
+def _base_url_uses_public_host(base_url: str) -> bool:
+    host = urlparse(base_url).hostname
+    if host is None:
+        return False
+    lowered = host.lower()
+    if lowered in {"localhost"} or lowered.endswith(".local"):
+        return False
+    ip = _parse_ip(host)
+    if ip is None:
+        return True
+    return ip.is_global
+
+
+def _base_url_matches_ip(
+    *,
+    base_url: str,
+    public_ip: ipaddress.IPv4Address | ipaddress.IPv6Address | None,
+) -> bool:
+    host = urlparse(base_url).hostname
+    if host is None or public_ip is None:
+        return False
+    host_ip = _parse_ip(host)
+    if host_ip is None:
+        return True
+    return host_ip == public_ip
+
+
+def _has_control_chars(value: str) -> bool:
+    return any(ord(character) < 32 for character in value)
 
 
 def _is_hex_64(value: str) -> bool:

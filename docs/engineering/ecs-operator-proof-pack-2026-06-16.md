@@ -1,6 +1,6 @@
 # ECS Operator Proof Pack 2026-06-16
 
-Issue: #4
+Issue: #91
 
 ## Thesis
 
@@ -16,6 +16,9 @@ The new pack generator is GO when:
 - it writes an operator runbook and command script;
 - it writes a `.env.template` with non-secret configuration placeholders;
 - the manifest pins a valid Git commit;
+- the command script requires ECS region, ECS instance ID, ECS public IP, and
+  a public endpoint base URL before collecting proof;
+- the command script invokes `collect_ecs_smoke_report` in `ecs-public` mode;
 - generated text and manifest contain no key material;
 - tests cover the GO path and malformed-commit NARROW path.
 
@@ -39,7 +42,8 @@ env_template runs/ecs/operator-pack/.env.template
 
 This pack is not the ECS proof. The actual proof still requires the operator to
 provision Alibaba ECS, fill `.env` on the ECS host, run Docker, and collect
-`runs/ecs/ecs_smoke_report.json` with `outcome: GO`.
+`runs/ecs/ecs_smoke_report.json` with `outcome: GO` and
+`proof_mode: ecs-public`. A localhost smoke report is only `NARROW_CLAIM`.
 
 ## Non-Claims
 

@@ -102,7 +102,10 @@ What is checked locally:
 - ECS operator proof pack generator prepares a non-secret runbook, command
   script, `.env.template` with blank secret fields/defaults, and manifest for
   the operator-run Alibaba ECS proof session; this is not itself deployment
-  proof.
+  proof. The #91 proof collector now distinguishes localhost diagnostics from
+  `ecs-public` proof: `GO` requires public endpoint mode, ECS region, instance
+  ID, global public IP, and matching public endpoint evidence. Localhost smoke
+  is intentionally `NARROW_CLAIM`.
 - DimOS bridge pack generator consumes a verified swarm demo bundle, verifies
   every referenced agent `DecisionTrace`, exports an integer-only timeline
   NDJSON with event hashes, and records DimOS source/runtime availability as a

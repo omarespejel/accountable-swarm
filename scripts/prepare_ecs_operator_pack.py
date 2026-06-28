@@ -20,7 +20,7 @@ from accountable_swarm.trace.models import canonical_json
 
 PACK_SCHEMA_VERSION = "ecs-operator-proof-pack.v1"
 DEFAULT_OUT_DIR = Path("runs/ecs/operator-pack")
-DEFAULT_BASE_URL = "http://127.0.0.1:8000"
+DEFAULT_BASE_URL = "http://<ECS_PUBLIC_IP>:8000"
 DEFAULT_REPO_URL = "https://github.com/omarespejel/accountable-swarm"
 SECRET_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"Authorization:[ \t]*Bearer[ \t]+(?!<redacted>)\S+", re.IGNORECASE),
@@ -72,7 +72,17 @@ def main() -> int:
         repo_root=repo_root,
     )
     commands = _render_commands(base_url=args.base_url, commit=commit)
-    env_template = "ALIBABA_API_KEY=\nQWEN_VL_MODEL=qwen3-vl-flash\n"
+    env_template = "\n".join(
+        [
+            "ALIBABA_API_KEY=",
+            "QWEN_VL_MODEL=qwen3-vl-flash",
+            "ECS_REGION=",
+            "ECS_INSTANCE_ID=",
+            "ECS_PUBLIC_IP=",
+            "BASE_URL=",
+            "",
+        ]
+    )
 
     generated_text = "\n".join([runbook, commands, env_template])
     if _contains_secret_material(generated_text):
@@ -102,12 +112,15 @@ def main() -> int:
         "code_file_links": _code_file_links(repo_url=args.repo_url, commit=commit),
         "operator_proof_required": [
             "ECS region and OS image",
+            "ECS instance ID",
+            "ECS public IP",
+            "public endpoint base URL",
             "deployed commit SHA",
             "Docker build command",
             "Docker run command or service unit",
             "sanitized collect-ecs-smoke-report output",
-            "runs/ecs/ecs_smoke_report.json with outcome GO",
-            "terminal screenshot or transcript showing execution on Alibaba ECS",
+            "runs/ecs/ecs_smoke_report.json with outcome GO and proof_mode ecs-public",
+            "terminal screenshot or transcript showing execution against the Alibaba ECS public endpoint",
         ],
         "pass_conditions": pass_conditions,
         "non_claims": [
@@ -153,8 +166,10 @@ def _render_runbook(
             "## Pinned Inputs",
             "",
             f"- Commit: `{commit}`",
-            f"- Expected local smoke base URL: `{base_url}`",
+            f"- Expected ECS public base URL: `{base_url}`",
             "- Secrets: create `.env` from `.env.template` on the ECS host only.",
+            "- Metadata: fill `ECS_REGION`, `ECS_INSTANCE_ID`, `ECS_PUBLIC_IP`,",
+            "  and `BASE_URL` in `.env` before running the command script.",
             "",
             "## Files",
             "",
@@ -171,11 +186,13 @@ def _render_runbook(
             "3. Clone the repository and check out the pinned commit.",
             "4. Copy `.env.template` to `.env` on the ECS host and fill the",
             "   Alibaba key there only.",
-            "5. Run `operator_commands.sh` from the repository root.",
+            "5. Run `operator_commands.sh` from the repository root. The collector",
+            "   must run in `ecs-public` mode against `BASE_URL`, not localhost.",
             "6. Save `runs/ecs/ecs_smoke_report.json` only if it contains",
-            "   `\"outcome\":\"GO\"`.",
-            "7. Record region, OS image, deployed commit, command transcript,",
-            "   and a terminal screenshot showing the proof ran on Alibaba ECS.",
+            "   `\"outcome\":\"GO\"` and `\"proof_mode\":\"ecs-public\"`.",
+            "7. Record region, instance ID, public IP, OS image, deployed commit,",
+            "   command transcript, and a terminal screenshot showing the proof",
+            "   ran against the Alibaba ECS public endpoint.",
             "",
             "## Code File Links",
             "",
@@ -207,17 +224,34 @@ def _render_commands(*, base_url: str, commit: str) -> str:
             'if [ -z "${COMMIT:-}" ]; then',
             f"  COMMIT={quoted_commit}",
             "fi",
-            'if [ -z "${BASE_URL:-}" ]; then',
-            f"  BASE_URL={quoted_base_url}",
-            "fi",
+            f"PACK_DEFAULT_BASE_URL={quoted_base_url}",
             "",
             'if [ ! -f ".env" ]; then',
             '  echo "missing .env; copy ${PACK_DIR}/.env.template to .env and fill it on the ECS host" >&2',
             "  exit 2",
             "fi",
             "",
+            'env_value() {',
+            '  awk -F= -v key="$1" \'$1 == key {sub(/^[^=]*=/, ""); print; exit}\' .env',
+            '}',
+            "",
             "if ! awk -F= '$1 == \"ALIBABA_API_KEY\" && length($2) > 0 {found=1} END {exit found ? 0 : 1}' .env; then",
             '  echo "ALIBABA_API_KEY is empty in .env" >&2',
+            "  exit 2",
+            "fi",
+            "",
+            'ECS_REGION="${ECS_REGION:-$(env_value ECS_REGION)}"',
+            'ECS_INSTANCE_ID="${ECS_INSTANCE_ID:-$(env_value ECS_INSTANCE_ID)}"',
+            'ECS_PUBLIC_IP="${ECS_PUBLIC_IP:-$(env_value ECS_PUBLIC_IP)}"',
+            'BASE_URL="${BASE_URL:-$(env_value BASE_URL)}"',
+            'if [ -z "${BASE_URL}" ]; then',
+            '  BASE_URL="${PACK_DEFAULT_BASE_URL}"',
+            "fi",
+            'if [ "${BASE_URL}" = "http://<ECS_PUBLIC_IP>:8000" ] && [ -n "${ECS_PUBLIC_IP}" ]; then',
+            '  BASE_URL="http://${ECS_PUBLIC_IP}:8000"',
+            "fi",
+            'if [ -z "${ECS_REGION}" ] || [ -z "${ECS_INSTANCE_ID}" ] || [ -z "${ECS_PUBLIC_IP}" ] || [ -z "${BASE_URL}" ]; then',
+            '  echo "ECS_REGION, ECS_INSTANCE_ID, ECS_PUBLIC_IP, and BASE_URL must be set in .env or environment" >&2',
             "  exit 2",
             "fi",
             "",
@@ -241,6 +275,10 @@ def _render_commands(*, base_url: str, commit: str) -> str:
             'python3 -m scripts.collect_ecs_smoke_report \\',
             '  --base-url "${BASE_URL}" \\',
             '  --commit "${COMMIT}" \\',
+            '  --proof-mode ecs-public \\',
+            '  --ecs-region "${ECS_REGION}" \\',
+            '  --ecs-instance-id "${ECS_INSTANCE_ID}" \\',
+            '  --ecs-public-ip "${ECS_PUBLIC_IP}" \\',
             '  --out runs/ecs/ecs_smoke_report.json',
             'python3 -m json.tool runs/ecs/ecs_smoke_report.json',
             "",
