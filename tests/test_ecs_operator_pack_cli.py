@@ -166,6 +166,51 @@ class EcsOperatorPackCliTests(TestCase):
                     self.assertFalse((out_dir / ".env.template").exists())
                     self.assertFalse((out_dir / "manifest.json").exists())
 
+    def test_prepare_ecs_operator_pack_rejects_secret_like_out_dir_before_writing(self) -> None:
+        module = _load_module()
+        test_root = ROOT / "runs" / "ecs"
+        test_root.mkdir(parents=True, exist_ok=True)
+        out_dir = test_root / "operator-pack-gho_abcdefghijklmno"
+        argv = [
+            "prepare_ecs_operator_pack.py",
+            "--out-dir",
+            str(out_dir.relative_to(ROOT)),
+            "--commit",
+            COMMIT,
+        ]
+        with patch.object(sys, "argv", argv):
+            returncode = module.main()
+
+        self.assertEqual(returncode, 2)
+        self.assertFalse((out_dir / "README.md").exists())
+        self.assertFalse((out_dir / "operator_commands.sh").exists())
+        self.assertFalse((out_dir / ".env.template").exists())
+        self.assertFalse((out_dir / "manifest.json").exists())
+
+    def test_prepare_ecs_operator_pack_rejects_bearer_redaction_prefix_bypass(self) -> None:
+        module = _load_module()
+        test_root = ROOT / "runs" / "ecs"
+        test_root.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=test_root) as tmpdir:
+            out_dir = Path(tmpdir) / "operator-pack"
+            argv = [
+                "prepare_ecs_operator_pack.py",
+                "--out-dir",
+                str(out_dir.relative_to(ROOT)),
+                "--commit",
+                COMMIT,
+                "--repo-url",
+                "https://example.com/Authorization: Bearer <redacted>gho_abcdefghijklmno",
+            ]
+            with patch.object(sys, "argv", argv):
+                returncode = module.main()
+
+            self.assertEqual(returncode, 2)
+            self.assertFalse((out_dir / "README.md").exists())
+            self.assertFalse((out_dir / "operator_commands.sh").exists())
+            self.assertFalse((out_dir / ".env.template").exists())
+            self.assertFalse((out_dir / "manifest.json").exists())
+
     def test_repo_path_rejects_absolute_paths(self) -> None:
         module = _load_module()
         with self.assertRaises(ValueError):

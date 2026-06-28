@@ -290,6 +290,20 @@ class EcsSmokeReportCliTests(TestCase):
                 fetcher=_raising_fetcher,
             )
 
+    def test_rejects_bearer_redaction_prefix_bypass_before_fetch(self) -> None:
+        with self.assertRaisesRegex(ValueError, "secret-like material"):
+            collector.collect_report(
+                base_url="http://8.8.8.8:8000",
+                qwen_model="Authorization: Bearer <redacted>gho_abcdefghijklmno",
+                deployed_commit=COMMIT,
+                timeout_seconds=10,
+                proof_mode="ecs-public",
+                ecs_region="us-west-1",
+                ecs_instance_id="i-accountable-swarm",
+                ecs_public_ip="8.8.8.8",
+                fetcher=_raising_fetcher,
+            )
+
     def test_allow_narrow_claim_writes_invalid_input_report(self) -> None:
         with TemporaryDirectory() as tmpdir:
             out = Path(tmpdir) / "ecs_report.json"
@@ -301,7 +315,9 @@ class EcsSmokeReportCliTests(TestCase):
                     "--base-url",
                     "http://8.8.8.8:8000\ncurl",
                     "--commit",
-                    COMMIT,
+                    f"{COMMIT}\nbranch",
+                    "--qwen-model",
+                    "qwen-plus\nbad",
                     "--out",
                     str(out),
                     "--proof-mode",
@@ -326,6 +342,8 @@ class EcsSmokeReportCliTests(TestCase):
         self.assertEqual(report["error"]["type"], "ValueError")
         self.assertFalse(report["pass_conditions"]["input_validation_passed"])
         self.assertNotIn("\n", report["base_url"])
+        self.assertNotIn("\n", report["deployed_commit"])
+        self.assertNotIn("\n", report["qwen_model"])
         self.assertNotIn("\n", report["error"]["message"])
 
     def test_allow_narrow_claim_does_not_write_secret_like_input_report(self) -> None:

@@ -26,7 +26,7 @@ DEFAULT_MODEL = "qwen-plus"
 TEXT_PREVIEW_LIMIT = 128
 PROOF_MODES = ("local-smoke", "ecs-public")
 SECRET_PATTERNS: tuple[re.Pattern[str], ...] = (
-    re.compile(r"Authorization:[ \t]*Bearer[ \t]+(?!<redacted>)\S+", re.IGNORECASE),
+    re.compile(r"Authorization:[ \t]*Bearer[ \t]+(?!<redacted>(?:$|[ \t]))\S+", re.IGNORECASE),
     re.compile(r"ALIBABA_API_KEY[ \t]*=[ \t]*\S+", re.IGNORECASE),
     re.compile(r"github_pat_[A-Za-z0-9_]{20,}"),
     re.compile(r"gh(?:p|o|u|s|r)_[A-Za-z0-9_]{12,}"),
