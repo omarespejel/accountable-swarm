@@ -104,6 +104,11 @@ What is checked locally:
   hardware and verifies fixture/degraded `decisiontrace.v2` traces. This is
   still preparation, not SO-101 connectivity, camera success, ACT success, or
   physical motion evidence.
+- QwenGuard submission pack generator now emits a claim-safe Track 5 operator
+  scaffold with `README.md`, `architecture.md`, `demo_script.md`,
+  `evidence_manifest.json`, and `manifest.json`. The pack generation outcome
+  is `GO`, but `submission_readiness` is intentionally `NARROW_CLAIM` until
+  SO-101 physical evidence and Alibaba ECS public endpoint proof are filled.
 - minimal stdlib HTTP server and Dockerfile exist for manual Alibaba ECS proof;
   operator still needs to provision ECS and run the smoke checks.
 - ECS operator proof pack generator prepares a non-secret runbook, command
