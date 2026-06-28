@@ -101,7 +101,7 @@ class DecisionEvent:
             raise ValueError("actor_id must be non-empty")
         if self.mode not in {"fixture", "cloud", "edge", "degraded"}:
             raise ValueError(f"unsupported mode: {self.mode}")
-        if self.decision not in {"MOVE", "VETO", "HOLD", "REROUTE"}:
+        if self.decision not in {"MOVE", "VETO", "HOLD", "REROUTE", "SELECT", "ALLOW", "RETRY", "EVALUATE"}:
             raise ValueError(f"unsupported decision: {self.decision}")
         if not _is_hex_64(self.prev_sha):
             raise ValueError("prev_sha must be a 64-character hex string")
