@@ -45,11 +45,27 @@ class EcsOperatorPackCliTests(TestCase):
         self.assertEqual(manifest["deployed_commit"], COMMIT)
         self.assertIn(f"/blob/{COMMIT}/Dockerfile", manifest["code_file_links"]["dockerfile"])
         self.assertIn("runs/ecs/ecs_smoke_report.json", runbook)
+        self.assertIn('"proof_mode":"ecs-public"', runbook)
         self.assertIn("collect_ecs_smoke_report", commands)
+        self.assertIn("--proof-mode ecs-public", commands)
+        self.assertIn("--ecs-region", commands)
+        self.assertIn("--ecs-instance-id", commands)
+        self.assertIn("--ecs-public-ip", commands)
+        self.assertIn("PACK_DEFAULT_BASE_URL=", commands)
+        self.assertIn('if [ "${BASE_URL}" = "http://<ECS_PUBLIC_IP>:8000" ]', commands)
+        self.assertIn('BASE_URL="http://${ECS_PUBLIC_IP}:8000"', commands)
         self.assertIn('PACK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"', commands)
         self.assertIn("${PACK_DIR}/.env.template", commands)
         self.assertNotIn("copy runs/ecs/operator-pack/.env.template", commands)
-        self.assertEqual(env_template, "ALIBABA_API_KEY=\nQWEN_VL_MODEL=qwen3-vl-flash\n")
+        self.assertEqual(
+            env_template,
+            "ALIBABA_API_KEY=\n"
+            "QWEN_VL_MODEL=qwen3-vl-flash\n"
+            "ECS_REGION=\n"
+            "ECS_INSTANCE_ID=\n"
+            "ECS_PUBLIC_IP=\n"
+            "BASE_URL=\n",
+        )
         combined = json.dumps(manifest, sort_keys=True) + runbook + commands + env_template
         self.assertFalse(module._contains_secret_material(combined))
 

@@ -1,6 +1,6 @@
 # ECS Smoke Proof Collector 2026-06-15
 
-Issue: https://github.com/omarespejel/accountable-swarm/issues/4
+Issue: https://github.com/omarespejel/accountable-swarm/issues/91
 
 ## Thesis
 
@@ -29,20 +29,30 @@ The collector reports `GO` only when all of these pass:
 - `/swarm-demo` serves HTML;
 - `/swarm-demo/summary.json` reports `outcome: GO`;
 - `/qwen-ping?model=qwen-plus` returns `status: ok`;
-- the deployed commit SHA is recorded.
+- the deployed commit SHA is recorded;
+- `--proof-mode ecs-public` is used;
+- ECS region, instance ID, and global public IP are recorded;
+- the checked `--base-url` is a public endpoint, not localhost or a private IP;
+- an IP-literal `--base-url` matches `--ecs-public-ip`.
 
 Any failed condition produces `NARROW_CLAIM` and exits non-zero unless the
 operator explicitly passes `--allow-narrow-claim`.
 
 ## Operator Command
 
-Run this on the ECS host after the Docker container is running:
+Run this against the ECS public endpoint after the Docker container is running.
+`local-smoke` mode and localhost are useful diagnostics, but they intentionally
+produce `NARROW_CLAIM` rather than deployment proof.
 
 ```bash
 mkdir -p runs/ecs
 collect-ecs-smoke-report \
-  --base-url http://127.0.0.1:8000 \
+  --base-url "http://${ECS_PUBLIC_IP}:8000" \
   --commit "$(git rev-parse HEAD)" \
+  --proof-mode ecs-public \
+  --ecs-region "${ECS_REGION}" \
+  --ecs-instance-id "${ECS_INSTANCE_ID}" \
+  --ecs-public-ip "${ECS_PUBLIC_IP}" \
   --out runs/ecs/ecs_smoke_report.json
 python3 -m json.tool runs/ecs/ecs_smoke_report.json
 ```
@@ -52,8 +62,12 @@ installed:
 
 ```bash
 python3 -m scripts.collect_ecs_smoke_report \
-  --base-url http://127.0.0.1:8000 \
+  --base-url "http://${ECS_PUBLIC_IP}:8000" \
   --commit "$(git rev-parse HEAD)" \
+  --proof-mode ecs-public \
+  --ecs-region "${ECS_REGION}" \
+  --ecs-instance-id "${ECS_INSTANCE_ID}" \
+  --ecs-public-ip "${ECS_PUBLIC_IP}" \
   --out runs/ecs/ecs_smoke_report.json
 ```
 
@@ -67,7 +81,8 @@ python3 -m unittest tests.test_ecs_smoke_report_cli
 
 Covered cases:
 
-- full endpoint set returns `GO`;
+- full endpoint set plus public ECS metadata returns `GO`;
+- localhost/default `local-smoke` mode returns `NARROW_CLAIM`;
 - missing Qwen/API-key proof returns `NARROW_CLAIM` and exit code `4`;
 - `--allow-narrow-claim` writes the report with exit code `0` for diagnostic
   capture.

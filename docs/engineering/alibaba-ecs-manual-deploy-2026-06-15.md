@@ -1,6 +1,6 @@
 # Alibaba ECS Manual Deploy Path 2026-06-15
 
-Issue: https://github.com/omarespejel/accountable-swarm/issues/4
+Issue: https://github.com/omarespejel/accountable-swarm/issues/91
 
 This is a manual deployment path. Do not give cloud-console credentials to an
 agent. The operator provisions ECS, configures security groups, sets secrets,
@@ -56,6 +56,10 @@ umask 077
 cat > .env <<'EOF'
 ALIBABA_API_KEY=replace-with-operator-secret
 QWEN_VL_MODEL=qwen3-vl-flash
+ECS_REGION=replace-with-region
+ECS_INSTANCE_ID=replace-with-instance-id
+ECS_PUBLIC_IP=replace-with-public-ip
+BASE_URL=
 EOF
 ```
 
@@ -83,13 +87,19 @@ curl -fsS http://127.0.0.1:8000/swarm-demo/summary.json
 curl -fsS 'http://127.0.0.1:8000/qwen-ping?model=qwen-plus'
 ```
 
-Then collect the sanitized machine-readable proof report:
+Then collect the sanitized machine-readable proof report against the public
+endpoint. A localhost report is only diagnostic and must not be promoted as an
+Alibaba ECS deployment proof.
 
 ```bash
 mkdir -p runs/ecs
 python3 -m scripts.collect_ecs_smoke_report \
-  --base-url http://127.0.0.1:8000 \
+  --base-url "http://${ECS_PUBLIC_IP}:8000" \
   --commit "$(git rev-parse HEAD)" \
+  --proof-mode ecs-public \
+  --ecs-region "${ECS_REGION}" \
+  --ecs-instance-id "${ECS_INSTANCE_ID}" \
+  --ecs-public-ip "${ECS_PUBLIC_IP}" \
   --out runs/ecs/ecs_smoke_report.json
 python3 -m json.tool runs/ecs/ecs_smoke_report.json
 ```
@@ -106,14 +116,17 @@ runs/ecs/operator-pack/operator_commands.sh
 The deployment proof is complete only when the operator records:
 
 - ECS instance region and OS image, without secrets;
+- ECS instance ID and public IP, without secrets;
 - commit SHA deployed;
 - Docker image build command;
 - `curl /healthz` output;
 - `curl /camera-fixture` output with a 64-character `trace_summary_sha`;
 - `curl /swarm-demo/summary.json` output with `outcome: GO`;
 - `curl /qwen-ping?model=qwen-plus` output with `status: ok`;
-- `runs/ecs/ecs_smoke_report.json` with top-level `outcome: GO`;
-- screenshot or terminal log showing this ran on ECS.
+- `runs/ecs/ecs_smoke_report.json` with top-level `outcome: GO` and
+  `proof_mode: ecs-public`;
+- screenshot or terminal log showing this ran against the Alibaba ECS public
+  endpoint.
 
 ## Local Server Smoke
 
@@ -142,8 +155,8 @@ GET /qwen-ping?model=qwen-plus
 {"content_prefix":"OK.","model":"qwen-plus","status":"ok"}
 ```
 
-The ECS proof is still pending until the same checks run on an Alibaba ECS
-instance.
+The ECS proof is still pending until the same checks run in `ecs-public` mode
+against an Alibaba ECS public endpoint.
 
 ## Non-Claims
 
