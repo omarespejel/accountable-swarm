@@ -180,8 +180,8 @@ prepare-qwenguard-submission-pack \
   --out-dir runs/submission/qwenguard-pack
 ```
 
-The generated pack writes an architecture note, demo script, evidence manifest,
-and README. Its pack-generation outcome can be `GO`, but
+The generated pack writes README, architecture, demo script, evidence manifest,
+and `manifest.json`. Its pack-generation outcome can be `GO`, but
 `submission_readiness` stays `NARROW_CLAIM` until SO-101 physical evidence and
 Alibaba ECS public-endpoint proof are added by the operator.
 

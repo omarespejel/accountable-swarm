@@ -21,7 +21,8 @@ ECS_ISSUE_URL = "https://github.com/omarespejel/accountable-swarm/issues/91"
 SECRET_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"Authorization:[ \t]*Bearer[ \t]+(?!<redacted>)\S+", re.IGNORECASE),
     re.compile(r"ALIBABA_API_KEY[ \t]*=[ \t]*\S+", re.IGNORECASE),
-    re.compile(r"ghp_[A-Za-z0-9_]{12,}"),
+    re.compile(r"github_pat_[A-Za-z0-9_]{20,}"),
+    re.compile(r"gh(?:p|o|u|s|r)_[A-Za-z0-9_]{12,}"),
     re.compile(r"sk-[A-Za-z0-9._-]{6,}"),
 )
 
@@ -37,7 +38,11 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    for name, value in {"task": args.task, "repo_url": args.repo_url}.items():
+    for name, value in {
+        "task": args.task,
+        "repo_url": args.repo_url,
+        "out_dir": str(args.out_dir),
+    }.items():
         if _has_control_chars(value):
             print(f"{name} must not contain control characters", file=sys.stderr)
             return 2
@@ -52,7 +57,6 @@ def main() -> int:
         print("qwenguard submission pack failed: output path contains secret-like material", file=sys.stderr)
         return 2
 
-    out_dir.mkdir(parents=True, exist_ok=True)
     files = {
         "readme": out_dir / "README.md",
         "architecture": out_dir / "architecture.md",
@@ -70,18 +74,13 @@ def main() -> int:
         print("generated QwenGuard submission pack would contain secret material; aborting", file=sys.stderr)
         return 2
 
-    files["readme"].write_text(readme, encoding="utf-8")
-    files["architecture"].write_text(architecture, encoding="utf-8")
-    files["demo_script"].write_text(demo_script, encoding="utf-8")
-    files["evidence_manifest"].write_text(canonical_json(evidence_manifest) + "\n", encoding="utf-8")
-
     pass_conditions = {
-        "readme_written": files["readme"].is_file(),
-        "architecture_written": files["architecture"].is_file(),
-        "demo_script_written": files["demo_script"].is_file(),
-        "evidence_manifest_written": files["evidence_manifest"].is_file(),
+        "readme_written": True,
+        "architecture_written": True,
+        "demo_script_written": True,
+        "evidence_manifest_written": True,
         "manifest_contains_no_secret_material": False,
-        "output_paths_are_repo_relative": True,
+        "output_paths_are_repo_relative": False,
         "readiness_is_not_overclaimed": evidence_manifest["submission_readiness"] == "NARROW_CLAIM",
     }
     manifest: dict[str, Any] = {
@@ -105,6 +104,19 @@ def main() -> int:
     pass_conditions["manifest_contains_no_secret_material"] = not _contains_secret_material(manifest_text)
     pass_conditions["output_paths_are_repo_relative"] = _manifest_file_paths_are_repo_relative(manifest["files"])
     manifest["outcome"] = "GO" if all(pass_conditions.values()) else "NARROW_CLAIM"
+    manifest_text = canonical_json(manifest)
+    if _contains_secret_material(manifest_text):
+        print("generated QwenGuard submission manifest would contain secret material; aborting", file=sys.stderr)
+        return 2
+    if manifest["outcome"] != "GO":
+        print("generated QwenGuard submission manifest failed pass conditions; aborting", file=sys.stderr)
+        return 4
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    files["readme"].write_text(readme, encoding="utf-8")
+    files["architecture"].write_text(architecture, encoding="utf-8")
+    files["demo_script"].write_text(demo_script, encoding="utf-8")
+    files["evidence_manifest"].write_text(canonical_json(evidence_manifest) + "\n", encoding="utf-8")
     files["manifest"].write_text(canonical_json(manifest) + "\n", encoding="utf-8")
 
     print(f"outcome {manifest['outcome']}")
