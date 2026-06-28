@@ -22,6 +22,7 @@ DEFAULT_SO101_CAMERA_REPORT = Path("runs/physical/qwenguard_physical_go/so101_ca
 DEFAULT_FIXTURE_TRACE = Path("runs/physical/qwenguard_physical_go/fixture_trace.json")
 DEFAULT_DEGRADED_TRACE = Path("runs/physical/qwenguard_physical_go/degraded_trace.json")
 DEFAULT_TRIAL_CSV = Path("runs/physical/qwenguard_so101_training_pack/trial_template.csv")
+DEFAULT_TRIAL_TRACE_DIR = Path("runs/physical/qwenguard_trials/traces")
 DEFAULT_ECS_REPORT = Path("runs/ecs/ecs_smoke_report.json")
 DEFAULT_VIDEO_REVIEW = Path("runs/submission/final_video_review.md")
 
@@ -34,6 +35,7 @@ def main() -> int:
     parser.add_argument("--fixture-trace", type=Path, default=DEFAULT_FIXTURE_TRACE)
     parser.add_argument("--degraded-trace", type=Path, default=DEFAULT_DEGRADED_TRACE)
     parser.add_argument("--trial-csv", type=Path, default=DEFAULT_TRIAL_CSV)
+    parser.add_argument("--trial-trace-dir", type=Path, default=DEFAULT_TRIAL_TRACE_DIR)
     parser.add_argument("--ecs-report", type=Path, default=DEFAULT_ECS_REPORT)
     parser.add_argument("--video-review", type=Path, default=DEFAULT_VIDEO_REVIEW)
     parser.add_argument(
@@ -52,6 +54,7 @@ def main() -> int:
             "fixture_trace": _repo_path(repo_root, args.fixture_trace),
             "degraded_trace": _repo_path(repo_root, args.degraded_trace),
             "trial_csv": _repo_path(repo_root, args.trial_csv),
+            "trial_trace_dir": _repo_path(repo_root, args.trial_trace_dir),
             "ecs_report": _repo_path(repo_root, args.ecs_report),
             "video_review": _repo_path(repo_root, args.video_review),
         }
@@ -74,17 +77,15 @@ def main() -> int:
 def audit_readiness(*, repo_root: Path, paths: dict[str, Path]) -> dict[str, Any]:
     fixture_trace_check = _check_trace(repo_root, paths["fixture_trace"], mode="fixture", expected_gate_decision="ALLOW")
     degraded_trace_check = _check_trace(repo_root, paths["degraded_trace"], mode="degraded", expected_gate_decision="HOLD")
-    verified_trace_summaries = {
-        str(check["evidence"].get("summary_sha"))
-        for check in (fixture_trace_check, degraded_trace_check)
-        if check["ok"] and check["evidence"].get("summary_sha")
-    }
+    trial_trace_check = _check_trial_trace_dir(repo_root, paths["trial_trace_dir"])
+    verified_trial_trace_summaries = set(trial_trace_check["evidence"].get("summary_shas", []))
     checks = [
         _check_submission_manifest(repo_root, paths["submission_manifest"]),
         _check_camera_report(repo_root, paths["so101_camera_report"]),
         fixture_trace_check,
         degraded_trace_check,
-        _check_trial_csv(repo_root, paths["trial_csv"], verified_trace_summaries=verified_trace_summaries),
+        trial_trace_check,
+        _check_trial_csv(repo_root, paths["trial_csv"], verified_trace_summaries=verified_trial_trace_summaries),
         _check_ecs_report(repo_root, paths["ecs_report"]),
         _check_video_review(repo_root, paths["video_review"]),
     ]
@@ -209,6 +210,45 @@ def _check_trace(repo_root: Path, path: Path, *, mode: str, expected_gate_decisi
     return check
 
 
+def _check_trial_trace_dir(repo_root: Path, path: Path) -> dict[str, Any]:
+    check = _base_check("measured_trial_traces_verify", repo_root, path)
+    if not path.is_dir():
+        return _fail(check, "measured trial trace directory is missing")
+    trace_paths = sorted(path.glob("*.json"))
+    if not trace_paths:
+        return _fail(check, "measured trial trace directory has no JSON traces")
+    summary_shas: list[str] = []
+    invalid_reasons: list[str] = []
+    for trace_path in trace_paths:
+        payload = _read_json(trace_path)
+        display_path = _display_path(repo_root, trace_path)
+        if isinstance(payload, JsonReadError):
+            invalid_reasons.append(f"{display_path}: {payload.reason}")
+            continue
+        if not isinstance(payload, dict):
+            invalid_reasons.append(f"{display_path}: trace is not a JSON object")
+            continue
+        try:
+            trace = trace_from_dict(payload)
+            summary_sha = verify_trace(trace)
+            _validate_trial_trace_shape(trace)
+        except (KeyError, TypeError, ValueError) as exc:
+            invalid_reasons.append(f"{display_path}: {exc.__class__.__name__}")
+        else:
+            summary_shas.append(summary_sha)
+    ok = bool(summary_shas) and not invalid_reasons
+    check["ok"] = ok
+    check["reason"] = "measured trial traces verify" if ok else "measured trial traces did not all verify"
+    check["evidence"] = {
+        "trace_count": len(trace_paths),
+        "verified_trace_count": len(summary_shas),
+        "summary_shas": summary_shas,
+        "invalid_reason_count": len(invalid_reasons),
+        "invalid_reasons": invalid_reasons[:5],
+    }
+    return check
+
+
 def _check_trial_csv(repo_root: Path, path: Path, *, verified_trace_summaries: set[str]) -> dict[str, Any]:
     check = _base_check("measured_trial_csv_has_rows", repo_root, path)
     if not path.is_file():
@@ -257,6 +297,22 @@ def _check_trial_csv(repo_root: Path, path: Path, *, verified_trace_summaries: s
         "verified_trace_summary_count": len(verified_trace_summaries),
     }
     return check
+
+
+def _validate_trial_trace_shape(trace: Any) -> None:
+    command_types = {
+        event.command.get("type")
+        for event in trace.events
+        if isinstance(event.command, dict)
+    }
+    required = {
+        "qwenguard_outcome_gate",
+        "physical_action_intent",
+        "qwenguard_evaluate_outcome",
+    }
+    missing = sorted(required - command_types)
+    if missing:
+        raise ValueError(f"trial trace missing required command types: {', '.join(missing)}")
 
 
 def _check_ecs_report(repo_root: Path, path: Path) -> dict[str, Any]:

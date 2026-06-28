@@ -114,6 +114,10 @@ What is checked locally:
   measured trial CSV, Alibaba ECS public smoke report, and human video review.
   In the current pre-hardware/pre-ECS state it writes `NARROW_CLAIM`; it exits
   `GO` only when those operator artifacts exist and pass.
+- QwenGuard submission readiness now requires measured trial CSV rows to bind
+  to verified per-trial `decisiontrace.v2` JSON files under
+  `runs/physical/qwenguard_trials/traces/`; fixture/degraded no-motion traces
+  no longer satisfy the measured-trial binding by themselves.
 - minimal stdlib HTTP server and Dockerfile exist for manual Alibaba ECS proof;
   operator still needs to provision ECS and run the smoke checks.
 - ECS operator proof pack generator prepares a non-secret runbook, command
