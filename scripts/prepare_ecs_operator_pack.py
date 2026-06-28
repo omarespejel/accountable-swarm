@@ -23,7 +23,7 @@ DEFAULT_OUT_DIR = Path("runs/ecs/operator-pack")
 DEFAULT_BASE_URL = "http://<ECS_PUBLIC_IP>:8000"
 DEFAULT_REPO_URL = "https://github.com/omarespejel/accountable-swarm"
 SECRET_PATTERNS: tuple[re.Pattern[str], ...] = (
-    re.compile(r"Authorization:[ \t]*Bearer[ \t]+(?!<redacted>)\S+", re.IGNORECASE),
+    re.compile(r"Authorization:[ \t]*Bearer[ \t]+(?!<redacted>(?:$|[ \t]))\S+", re.IGNORECASE),
     re.compile(r"ALIBABA_API_KEY[ \t]*=[ \t]*\S+", re.IGNORECASE),
     re.compile(r"github_pat_[A-Za-z0-9_]{20,}"),
     re.compile(r"gh(?:p|o|u|s|r)_[A-Za-z0-9_]{12,}"),
@@ -46,6 +46,7 @@ def main() -> int:
         print("commit must not contain control characters", file=sys.stderr)
         return 2
     for name, value in {
+        "out-dir": str(args.out_dir),
         "base URL": args.base_url,
         "repo URL": args.repo_url,
         "commit": args.commit or "",
