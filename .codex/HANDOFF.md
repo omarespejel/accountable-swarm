@@ -124,6 +124,11 @@ What is checked locally:
   `runs/physical/qwenguard_trials/trial_results.csv`, and writes a non-secret
   per-trial report. This is evidence plumbing only; it is not SO-101
   connectivity, ACT success, or physical success proof.
+- QwenGuard trial recorder now rejects raw-frame-like text payloads in
+  operator-supplied free-text fields, enforces semantic consistency across
+  outcome/cloud/gate/motion fields, and validates relation reference IDs so
+  explicit `--reference-mark-id` values do not silently append to a default.
+  The generated report points to issue #103 and retains #95 as the umbrella.
 - QwenGuard physical GO pack now exposes `record-success`, `record-failure`,
   and `record-cloud-hold` operator phases. These phases call
   `record-qwenguard-trial` and keep measured trial rows bound to verified
@@ -134,10 +139,8 @@ What is checked locally:
   reference, not the promoted measured-result artifact.
 - Focused QwenGuard evidence tests passed with
   `python3 -m unittest tests.test_record_qwenguard_trial_cli tests.test_qwenguard_physical_go_pack_cli tests.test_qwenguard_submission_pack_cli tests.test_qwenguard_submission_readiness_audit_cli tests.test_packaging`
-  -> `Ran 30 tests`, `OK`.
-- Full test discovery passed with `python3 -m unittest discover -s tests` ->
-  `Ran 360 tests`, `OK`.
-- Full local gate passed with `./scripts/local_gate.sh` -> `Ran 360 tests`,
+  -> `Ran 35 tests`, `OK`.
+- Full local gate passed with `./scripts/local_gate.sh` -> `Ran 365 tests`,
   `local gate passed`; the installed `record-qwenguard-trial` entry point wrote
   and verified `runs/physical/local_gate_qwenguard_trials/traces/local-gate-trial.json`.
 - minimal stdlib HTTP server and Dockerfile exist for manual Alibaba ECS proof;

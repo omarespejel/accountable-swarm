@@ -58,6 +58,8 @@ class RecordQwenGuardTrialCliTests(TestCase):
 
         self.assertEqual(report["schema_version"], "qwenguard-trial-record-report.v1")
         self.assertEqual(report["outcome"], "GO")
+        self.assertEqual(report["issue"], "https://github.com/omarespejel/accountable-swarm/issues/103")
+        self.assertEqual(report["umbrella_issue"], "https://github.com/omarespejel/accountable-swarm/issues/95")
         self.assertEqual(report["trace_summary_sha"], summary_sha)
         self.assertEqual(rows[0]["trial_id"], "trial-001")
         self.assertEqual(rows[0]["trace_summary_sha"], summary_sha)
@@ -86,6 +88,8 @@ class RecordQwenGuardTrialCliTests(TestCase):
                 "trial-001",
                 "--outcome",
                 "success",
+                "--motion-executed",
+                "true",
                 "--trace-dir",
                 str(trace_dir.relative_to(ROOT)),
                 "--csv-out",
@@ -113,6 +117,8 @@ class RecordQwenGuardTrialCliTests(TestCase):
                 "scripts.record_qwenguard_trial",
                 "--trial-id",
                 "trial-001",
+                "--motion-executed",
+                "true",
                 "--trace-dir",
                 str(trace_dir.relative_to(ROOT)),
                 "--csv-out",
@@ -142,6 +148,163 @@ class RecordQwenGuardTrialCliTests(TestCase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["outcome"], "missed_grasp")
         self.assertEqual(rows[0]["qwen_eval_label"], "failure:missed_grasp")
+
+    def test_cloud_hold_requires_degraded_hold_semantics(self) -> None:
+        base = ROOT / "runs" / "physical"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            trace_dir = Path(tmpdir) / "traces"
+            csv_out = Path(tmpdir) / "trial_results.csv"
+            report_out = Path(tmpdir) / "reports" / "trial-001.json"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.record_qwenguard_trial",
+                    "--trial-id",
+                    "trial-001",
+                    "--outcome",
+                    "cloud_hold",
+                    "--trace-dir",
+                    str(trace_dir.relative_to(ROOT)),
+                    "--csv-out",
+                    str(csv_out.relative_to(ROOT)),
+                    "--report-out",
+                    str(report_out.relative_to(ROOT)),
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("outcome=cloud_hold requires cloud_mode=degraded", result.stderr)
+            self.assertFalse(trace_dir.exists())
+            self.assertFalse(csv_out.exists())
+
+    def test_hold_decision_rejects_executed_motion(self) -> None:
+        base = ROOT / "runs" / "physical"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            trace_dir = Path(tmpdir) / "traces"
+            csv_out = Path(tmpdir) / "trial_results.csv"
+            report_out = Path(tmpdir) / "reports" / "trial-001.json"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.record_qwenguard_trial",
+                    "--trial-id",
+                    "trial-001",
+                    "--outcome",
+                    "unsafe_hold",
+                    "--gate-decision",
+                    "HOLD",
+                    "--risk-level",
+                    "high",
+                    "--motion-executed",
+                    "true",
+                    "--trace-dir",
+                    str(trace_dir.relative_to(ROOT)),
+                    "--csv-out",
+                    str(csv_out.relative_to(ROOT)),
+                    "--report-out",
+                    str(report_out.relative_to(ROOT)),
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("gate_decision=HOLD requires motion_executed=false", result.stderr)
+            self.assertFalse(trace_dir.exists())
+            self.assertFalse(csv_out.exists())
+
+    def test_explicit_reference_ids_replace_default_and_validate_relation(self) -> None:
+        base = ROOT / "runs" / "physical"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            trace_dir = Path(tmpdir) / "traces"
+            csv_out = Path(tmpdir) / "trial_results.csv"
+            report_out = Path(tmpdir) / "reports" / "trial-001.json"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.record_qwenguard_trial",
+                    "--trial-id",
+                    "trial-001",
+                    "--outcome",
+                    "success",
+                    "--motion-executed",
+                    "true",
+                    "--relation",
+                    "between",
+                    "--reference-mark-id",
+                    "C",
+                    "--reference-mark-id",
+                    "D",
+                    "--trace-dir",
+                    str(trace_dir.relative_to(ROOT)),
+                    "--csv-out",
+                    str(csv_out.relative_to(ROOT)),
+                    "--report-out",
+                    str(report_out.relative_to(ROOT)),
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            trace_payload = json.loads((trace_dir / "trial-001.json").read_text(encoding="utf-8"))
+            selector_commands = [
+                event["command"]
+                for event in trace_payload["events"]
+                if event["command"].get("type") == "qwenguard_select_target"
+            ]
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(selector_commands[0]["reference_mark_ids"], ["C", "D"])
+
+    def test_between_relation_requires_two_distinct_references(self) -> None:
+        base = ROOT / "runs" / "physical"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            trace_dir = Path(tmpdir) / "traces"
+            csv_out = Path(tmpdir) / "trial_results.csv"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.record_qwenguard_trial",
+                    "--trial-id",
+                    "trial-001",
+                    "--outcome",
+                    "success",
+                    "--motion-executed",
+                    "true",
+                    "--relation",
+                    "between",
+                    "--reference-mark-id",
+                    "C",
+                    "--trace-dir",
+                    str(trace_dir.relative_to(ROOT)),
+                    "--csv-out",
+                    str(csv_out.relative_to(ROOT)),
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("relation between requires exactly two distinct reference marks", result.stderr)
+            self.assertFalse(trace_dir.exists())
+            self.assertFalse(csv_out.exists())
 
     def test_secret_like_notes_are_rejected_before_write(self) -> None:
         base = ROOT / "runs" / "physical"
@@ -173,5 +336,40 @@ class RecordQwenGuardTrialCliTests(TestCase):
 
             self.assertEqual(result.returncode, 2)
             self.assertIn("secret-like material", result.stderr)
+            self.assertFalse(trace_dir.exists())
+            self.assertFalse(csv_out.exists())
+
+    def test_data_url_notes_are_rejected_before_write(self) -> None:
+        base = ROOT / "runs" / "physical"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            trace_dir = Path(tmpdir) / "traces"
+            csv_out = Path(tmpdir) / "trial_results.csv"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.record_qwenguard_trial",
+                    "--trial-id",
+                    "trial-001",
+                    "--outcome",
+                    "success",
+                    "--motion-executed",
+                    "true",
+                    "--notes",
+                    "data:image/png;base64," + ("A" * 100),
+                    "--trace-dir",
+                    str(trace_dir.relative_to(ROOT)),
+                    "--csv-out",
+                    str(csv_out.relative_to(ROOT)),
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("raw-frame-like material", result.stderr)
             self.assertFalse(trace_dir.exists())
             self.assertFalse(csv_out.exists())
