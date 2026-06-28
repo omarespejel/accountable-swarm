@@ -30,7 +30,8 @@ DOC_ACT_URL = "https://huggingface.co/docs/lerobot/en/act"
 SECRET_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"Authorization:[ \t]*Bearer[ \t]+(?!<redacted>)\S+", re.IGNORECASE),
     re.compile(r"ALIBABA_API_KEY[ \t]*=[ \t]*\S+", re.IGNORECASE),
-    re.compile(r"ghp_[A-Za-z0-9_]{12,}"),
+    re.compile(r"github_pat_[A-Za-z0-9_]{20,}"),
+    re.compile(r"gh(?:p|o|u|s|r)_[A-Za-z0-9_]{12,}"),
     re.compile(r"(?<![A-Za-z0-9_-])sk-[A-Za-z0-9._-]{20,}"),
 )
 
@@ -54,6 +55,9 @@ def main() -> int:
     }.items():
         if _has_control_chars(value):
             print(f"{name} must not contain control characters", file=sys.stderr)
+            return 2
+        if _contains_secret_material(value):
+            print(f"{name} must not contain secret-like material", file=sys.stderr)
             return 2
 
     try:

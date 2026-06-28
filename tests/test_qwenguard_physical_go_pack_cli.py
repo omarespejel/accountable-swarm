@@ -216,6 +216,40 @@ class QwenGuardPhysicalGoPackCliTests(TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertIn("control characters", result.stderr)
 
+    def test_secret_like_github_tokens_are_rejected_before_write(self) -> None:
+        secret_cases = {
+            "github_pat": "github_pat_ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+            "gho": "gho_abcdefghijklmno",
+            "ghu": "ghu_abcdefghijklmno",
+            "ghs": "ghs_abcdefghijklmno",
+            "ghr": "ghr_abcdefghijklmno",
+        }
+        base = ROOT / "runs" / "physical"
+        base.mkdir(parents=True, exist_ok=True)
+        for label, token in secret_cases.items():
+            with self.subTest(label=label):
+                with TemporaryDirectory(dir=base) as tmpdir:
+                    out_dir = Path(tmpdir) / "physical-go-pack"
+                    result = subprocess.run(
+                        [
+                            sys.executable,
+                            "-m",
+                            "scripts.prepare_qwenguard_physical_go_pack",
+                            "--out-dir",
+                            str(out_dir.relative_to(ROOT)),
+                            "--task",
+                            f"pick cube with {token}",
+                        ],
+                        cwd=ROOT,
+                        text=True,
+                        capture_output=True,
+                        check=False,
+                    )
+
+                    self.assertEqual(result.returncode, 2)
+                    self.assertIn("secret-like material", result.stderr)
+                    self.assertFalse(out_dir.exists())
+
     def test_generated_runner_rejects_escaping_output_override(self) -> None:
         base = ROOT / "runs" / "physical"
         base.mkdir(parents=True, exist_ok=True)

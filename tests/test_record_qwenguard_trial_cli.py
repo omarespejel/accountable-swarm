@@ -223,6 +223,80 @@ class RecordQwenGuardTrialCliTests(TestCase):
             self.assertFalse(trace_dir.exists())
             self.assertFalse(csv_out.exists())
 
+    def test_success_requires_executed_motion_before_write(self) -> None:
+        base = ROOT / "runs" / "physical"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            trace_dir = Path(tmpdir) / "traces"
+            csv_out = Path(tmpdir) / "trial_results.csv"
+            report_out = Path(tmpdir) / "reports" / "trial-001.json"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.record_qwenguard_trial",
+                    "--trial-id",
+                    "trial-001",
+                    "--outcome",
+                    "success",
+                    "--trace-dir",
+                    str(trace_dir.relative_to(ROOT)),
+                    "--csv-out",
+                    str(csv_out.relative_to(ROOT)),
+                    "--report-out",
+                    str(report_out.relative_to(ROOT)),
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("outcome=success requires motion_executed=true", result.stderr)
+            self.assertFalse(trace_dir.exists())
+            self.assertFalse(csv_out.exists())
+            self.assertFalse(report_out.exists())
+
+    def test_existing_report_path_rejects_before_trace_or_csv_write(self) -> None:
+        base = ROOT / "runs" / "physical"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            trace_dir = Path(tmpdir) / "traces"
+            csv_out = Path(tmpdir) / "trial_results.csv"
+            report_out = Path(tmpdir) / "reports" / "trial-001.json"
+            report_out.parent.mkdir(parents=True, exist_ok=True)
+            report_out.write_text("existing-report\n", encoding="utf-8")
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.record_qwenguard_trial",
+                    "--trial-id",
+                    "trial-001",
+                    "--outcome",
+                    "success",
+                    "--motion-executed",
+                    "true",
+                    "--trace-dir",
+                    str(trace_dir.relative_to(ROOT)),
+                    "--csv-out",
+                    str(csv_out.relative_to(ROOT)),
+                    "--report-out",
+                    str(report_out.relative_to(ROOT)),
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("report already exists", result.stderr)
+            self.assertFalse(trace_dir.exists())
+            self.assertFalse(csv_out.exists())
+            self.assertEqual(report_out.read_text(encoding="utf-8"), "existing-report\n")
+
     def test_explicit_reference_ids_replace_default_and_validate_relation(self) -> None:
         base = ROOT / "runs" / "physical"
         base.mkdir(parents=True, exist_ok=True)
