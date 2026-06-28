@@ -12,6 +12,7 @@ import re
 import sys
 from typing import Any
 
+from accountable_swarm.swarm import SUPPORTED_FORMATION_MISSIONS, SUPPORTED_MISSION_RISKS
 from accountable_swarm.trace.models import canonical_json
 
 
@@ -197,13 +198,19 @@ def _validate_mission_choice(value: Any, trace_summary_sha: Any) -> None:
     mission = _require_dict(value, "mission_choice")
     if not _is_hex_64(trace_summary_sha):
         raise ValueError("mission_trace_summary_sha must be a 64-character lowercase hex string")
-    for key in ("source", "model"):
-        if not isinstance(mission.get(key), str) or not mission[key]:
-            raise ValueError(f"mission_choice {key} must be a non-empty string")
+    source = mission.get("source")
+    if source not in {"fixture", "dashscope"}:
+        raise ValueError("mission_choice source must be fixture or dashscope")
+    model = mission.get("model")
+    if not isinstance(model, str) or not model:
+        raise ValueError("mission_choice model must be a non-empty string")
     choice = _require_dict(mission.get("choice"), "mission_choice choice")
-    for key in ("mission", "risk"):
-        if not isinstance(choice.get(key), str) or not choice[key]:
-            raise ValueError(f"mission_choice choice {key} must be a non-empty string")
+    selected_mission = choice.get("mission")
+    if selected_mission not in SUPPORTED_FORMATION_MISSIONS:
+        raise ValueError("mission_choice choice mission is unsupported")
+    risk = choice.get("risk")
+    if risk not in SUPPORTED_MISSION_RISKS:
+        raise ValueError("mission_choice choice risk is unsupported")
 
 
 def _validate_observations(value: Any, *, hazard_trace_sha: str, width: int, height: int) -> None:

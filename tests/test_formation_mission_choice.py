@@ -34,6 +34,10 @@ class FormationMissionChoiceTests(TestCase):
                 json.dumps({"mission": "surround_hazard", "risk": "cautious", "extra": "nope"})
             )
 
+    def test_parse_response_rejects_malformed_json(self) -> None:
+        with self.assertRaisesRegex(ValueError, "valid JSON"):
+            parse_formation_mission_response('{"mission":"surround_hazard","risk":')
+
     def test_parse_response_rejects_invalid_enum(self) -> None:
         with self.assertRaisesRegex(ValueError, "unsupported formation mission"):
             parse_formation_mission_response(

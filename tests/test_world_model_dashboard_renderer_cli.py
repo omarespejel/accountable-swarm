@@ -131,6 +131,28 @@ class WorldModelDashboardRendererCliTests(TestCase):
         self.assertIn("surround_hazard", html_text)
         self.assertIn("cautious", html_text)
 
+    def test_renderer_rejects_unsupported_mission_choice_enum(self) -> None:
+        with TemporaryDirectory(dir=ROOT / "runs") as tmpdir:
+            base = Path(tmpdir)
+            trace_dir = base / "hazard_x"
+            report_path = base / "hazard_x_report.json"
+            pack_dir = base / "dashboard"
+            _run_hazard_gate(trace_dir=trace_dir, report_path=report_path, mission_source="fixture")
+            _run_dashboard_pack(trace_dir=trace_dir, report_path=report_path, out_dir=pack_dir)
+            data_path = pack_dir / "data.json"
+            data = json.loads(data_path.read_text(encoding="utf-8"))
+            data["mission_choice"]["choice"]["mission"] = "invented"
+            data_path.write_text(json.dumps(data, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8")
+
+            result = _run_renderer(
+                data_path=data_path,
+                html_path=pack_dir / "index.html",
+                summary_path=pack_dir / "summary.json",
+            )
+
+        self.assertEqual(result.returncode, 4)
+        self.assertIn("mission_choice choice mission is unsupported", result.stderr)
+
     def test_renderer_rejects_unverified_schema(self) -> None:
         with TemporaryDirectory(dir=ROOT / "runs") as tmpdir:
             base = Path(tmpdir)
