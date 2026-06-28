@@ -36,6 +36,10 @@ SWARM_DEMO_BUILD_COMMAND = "python3 scripts/build_swarm_demo_bundle.py"
 HAZARD_FORMATION_BUILD_COMMAND = "python3 scripts/prepare_demo_recording_pack.py"
 WORLD_MODEL_DASHBOARD_BUILD_COMMAND = "python3 scripts/prepare_demo_recording_pack.py"
 INTERACTIVE_REPLAN_SCHEMA_VERSION = "interactive-replan-response.v1"
+INTERACTIVE_MIN_GRID_SIZE = 5
+INTERACTIVE_MAX_GRID_SIZE = 12
+INTERACTIVE_MAX_TICKS = 32
+INTERACTIVE_MAX_OBSTACLES = 24
 
 
 class AccountableSwarmHandler(BaseHTTPRequestHandler):
@@ -149,6 +153,13 @@ class AccountableSwarmHandler(BaseHTTPRequestHandler):
     def _handle_replan(self) -> None:
         if not _is_loopback_host(self.client_address[0]):
             self._send_json({"status": "rejected", "error": "replan endpoint is localhost-only"}, status=403)
+            return
+        if not _is_loopback_authority(self.headers.get("Host", "")):
+            self._send_json({"status": "rejected", "error": "replan endpoint requires a loopback Host header"}, status=403)
+            return
+        origin = self.headers.get("Origin")
+        if origin and not _is_loopback_origin(origin):
+            self._send_json({"status": "rejected", "error": "replan endpoint requires a loopback Origin"}, status=403)
             return
         try:
             payload = self._read_json_body()
@@ -306,8 +317,10 @@ def _interactive_replan_response(payload: dict[str, Any]) -> dict[str, Any]:
     grid = _require_dict(payload.get("grid"), "grid")
     grid_width = _require_positive_int(grid.get("w"), "grid.w")
     grid_height = _require_positive_int(grid.get("h"), "grid.h")
-    if grid_width < 5 or grid_height < 5:
-        raise ValueError("grid must be at least 5x5")
+    if not (INTERACTIVE_MIN_GRID_SIZE <= grid_width <= INTERACTIVE_MAX_GRID_SIZE):
+        raise ValueError(f"grid.w must be between {INTERACTIVE_MIN_GRID_SIZE} and {INTERACTIVE_MAX_GRID_SIZE}")
+    if not (INTERACTIVE_MIN_GRID_SIZE <= grid_height <= INTERACTIVE_MAX_GRID_SIZE):
+        raise ValueError(f"grid.h must be between {INTERACTIVE_MIN_GRID_SIZE} and {INTERACTIVE_MAX_GRID_SIZE}")
 
     formation = payload.get("formation")
     if not isinstance(formation, str) or formation not in SUPPORTED_FORMATIONS:
@@ -317,6 +330,8 @@ def _interactive_replan_response(payload: dict[str, Any]) -> dict[str, Any]:
     _validate_point_in_grid(hazard, grid_width=grid_width, grid_height=grid_height, name="hazard")
 
     obstacles = tuple(sorted(_grid_points_from_pairs(payload.get("obstacles", []), "obstacles")))
+    if len(obstacles) > INTERACTIVE_MAX_OBSTACLES:
+        raise ValueError(f"obstacles must contain at most {INTERACTIVE_MAX_OBSTACLES} items")
     for obstacle in obstacles:
         _validate_point_in_grid(obstacle, grid_width=grid_width, grid_height=grid_height, name="obstacle")
         if obstacle == hazard:
@@ -336,6 +351,8 @@ def _interactive_replan_response(payload: dict[str, Any]) -> dict[str, Any]:
     )
     configs = assign_formation_slots(starts=starts, plan=plan)
     ticks = _require_optional_positive_int(payload.get("ticks"), "ticks", default=8)
+    if ticks > INTERACTIVE_MAX_TICKS:
+        raise ValueError(f"ticks must be at most {INTERACTIVE_MAX_TICKS}")
     planner_obstacles = tuple(sorted({*obstacles, hazard}))
     result = run_swarm_custom(
         configs=configs,
@@ -570,6 +587,36 @@ def _is_loopback_host(value: str) -> bool:
         return ipaddress.ip_address(value).is_loopback
     except ValueError:
         return False
+
+
+def _is_loopback_origin(value: str) -> bool:
+    parsed = urlparse(value)
+    if parsed.scheme not in {"http", "https"}:
+        return False
+    return _is_loopback_host(parsed.hostname or "")
+
+
+def _is_loopback_authority(value: str) -> bool:
+    host = _authority_host(value)
+    return _is_loopback_host(host)
+
+
+def _authority_host(value: str) -> str:
+    value = value.strip()
+    if not value:
+        return ""
+    if "://" in value:
+        return urlparse(value).hostname or ""
+    if value.startswith("["):
+        end = value.find("]")
+        return value[1:end] if end > 1 else ""
+    if "@" in value:
+        value = value.rsplit("@", 1)[1]
+    if ":" in value:
+        host, port = value.rsplit(":", 1)
+        if port.isdigit():
+            return host
+    return value
 
 
 def _swarm_demo_bundle_root() -> Path:

@@ -107,6 +107,10 @@ class WorldModelDashboardRendererCliTests(TestCase):
         self.assertIn("assets/hazard_marker.ppm", html_text)
         self.assertIn("No DimOS bridge manifest was packaged", html_text)  # script contains fallback string
         self.assertIn("renderDimosStatus", html_text)
+        self.assertIn("canvas.addEventListener('click'", html_text)
+        self.assertIn("fetch('/replan'", html_text)
+        self.assertIn("obstaclePairsWithToggle", html_text)
+        self.assertIn("applyReplanResponse", html_text)
         self.assertIn("world_model_sha", html_text)
         self.assertIn("no physical robot behavior", html_text)
         self.assertIn("no Qwen real-time control", html_text)
