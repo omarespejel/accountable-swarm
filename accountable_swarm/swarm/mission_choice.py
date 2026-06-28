@@ -57,7 +57,7 @@ def parse_formation_mission_response(response_text: str) -> FormationMissionChoi
     if not response_text.strip():
         raise ValueError("formation mission response must be non-empty")
     try:
-        value = json.loads(response_text)
+        value = json.loads(response_text, object_pairs_hook=_reject_duplicate_keys)
     except json.JSONDecodeError as exc:
         raise ValueError("formation mission response must be valid JSON") from exc
     reject_raw_floats(value)
@@ -161,3 +161,12 @@ def _expect_str(value: Any, name: str) -> str:
     if not value.strip():
         raise ValueError(f"{name} must be non-empty")
     return value
+
+
+def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, item in pairs:
+        if key in result:
+            raise ValueError(f"formation mission response contains duplicate key: {key}")
+        result[key] = item
+    return result

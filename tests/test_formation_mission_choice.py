@@ -38,6 +38,12 @@ class FormationMissionChoiceTests(TestCase):
         with self.assertRaisesRegex(ValueError, "valid JSON"):
             parse_formation_mission_response('{"mission":"surround_hazard","risk":')
 
+    def test_parse_response_rejects_duplicate_keys(self) -> None:
+        with self.assertRaisesRegex(ValueError, "duplicate key"):
+            parse_formation_mission_response(
+                '{"mission":"hold_position","mission":"surround_hazard","risk":"cautious"}'
+            )
+
     def test_parse_response_rejects_invalid_enum(self) -> None:
         with self.assertRaisesRegex(ValueError, "unsupported formation mission"):
             parse_formation_mission_response(
