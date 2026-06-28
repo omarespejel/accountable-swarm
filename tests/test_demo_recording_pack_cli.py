@@ -151,6 +151,10 @@ class DemoRecordingPackCliTests(TestCase):
                 str(dashboard_dir.relative_to(ROOT)),
                 "--dimos-bridge-dir",
                 str(dimos_bridge_dir.relative_to(ROOT)),
+                "--hazard-mode",
+                "fixture",
+                "--mission-source",
+                "fixture",
             ]
             with (
                 patch.object(module, "_run_command", side_effect=fake_run_command),
@@ -202,6 +206,45 @@ class DemoRecordingPackCliTests(TestCase):
         self.assertIn("DimOS-ready export status panel", shotlist)
         self.assertIn("Open the animated swarm replay", shotlist)
         self.assertIn("Open the world-model dashboard", shotlist)
+        self.assertIn("fixture hazard evidence", shotlist)
+        self.assertIn("fixture bounded mission choice", shotlist)
+        self.assertIn("no live Qwen call in this run", shotlist)
+
+    def test_recording_shotlist_is_source_aware(self) -> None:
+        module = _load_module()
+
+        fixture_items = module._recording_shotlist(
+            resolved_hazard_mode="fixture",
+            resolved_mission_source="fixture",
+        )
+        dashscope_items = module._recording_shotlist(
+            resolved_hazard_mode="dashscope",
+            resolved_mission_source="dashscope",
+        )
+        degraded_items = module._recording_shotlist(
+            resolved_hazard_mode="degraded",
+            resolved_mission_source="none",
+        )
+
+        self.assertIn("fixture hazard evidence", " ".join(fixture_items))
+        self.assertIn("no live Qwen call in this run", " ".join(fixture_items))
+        self.assertIn("Qwen/DashScope hazard evidence", " ".join(dashscope_items))
+        self.assertIn("Qwen/DashScope bounded mission choice", " ".join(dashscope_items))
+        self.assertIn("degraded HOLD evidence", " ".join(degraded_items))
+        self.assertIn("no bounded mission choice", " ".join(degraded_items))
+
+    def test_recording_pack_help_documents_auto_source_resolution(self) -> None:
+        result = subprocess.run(
+            [sys.executable, str(SCRIPT), "--help"],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("ALIBABA_API_KEY", result.stdout)
+        self.assertIn("degraded hazard mode", result.stdout)
 
     def test_prepare_recording_pack_omits_dimos_manifest_flag_when_bridge_pack_fails(self) -> None:
         module = _load_module()

@@ -64,6 +64,11 @@ configured.
 
 Prepare the world-model dashboard artifact:
 
+DashScope mode requires `ALIBABA_API_KEY` in the environment and records Qwen
+keyframe perception plus bounded mission choice. For an offline/no-key run, use
+`--mode fixture --mission-source fixture` with the same commands and keep the
+resulting artifact labeled as fixture evidence.
+
 ```bash
 python3 -m scripts.run_hazard_formation_gate \
   --image fixtures/hazard_marker.ppm \

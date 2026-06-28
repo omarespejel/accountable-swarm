@@ -52,8 +52,21 @@ def main() -> int:
     parser.add_argument("--dashboard-dir", type=Path, default=DEFAULT_DASHBOARD_DIR)
     parser.add_argument("--dimos-bridge-dir", type=Path, default=DEFAULT_DIMOS_BRIDGE_DIR)
     parser.add_argument("--dimos-checkout", type=Path, default=None)
-    parser.add_argument("--hazard-mode", choices=["auto", "fixture", "dashscope", "degraded"], default="auto")
-    parser.add_argument("--mission-source", choices=["auto", "none", "fixture", "dashscope"], default="auto")
+    parser.add_argument(
+        "--hazard-mode",
+        choices=["auto", "fixture", "dashscope", "degraded"],
+        default="auto",
+        help="Hazard source. 'auto' uses dashscope when ALIBABA_API_KEY is set, otherwise fixture.",
+    )
+    parser.add_argument(
+        "--mission-source",
+        choices=["auto", "none", "fixture", "dashscope"],
+        default="auto",
+        help=(
+            "Mission-choice source. 'auto' disables mission choice for degraded hazard mode; "
+            "otherwise it follows the resolved hazard source."
+        ),
+    )
     parser.add_argument("--hazard-model", default="qwen3-vl-flash")
     parser.add_argument("--formation", choices=["surround", "x", "line", "diamond"], default="x")
     parser.add_argument("--host", default=DEFAULT_HOST)
@@ -253,18 +266,10 @@ def main() -> int:
                 f"http://{args.host}:{args.port}/world-model-dashboard/summary.json",
             ],
         },
-        "recording_shotlist": [
-            "Show repository root, LICENSE, README, and docs/submission/README.md.",
-            "Show this recording manifest and the GO/NARROW_CLAIM outcome.",
-            "Open the animated swarm replay from runs/demo/swarm/index.html.",
-            "Open one replay scenario and show the moving agents plus static trace frames.",
-            "Open the hazard-formation replay and show the bbox-derived hazard cell as the obstacle.",
-            "Open the world-model dashboard and show Qwen evidence, local planner metrics, world-model hash, and per-agent trace hashes.",
-            "Show the DimOS-ready export status panel and state clearly that it is replay/export evidence, not DimOS execution.",
-            "Show the hazard-to-formation report with bbox, hazard cell, X formation, and trace hashes.",
-            "State the boundary: Qwen keyframe perception or low-rate intent, deterministic local motion, hash-verifiable traces.",
-            "State non-claims in frame: no DimOS, no physical SO-101, no 3D physics, no Qwen real-time control, no completed ECS proof unless separately recorded.",
-        ],
+        "recording_shotlist": _recording_shotlist(
+            resolved_hazard_mode=resolved_hazard_mode,
+            resolved_mission_source=resolved_mission_source,
+        ),
         "pass_conditions": pass_conditions,
         "non_claims": [
             "no physical robot behavior",
@@ -371,6 +376,50 @@ def _resolve_mission_source(source: str, *, hazard_mode: str) -> str:
     if hazard_mode == "degraded":
         return "none"
     return "dashscope" if hazard_mode == "dashscope" else "fixture"
+
+
+def _recording_shotlist(*, resolved_hazard_mode: str, resolved_mission_source: str) -> list[str]:
+    if resolved_hazard_mode == "dashscope":
+        hazard_evidence = "Qwen/DashScope hazard evidence"
+    elif resolved_hazard_mode == "fixture":
+        hazard_evidence = "fixture hazard evidence; state clearly that this offline run did not call Qwen for perception"
+    else:
+        hazard_evidence = "degraded HOLD evidence; state clearly that this run did not produce a hazard bbox"
+
+    if resolved_mission_source == "dashscope":
+        mission_evidence = "Qwen/DashScope bounded mission choice"
+    elif resolved_mission_source == "fixture":
+        mission_evidence = "fixture bounded mission choice"
+    else:
+        mission_evidence = "no bounded mission choice; degraded/local HOLD is the evidence"
+
+    if resolved_hazard_mode == "dashscope" or resolved_mission_source == "dashscope":
+        boundary = (
+            "State the boundary: Qwen keyframe perception or low-rate intent, "
+            "deterministic local motion, hash-verifiable traces."
+        )
+    else:
+        boundary = (
+            "State the boundary: fixture/offline perception or mission evidence, "
+            "deterministic local motion, hash-verifiable traces, no live Qwen call in this run."
+        )
+
+    return [
+        "Show repository root, LICENSE, README, and docs/submission/README.md.",
+        "Show this recording manifest and the GO/NARROW_CLAIM outcome.",
+        "Open the animated swarm replay from runs/demo/swarm/index.html.",
+        "Open one replay scenario and show the moving agents plus static trace frames.",
+        "Open the hazard-formation replay and show the bbox-derived hazard cell as the obstacle.",
+        (
+            "Open the world-model dashboard and show "
+            f"{hazard_evidence}, {mission_evidence}, local planner metrics, "
+            "world-model hash, and per-agent trace hashes."
+        ),
+        "Show the DimOS-ready export status panel and state clearly that it is replay/export evidence, not DimOS execution.",
+        "Show the hazard-to-formation report with bbox, hazard cell, X formation, and trace hashes.",
+        boundary,
+        "State non-claims in frame: no DimOS, no physical SO-101, no 3D physics, no Qwen real-time control, no completed ECS proof unless separately recorded.",
+    ]
 
 
 def _hazard_replay_command(
