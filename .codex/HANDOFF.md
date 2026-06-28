@@ -269,16 +269,17 @@ What is not checked yet:
 - Issue #95: QwenGuard SO-101 physical edge-cloud manipulation demo. This is
   the current umbrella for selector, evaluator, outcome gate, ACT training,
   physical GO gates, trace evidence, and claim boundaries.
-- PR #92: bounded Qwen mission-choice dashboard flow and Node 24 workflow-pin
-  update on `codex/bounded-qwen-demo-2026-06-17`. It must keep Qwen as a
-  bounded mission proposer only, derive dashboard mission state from verified
-  traces, and validate mission/risk enums locally before rendering.
-- Issue #93 / PR #94: interactive dashboard, stacked on PR #92. Useful for
-  visualization, but not on the QwenGuard critical path.
+- PR #92 is merged: bounded Qwen mission-choice dashboard flow and Node 24
+  workflow-pin update. It keeps Qwen as a bounded mission proposer only, derives
+  dashboard mission state from verified traces, and validates mission/risk enums
+  locally before rendering.
+- Issue #93 / PR #99: interactive dashboard on `main`, replacing the
+  auto-closed stacked PR #94. Useful for visualization, but not on the
+  QwenGuard critical path.
 - Issue #91: operator-run Alibaba ECS proof from a public endpoint. This remains
   the submission blocker to move in parallel with SO-101 work.
-- Issues #87 and #90 are resolved by the bounded mission-choice/dashboard pack
-  once PR #92 lands.
+- Issues #87 and #90 are resolved by the merged bounded mission-choice/dashboard
+  pack.
 - Issues #3, #75, and #88 are closed; #3 remains historical context only.
 - Issue #2, #6, #11, #13, #15, #17, #19, #21, #23, #25, #27, #29, #33,
   #35, #37, #39, #41, #43, #45, #48, #50, #52, #54, #59, and #68 are closed
