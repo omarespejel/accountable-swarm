@@ -1,6 +1,6 @@
 # Accountable Swarm Handoff
 
-Last updated: 2026-06-17 JST
+Last updated: 2026-06-28 JST
 
 ## Active Thesis
 
@@ -13,6 +13,14 @@ matters must be reproducible as a hash-chained `DecisionTrace`.
 
 Status: `GO` for live Qwen API/model availability and single-keyframe
 DecisionTrace; `NARROW_CLAIM` for the broader robotics demo.
+
+QwenGuard update: `GO` for the no-hardware SO-101 software spine on branch
+`codex/qwenguard-so101-spine-2026-06-28`. Issue #95 is the current physical
+QwenGuard umbrella. The branch is based on `origin/main`, not the dashboard PR
+stack. It adds Set-of-Mark selector validation, before/after evaluator
+validation, a deterministic local outcome gate, a no-motion health-check CLI,
+a non-secret SO-101 ACT training pack, and trial/eval schema. This is not
+SO-101 operation or physical motion evidence.
 
 What is checked locally:
 
@@ -66,6 +74,29 @@ What is checked locally:
 - SO-101 operator probe pack now exists to generate a non-secret runbook and
   command script for the actual hardware machine using the official LeRobot
   install and OpenCV camera flow. This is setup guidance, not hardware success.
+- QwenGuard no-motion health check now validates a relational cube selector,
+  local outcome gate, evaluator, and multi-event `decisiontrace.v2` without
+  moving hardware. Fixture mode produced summary
+  `5161920e949b369b73aae52557cccede17a05dda80e90c1d9da0fc52d282a38c` with
+  `gate_decision=ALLOW` intent and `motion_executed=false`. Degraded mode
+  produced summary
+  `6d7be5d5246f10aafd1af79ee0c7df398fe8aa57bb6e9832073e31621e791042` with
+  `gate_decision=HOLD`.
+- QwenGuard post-review hardening keeps local candidate labels canonical,
+  requires exactly two distinct references for `between`, validates JSON-mode
+  `max_tokens`, derives no-motion status from replayed trace events, prevents
+  blocked fixture-mode gates from reporting `GO`, shell-quotes operator-pack
+  task text, pins the generated LeRobot/OpenCV install commands, and adds
+  malformed-input regressions for Qwen JSON responses, evaluator payloads,
+  trial enums, blocked fixture gates, and shell-unsafe task values.
+- QwenGuard selector/evaluator/gate/trial targeted tests pass locally. The
+  checked command was:
+  `python3 -m unittest tests.test_qwenguard_selector tests.test_qwenguard_evaluator tests.test_qwenguard_outcome_gate tests.test_qwenguard_traces tests.test_qwenguard_health_check_cli tests.test_so101_training_pack_cli tests.test_qwenguard_trial tests.test_qwen_client tests.test_trace`.
+- Full local gate passed on the post-review branch with:
+  `./scripts/local_gate.sh` -> `Ran 294 tests in 196.221s`, `local gate passed`.
+- QwenGuard SO-101 training pack generator now emits a no-secret runbook,
+  operator command script, and trial CSV template. This is preparation for
+  tomorrow's hardware session, not SO-101 connectivity or ACT success.
 - minimal stdlib HTTP server and Dockerfile exist for manual Alibaba ECS proof;
   operator still needs to provision ECS and run the smoke checks.
 - ECS operator proof pack generator prepares a non-secret runbook, command
@@ -197,6 +228,8 @@ What is not checked yet:
 
 - Alibaba Cloud deployment proof from an actual ECS instance;
 - SO-101 physical frame source;
+- ACT policy training or physical rollout;
+- live Qwen selector/evaluator on SO-101 frames;
 - DimOS runtime execution or Rerun visualization; current work exports and
   consumes a deterministic replay stream contract only;
 - physics-backed multi-agent swarm behavior;
@@ -207,10 +240,13 @@ What is not checked yet:
 
 ## Active GitHub Work
 
-- Issue #75: Qwen-grounded world-model dashboard for accountable swarm.
-- Issue #3: physical-node safety contract and true sensor-frame proof. This is
-  parked during the dashboard sprint, not closed.
-- Issue #1 and #73 are closed or superseded by the current dashboard plan.
+- Issue #95: QwenGuard SO-101 physical edge-cloud manipulation demo. This is
+  the current umbrella for selector, evaluator, outcome gate, ACT training,
+  physical GO gates, trace evidence, and claim boundaries.
+- Issue #93 / PR #94: interactive dashboard, stacked on PR #92. Useful for
+  visualization, but not on the QwenGuard critical path.
+- Issue #91: operator-run Alibaba ECS proof from a public endpoint. This remains
+  the submission blocker to move in parallel with SO-101 work.
 - Issue #2, #6, #11, #13, #15, #17, #19, #21, #23, #25, #27, #29, #33,
   #35, #37, #39, #41, #43, #45, #48, #50, #52, #54, #59, and #68 are closed
   as GO or scoped NARROW_CLAIM where documented.

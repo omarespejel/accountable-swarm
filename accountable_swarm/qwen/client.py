@@ -63,6 +63,29 @@ class DashScopeQwenClient:
         }
         return _extract_text_content(self._post_chat_completion(payload))
 
+    def chat_json_object(self, *, prompt: str, max_tokens: int = 256) -> str:
+        """Call DashScope JSON mode.
+
+        DashScope JSON mode is a formatting aid, not a safety boundary. Callers
+        must still validate every field locally before using the response.
+        """
+
+        if not prompt.strip():
+            raise ValueError("prompt must be non-empty")
+        if isinstance(max_tokens, bool) or not isinstance(max_tokens, int) or max_tokens <= 0:
+            raise ValueError("max_tokens must be a positive integer")
+        if "json" not in prompt.casefold():
+            raise ValueError("structured-output prompt must mention json explicitly")
+        payload = {
+            "model": self.model,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": max_tokens,
+            "temperature": 0,
+            "enable_thinking": False,
+            "response_format": {"type": "json_object"},
+        }
+        return _extract_text_content(self._post_chat_completion(payload))
+
     def _post_chat_completion(self, payload: dict[str, Any]) -> dict[str, Any]:
         req = request.Request(
             f"{DASHSCOPE_BASE_URL}/chat/completions",
