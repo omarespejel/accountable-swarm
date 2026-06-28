@@ -15,6 +15,7 @@ class PackagingTests(TestCase):
         self.assertIn('prepare-sensor-frame-proof-pack = "scripts.prepare_sensor_frame_proof_pack:main"', text)
         self.assertIn('capture-so101-camera-frame = "scripts.capture_so101_camera_frame:main"', text)
         self.assertIn('prepare-so101-operator-probe-pack = "scripts.prepare_so101_operator_probe_pack:main"', text)
+        self.assertIn('prepare-qwenguard-physical-go-pack = "scripts.prepare_qwenguard_physical_go_pack:main"', text)
         self.assertIn('prepare-demo-recording-pack = "scripts.prepare_demo_recording_pack:main"', text)
         self.assertIn('prepare-ecs-operator-pack = "scripts.prepare_ecs_operator_pack:main"', text)
         self.assertIn('prepare-dimos-bridge-pack = "scripts.prepare_dimos_bridge_pack:main"', text)
@@ -41,6 +42,10 @@ class PackagingTests(TestCase):
         self.assertEqual(
             scripts["prepare-so101-operator-probe-pack"],
             "scripts.prepare_so101_operator_probe_pack:main",
+        )
+        self.assertEqual(
+            scripts["prepare-qwenguard-physical-go-pack"],
+            "scripts.prepare_qwenguard_physical_go_pack:main",
         )
         self.assertEqual(
             scripts["prepare-demo-recording-pack"],

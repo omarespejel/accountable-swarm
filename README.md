@@ -157,6 +157,22 @@ prepare-so101-operator-probe-pack \
 That pack writes a runbook and command script pinned to the current official
 LeRobot installation and OpenCV camera flow.
 
+To prepare the full QwenGuard physical-session pack for issue #95:
+
+```bash
+prepare-qwenguard-physical-go-pack \
+  --out-dir runs/physical/qwenguard-physical-go-pack \
+  --camera-name so101_overhead \
+  --camera-id 0
+```
+
+The generated `operator_commands.sh` is phase-driven. The `all-safe` phase runs
+fixture/degraded no-motion QwenGuard traces and generates the ACT training pack
+without touching the camera or moving hardware. The `camera` phase is the first
+phase that attempts an SO-101 frame capture. Physical success, ACT success, and
+SO-101 connectivity remain non-claims until the operator fills the generated
+evidence manifest with checked run artifacts.
+
 ## Simulated Swarm Gate
 
 The first swarm-shaped gate is deterministic and local. It uses an integer grid,
