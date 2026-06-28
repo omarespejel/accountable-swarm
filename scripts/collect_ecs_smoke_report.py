@@ -65,6 +65,23 @@ def main() -> int:
             ecs_public_ip=args.ecs_public_ip,
         )
     except ValueError as exc:
+        if args.allow_narrow_claim:
+            deployed_commit = args.commit or _git_head()
+            report = _input_validation_failure_report(
+                base_url=args.base_url,
+                qwen_model=args.qwen_model,
+                deployed_commit=deployed_commit,
+                proof_mode=args.proof_mode,
+                ecs_region=args.ecs_region,
+                ecs_instance_id=args.ecs_instance_id,
+                ecs_public_ip=args.ecs_public_ip,
+                error_message=str(exc),
+            )
+            args.out.parent.mkdir(parents=True, exist_ok=True)
+            args.out.write_text(canonical_json(report) + "\n", encoding="utf-8")
+            print(f"outcome {report['outcome']}")
+            print(f"wrote {args.out}")
+            return 0
         print(f"ecs smoke report failed: {exc}", file=sys.stderr)
         return 2
     args.out.parent.mkdir(parents=True, exist_ok=True)
@@ -390,14 +407,6 @@ def _deployment_evidence(
     public_ip = _parse_ip(public_ip_text)
     base_url_public = _base_url_uses_public_host(base_url)
     base_url_matches_ip = _base_url_matches_ip(base_url=base_url, public_ip=public_ip)
-    evidence = {
-        "provider": "Alibaba Cloud ECS" if proof_mode == "ecs-public" else "local smoke",
-        "ecs_region": region,
-        "ecs_instance_id": instance_id,
-        "ecs_public_ip": public_ip_text,
-        "base_url_is_public_endpoint": base_url_public,
-        "base_url_matches_public_ip_when_ip_literal": base_url_matches_ip,
-    }
     pass_conditions = {
         "proof_mode_is_ecs_public": proof_mode == "ecs-public",
         "ecs_region_recorded": _metadata_value_ok(region),
@@ -406,7 +415,67 @@ def _deployment_evidence(
         "base_url_is_public_endpoint": base_url_public,
         "base_url_matches_public_ip_when_ip_literal": base_url_matches_ip,
     }
+    evidence = {
+        "provider_asserted": "Alibaba Cloud ECS" if proof_mode == "ecs-public" else "local smoke",
+        "deployment_context_verified": all(pass_conditions.values()),
+        "ecs_region": region,
+        "ecs_instance_id": instance_id,
+        "ecs_public_ip": public_ip_text,
+        "base_url_is_public_endpoint": base_url_public,
+        "base_url_matches_public_ip_when_ip_literal": base_url_matches_ip,
+    }
     return {"evidence": evidence, "pass_conditions": pass_conditions}
+
+
+def _input_validation_failure_report(
+    *,
+    base_url: str,
+    qwen_model: str,
+    deployed_commit: str,
+    proof_mode: str,
+    ecs_region: str,
+    ecs_instance_id: str,
+    ecs_public_ip: str,
+    error_message: str,
+) -> dict[str, Any]:
+    return {
+        "schema_version": REPORT_SCHEMA_VERSION,
+        "outcome": "NARROW_CLAIM",
+        "base_url": _sanitize_text(base_url),
+        "deployed_commit": deployed_commit,
+        "proof_mode": proof_mode,
+        "deployment": {
+            "provider_asserted": "Alibaba Cloud ECS" if proof_mode == "ecs-public" else "local smoke",
+            "deployment_context_verified": False,
+            "ecs_region": _sanitize_text(ecs_region.strip()),
+            "ecs_instance_id": _sanitize_text(ecs_instance_id.strip()),
+            "ecs_public_ip": _sanitize_text(ecs_public_ip.strip()),
+        },
+        "qwen_model": qwen_model,
+        "checks": [],
+        "pass_conditions": {
+            "input_validation_passed": False,
+            "deployed_commit_recorded": _is_git_oid(deployed_commit),
+        },
+        "error": {
+            "type": "ValueError",
+            "message": _sanitize_text(error_message),
+        },
+        "non_claims": [
+            "not an Alibaba ECS deployment proof",
+            "not a production hosting claim",
+            "not a public availability claim",
+            "not a latency or reliability claim",
+            "not physical robot behavior",
+            "not SO-101 operation",
+            "not Qwen onboard execution",
+            "input validation failure report contains no endpoint checks",
+        ],
+    }
+
+
+def _sanitize_text(value: str) -> str:
+    return "".join(character if ord(character) >= 32 else " " for character in value)
 
 
 def _metadata_value_ok(value: str) -> bool:

@@ -53,6 +53,8 @@ class EcsOperatorPackCliTests(TestCase):
         self.assertIn("--ecs-public-ip", commands)
         self.assertIn("PACK_DEFAULT_BASE_URL=", commands)
         self.assertIn('if [ "${BASE_URL}" = "http://<ECS_PUBLIC_IP>:8000" ]', commands)
+        self.assertIn('if [[ "${ECS_PUBLIC_IP}" == *:* ]]; then', commands)
+        self.assertIn('BASE_URL="http://[${ECS_PUBLIC_IP}]:8000"', commands)
         self.assertIn('BASE_URL="http://${ECS_PUBLIC_IP}:8000"', commands)
         self.assertIn('PACK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"', commands)
         self.assertIn("${PACK_DIR}/.env.template", commands)
