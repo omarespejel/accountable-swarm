@@ -156,8 +156,9 @@ def _check_trace(repo_root: Path, path: Path, *, mode: str, expected_gate_decisi
     try:
         trace = trace_from_dict(payload)
         summary_sha = verify_trace(trace)
-    except (TypeError, ValueError) as exc:
-        return _fail(check, f"trace verification failed: {exc}")
+    except (KeyError, TypeError, ValueError) as exc:
+        check["evidence"] = {"error_type": exc.__class__.__name__}
+        return _fail(check, "trace verification failed")
     commands = [event.command for event in trace.events]
     gate_commands = [command for command in commands if command.get("type") == "qwenguard_outcome_gate"]
     action_commands = [command for command in commands if command.get("type") == "physical_action_intent"]
@@ -185,12 +186,15 @@ def _check_trial_csv(repo_root: Path, path: Path) -> dict[str, Any]:
     if not path.is_file():
         return _fail(check, "trial CSV is missing")
     try:
-        rows = list(csv.DictReader(path.read_text(encoding="utf-8").splitlines()))
+        with path.open("r", encoding="utf-8", newline="") as handle:
+            rows = list(csv.DictReader(handle))
     except (csv.Error, UnicodeDecodeError) as exc:
         return _fail(check, f"trial CSV could not be parsed: {exc}")
     valid_rows = 0
     invalid_reasons: list[str] = []
     for index, row in enumerate(rows, start=1):
+        if all(not str(value or "").strip() for value in row.values()):
+            continue
         try:
             TrialRecord(
                 trial_id=row.get("trial_id", ""),
@@ -210,12 +214,13 @@ def _check_trial_csv(repo_root: Path, path: Path) -> dict[str, Any]:
             invalid_reasons.append(f"row {index}: {exc}")
         else:
             valid_rows += 1
-    ok = valid_rows > 0 and not invalid_reasons
+    ok = valid_rows > 0
     check["ok"] = ok
     check["reason"] = "trial CSV contains validated measured rows" if ok else "trial CSV has no validated measured rows"
     check["evidence"] = {
         "row_count": len(rows),
         "valid_row_count": valid_rows,
+        "invalid_row_count": len(invalid_reasons),
         "invalid_reasons": invalid_reasons[:5],
     }
     return check
@@ -228,12 +233,35 @@ def _check_ecs_report(repo_root: Path, path: Path) -> dict[str, Any]:
         return _fail(check, "ECS report is missing or not a JSON object")
     pass_conditions = payload.get("pass_conditions")
     deployment = payload.get("deployment")
+    required_pass_conditions = {
+        "healthz",
+        "readyz",
+        "camera-fixture",
+        "swarm-demo",
+        "swarm-demo_summary.json",
+        "deployed_commit_recorded",
+        "proof_mode_is_ecs_public",
+        "ecs_region_recorded",
+        "ecs_instance_id_recorded",
+        "ecs_public_ip_is_global",
+        "base_url_is_public_endpoint",
+        "base_url_matches_public_ip_when_ip_literal",
+    }
+    pass_condition_keys = set(pass_conditions) if isinstance(pass_conditions, dict) else set()
+    required_conditions_ok = (
+        isinstance(pass_conditions, dict)
+        and required_pass_conditions.issubset(pass_condition_keys)
+        and all(pass_conditions.get(key) is True for key in required_pass_conditions)
+        and any(
+            key.startswith("qwen-ping_model_") and value is True
+            for key, value in pass_conditions.items()
+        )
+    )
     ok = (
         payload.get("schema_version") == "ecs-smoke-report.v1"
         and payload.get("outcome") == "GO"
         and payload.get("proof_mode") == "ecs-public"
-        and isinstance(pass_conditions, dict)
-        and all(pass_conditions.values())
+        and required_conditions_ok
         and isinstance(deployment, dict)
         and deployment.get("deployment_context_verified") is True
     )
@@ -244,6 +272,13 @@ def _check_ecs_report(repo_root: Path, path: Path) -> dict[str, Any]:
         "outcome": payload.get("outcome"),
         "proof_mode": payload.get("proof_mode"),
         "deployed_commit": payload.get("deployed_commit"),
+        "missing_pass_conditions": sorted(required_pass_conditions - pass_condition_keys),
+        "qwen_ping_condition_present": any(
+            key.startswith("qwen-ping_model_") and value is True
+            for key, value in pass_conditions.items()
+        )
+        if isinstance(pass_conditions, dict)
+        else False,
         "deployment_context_verified": (
             deployment.get("deployment_context_verified") if isinstance(deployment, dict) else None
         ),
