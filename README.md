@@ -185,6 +185,18 @@ and `manifest.json`. Its pack-generation outcome can be `GO`, but
 `submission_readiness` stays `NARROW_CLAIM` until SO-101 physical evidence and
 Alibaba ECS public-endpoint proof are added by the operator.
 
+To audit whether those operator artifacts are actually present and promotable:
+
+```bash
+audit-qwenguard-submission-readiness \
+  --out runs/submission/qwenguard-readiness-report.json \
+  --allow-narrow-claim
+```
+
+The audit exits non-zero without `--allow-narrow-claim` until the SO-101 camera
+report, no-motion traces, measured trial CSV, Alibaba ECS public proof, and
+human video review all pass their checked gates.
+
 ## Simulated Swarm Gate
 
 The first swarm-shaped gate is deterministic and local. It uses an integer grid,
