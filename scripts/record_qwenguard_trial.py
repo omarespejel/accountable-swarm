@@ -183,15 +183,6 @@ def main() -> int:
             notes=args.notes,
         )
         trace_path = trace_dir / f"{args.trial_id}.json"
-        _write_outputs(
-            repo_root=repo_root,
-            trace=trace,
-            trace_path=trace_path,
-            csv_out=csv_out,
-            report_out=report_out,
-            trial_record=trial_record,
-            overwrite=args.overwrite,
-        )
     except ValueError as exc:
         print(f"qwenguard trial record failed: {exc}", file=sys.stderr)
         return 2
@@ -208,8 +199,20 @@ def main() -> int:
     if _contains_secret_material(canonical_json(report)):
         print("qwenguard trial record failed: report would contain secret-like material", file=sys.stderr)
         return 2
-    report_out.parent.mkdir(parents=True, exist_ok=True)
-    report_out.write_text(canonical_json(report) + "\n", encoding="utf-8")
+    try:
+        _write_outputs(
+            repo_root=repo_root,
+            trace=trace,
+            trace_path=trace_path,
+            csv_out=csv_out,
+            report_out=report_out,
+            report=report,
+            trial_record=trial_record,
+            overwrite=args.overwrite,
+        )
+    except ValueError as exc:
+        print(f"qwenguard trial record failed: {exc}", file=sys.stderr)
+        return 2
 
     print("outcome GO")
     print(f"trace_summary_sha {trial_record.trace_summary_sha}")
@@ -362,23 +365,55 @@ def _write_outputs(
     trace_path: Path,
     csv_out: Path,
     report_out: Path,
+    report: dict[str, Any],
     trial_record: TrialRecord,
     overwrite: bool,
 ) -> None:
+    if len({trace_path.resolve(), csv_out.resolve(), report_out.resolve()}) != 3:
+        raise ValueError("trace, CSV, and report outputs must be distinct paths")
     if trace_path.exists() and not overwrite:
         raise ValueError(f"trace already exists: {_display_path(repo_root, trace_path)}")
     if report_out.exists() and not overwrite:
         raise ValueError(f"report already exists: {_display_path(repo_root, report_out)}")
     trace_text = trace.to_canonical_json() + "\n"
     record_text = canonical_json(trial_record.to_dict())
-    if _contains_secret_material("\n".join([trace_text, record_text, _display_path(repo_root, trace_path), _display_path(repo_root, csv_out)])):
+    report_text = canonical_json(report) + "\n"
+    csv_text = _updated_csv_text(csv_out=csv_out, trial_record=trial_record, overwrite=overwrite)
+    joined = "\n".join(
+        [
+            trace_text,
+            record_text,
+            csv_text,
+            report_text,
+            _display_path(repo_root, trace_path),
+            _display_path(repo_root, csv_out),
+            _display_path(repo_root, report_out),
+        ]
+    )
+    if _contains_secret_material(joined) or _contains_raw_frame_material(joined):
         raise ValueError("trial record would contain secret-like material")
-    trace_path.parent.mkdir(parents=True, exist_ok=True)
-    trace_path.write_text(trace_text, encoding="utf-8")
-    _append_or_replace_csv(csv_out=csv_out, trial_record=trial_record, overwrite=overwrite)
+    _atomic_write_texts(
+        (
+            (trace_path, trace_text),
+            (csv_out, csv_text),
+            (report_out, report_text),
+        )
+    )
 
 
-def _append_or_replace_csv(*, csv_out: Path, trial_record: TrialRecord, overwrite: bool) -> None:
+def _updated_csv_text(*, csv_out: Path, trial_record: TrialRecord, overwrite: bool) -> str:
+    header = trial_csv_header()
+    rows = _updated_csv_rows(csv_out=csv_out, trial_record=trial_record, overwrite=overwrite)
+    from io import StringIO
+
+    buffer = StringIO()
+    writer = csv.DictWriter(buffer, fieldnames=header, extrasaction="raise")
+    writer.writeheader()
+    writer.writerows(rows)
+    return buffer.getvalue()
+
+
+def _updated_csv_rows(*, csv_out: Path, trial_record: TrialRecord, overwrite: bool) -> list[dict[str, str]]:
     header = trial_csv_header()
     rows: list[dict[str, str]] = []
     if csv_out.exists() and csv_out.stat().st_size > 0:
@@ -394,11 +429,23 @@ def _append_or_replace_csv(*, csv_out: Path, trial_record: TrialRecord, overwrit
     if duplicate_indexes:
         rows = [row for row in rows if row.get("trial_id") != trial_record.trial_id]
     rows.append(new_row)
-    csv_out.parent.mkdir(parents=True, exist_ok=True)
-    with csv_out.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=header, extrasaction="raise")
-        writer.writeheader()
-        writer.writerows(rows)
+    return rows
+
+
+def _atomic_write_texts(paths_and_texts: tuple[tuple[Path, str], ...]) -> None:
+    prepared: list[tuple[Path, Path]] = []
+    try:
+        for path, text in paths_and_texts:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            tmp_path = path.with_name(f".{path.name}.tmp")
+            tmp_path.write_text(text, encoding="utf-8")
+            prepared.append((tmp_path, path))
+        for tmp_path, path in prepared:
+            tmp_path.replace(path)
+    except OSError:
+        for tmp_path, _path in prepared:
+            tmp_path.unlink(missing_ok=True)
+        raise
 
 
 def _report(
@@ -424,8 +471,9 @@ def _report(
         "report_path": _display_path(repo_root, report_out),
         "trace_summary_sha": trial_record.trace_summary_sha,
         "pass_conditions": {
-            "trace_written": trace_path.is_file(),
-            "csv_row_written": csv_out.is_file(),
+            "trace_json_prepared": True,
+            "csv_row_prepared": True,
+            "report_prepared": True,
             "trace_summary_bound_to_csv": True,
             "raw_float_free_trace": True,
             "secret_material_absent": True,
