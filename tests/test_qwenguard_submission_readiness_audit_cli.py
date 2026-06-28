@@ -95,6 +95,7 @@ class QwenGuardSubmissionReadinessAuditCliTests(TestCase):
             degraded_trace = audit_root / "degraded_trace.json"
             degraded_report = audit_root / "degraded_report.json"
             camera_report = audit_root / "so101_capture_report.json"
+            camera_frame = audit_root / "so101_frame.png"
             trial_csv = audit_root / "trial_results.csv"
             ecs_report = audit_root / "ecs_smoke_report.json"
             video_review = audit_root / "final_video_review.md"
@@ -139,8 +140,10 @@ class QwenGuardSubmissionReadinessAuditCliTests(TestCase):
                     "degraded",
                 ]
             )
+            fixture_summary = json.loads(fixture_report.read_text(encoding="utf-8"))["trace_summary_sha"]
+            camera_frame.write_bytes(b"synthetic-so101-frame")
             camera_report.write_text(canonical_json(_camera_go_report()) + "\n", encoding="utf-8")
-            trial_csv.write_text(_trial_csv(), encoding="utf-8")
+            trial_csv.write_text(_trial_csv(fixture_summary), encoding="utf-8")
             ecs_report.write_text(canonical_json(_ecs_go_report()) + "\n", encoding="utf-8")
             video_review.write_text(_video_review(), encoding="utf-8")
 
@@ -304,6 +307,104 @@ class QwenGuardSubmissionReadinessAuditCliTests(TestCase):
         self.assertIn("healthz", ecs_check["evidence"]["missing_pass_conditions"])
         self.assertFalse(ecs_check["evidence"]["qwen_ping_condition_present"])
 
+    def test_malformed_json_records_parse_reason(self) -> None:
+        base = ROOT / "runs" / "submission"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            audit_root = Path(tmpdir)
+            manifest = audit_root / "manifest.json"
+            out = audit_root / "readiness.json"
+            manifest.write_text("{not-json}\n", encoding="utf-8")
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.audit_qwenguard_submission_readiness",
+                    "--out",
+                    str(out.relative_to(ROOT)),
+                    "--submission-manifest",
+                    str(manifest.relative_to(ROOT)),
+                    "--allow-narrow-claim",
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            report = json.loads(out.read_text(encoding="utf-8"))
+
+        manifest_check = next(check for check in report["checks"] if check["name"] == "submission_pack_manifest_go")
+        self.assertFalse(manifest_check["ok"])
+        self.assertEqual(manifest_check["reason"], "file is not valid JSON")
+
+    def test_repo_escape_path_rejected_before_report_write(self) -> None:
+        base = ROOT / "runs" / "submission"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            out = Path(tmpdir) / "readiness.json"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.audit_qwenguard_submission_readiness",
+                    "--out",
+                    str(out.relative_to(ROOT)),
+                    "--fixture-trace",
+                    "../escape.json",
+                    "--allow-narrow-claim",
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 2)
+            self.assertFalse(out.exists())
+            self.assertIn("path must stay inside the repository checkout", result.stderr)
+
+    def test_camera_report_rejects_escaped_frame_artifact(self) -> None:
+        base = ROOT / "runs" / "submission"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            audit_root = Path(tmpdir)
+            camera_report = audit_root / "so101_capture_report.json"
+            out = audit_root / "readiness.json"
+            payload = _camera_go_report()
+            payload["output_path"] = "../../../../frame.png"
+            payload["capture"] = {"output_path": "../../../../frame.png"}
+            camera_report.write_text(canonical_json(payload) + "\n", encoding="utf-8")
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.audit_qwenguard_submission_readiness",
+                    "--out",
+                    str(out.relative_to(ROOT)),
+                    "--so101-camera-report",
+                    str(camera_report.relative_to(ROOT)),
+                    "--allow-narrow-claim",
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            report = json.loads(out.read_text(encoding="utf-8"))
+
+        camera_check = next(check for check in report["checks"] if check["name"] == "so101_camera_report_go")
+        self.assertFalse(camera_check["ok"])
+        self.assertEqual(
+            camera_check["reason"],
+            "camera frame artifact path must stay inside the repository checkout",
+        )
+
 
 def _run_ok(args: list[str]) -> None:
     result = subprocess.run(args, cwd=ROOT, text=True, capture_output=True, check=False)
@@ -332,7 +433,7 @@ def _camera_go_report() -> dict[str, object]:
     }
 
 
-def _trial_csv() -> str:
+def _trial_csv(trace_summary_sha: str) -> str:
     row = {
         "trial_id": "trial-001",
         "task_instruction": "pick the red cube left of the green cube",
@@ -344,7 +445,7 @@ def _trial_csv() -> str:
         "outcome": "success",
         "operator_label": "success",
         "qwen_eval_label": "success",
-        "trace_summary_sha": "c" * 64,
+        "trace_summary_sha": trace_summary_sha,
         "notes": "synthetic readiness fixture",
     }
     header = trial_csv_header()
@@ -365,6 +466,14 @@ def _trial_csv() -> str:
 
 
 def _ecs_go_report() -> dict[str, object]:
+    checks = [
+        {"name": "healthz", "ok": True},
+        {"name": "readyz", "ok": True},
+        {"name": "camera-fixture", "ok": True},
+        {"name": "swarm-demo", "ok": True},
+        {"name": "swarm-demo_summary.json", "ok": True},
+        {"name": "qwen-ping_model_qwen-plus", "ok": True},
+    ]
     return {
         "schema_version": "ecs-smoke-report.v1",
         "outcome": "GO",
@@ -374,6 +483,7 @@ def _ecs_go_report() -> dict[str, object]:
             "provider_asserted": "Alibaba Cloud ECS",
             "deployment_context_verified": True,
         },
+        "checks": checks,
         "pass_conditions": {
             "healthz": True,
             "readyz": True,

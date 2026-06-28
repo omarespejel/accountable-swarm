@@ -30,6 +30,12 @@ The auditor checks:
 - ECS smoke report is `outcome: GO` with `proof_mode: ecs-public`;
 - final video review note contains the required claim labels and boundaries.
 
+The readiness checks fail closed on malformed JSON, path escape attempts, and
+self-asserted operator evidence. SO-101 camera readiness requires a referenced
+frame artifact next to the camera report, measured trial rows must bind to a
+trace summary SHA verified during the same audit, and ECS readiness requires
+both pass-condition booleans and matching endpoint-check evidence.
+
 ## GO Gate
 
 ```bash
@@ -53,7 +59,7 @@ This writes a report with `outcome: NARROW_CLAIM`.
 
 ```text
 python3 -m unittest tests.test_qwenguard_submission_readiness_audit_cli tests.test_packaging
-# Ran 5 tests OK
+# Ran 10 tests OK
 
 python3 -m scripts.audit_qwenguard_submission_readiness --out runs/submission/qwenguard-readiness-smoke.json --allow-narrow-claim
 # outcome NARROW_CLAIM

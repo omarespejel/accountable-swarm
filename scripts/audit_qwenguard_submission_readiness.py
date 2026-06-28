@@ -72,12 +72,19 @@ def main() -> int:
 
 
 def audit_readiness(*, repo_root: Path, paths: dict[str, Path]) -> dict[str, Any]:
+    fixture_trace_check = _check_trace(repo_root, paths["fixture_trace"], mode="fixture", expected_gate_decision="ALLOW")
+    degraded_trace_check = _check_trace(repo_root, paths["degraded_trace"], mode="degraded", expected_gate_decision="HOLD")
+    verified_trace_summaries = {
+        str(check["evidence"].get("summary_sha"))
+        for check in (fixture_trace_check, degraded_trace_check)
+        if check["ok"] and check["evidence"].get("summary_sha")
+    }
     checks = [
         _check_submission_manifest(repo_root, paths["submission_manifest"]),
         _check_camera_report(repo_root, paths["so101_camera_report"]),
-        _check_trace(repo_root, paths["fixture_trace"], mode="fixture", expected_gate_decision="ALLOW"),
-        _check_trace(repo_root, paths["degraded_trace"], mode="degraded", expected_gate_decision="HOLD"),
-        _check_trial_csv(repo_root, paths["trial_csv"]),
+        fixture_trace_check,
+        degraded_trace_check,
+        _check_trial_csv(repo_root, paths["trial_csv"], verified_trace_summaries=verified_trace_summaries),
         _check_ecs_report(repo_root, paths["ecs_report"]),
         _check_video_review(repo_root, paths["video_review"]),
     ]
@@ -102,8 +109,10 @@ def audit_readiness(*, repo_root: Path, paths: dict[str, Path]) -> dict[str, Any
 def _check_submission_manifest(repo_root: Path, path: Path) -> dict[str, Any]:
     check = _base_check("submission_pack_manifest_go", repo_root, path)
     payload = _read_json(path)
+    if isinstance(payload, JsonReadError):
+        return _fail(check, payload.reason)
     if not isinstance(payload, dict):
-        return _fail(check, "manifest is missing or not a JSON object")
+        return _fail(check, "manifest is not a JSON object")
     required = payload.get("required_before_submit")
     ok = (
         payload.get("schema_version") == "qwenguard-submission-pack.v1"
@@ -126,9 +135,17 @@ def _check_submission_manifest(repo_root: Path, path: Path) -> dict[str, Any]:
 def _check_camera_report(repo_root: Path, path: Path) -> dict[str, Any]:
     check = _base_check("so101_camera_report_go", repo_root, path)
     payload = _read_json(path)
+    if isinstance(payload, JsonReadError):
+        return _fail(check, payload.reason)
     if not isinstance(payload, dict):
-        return _fail(check, "camera report is missing or not a JSON object")
+        return _fail(check, "camera report is not a JSON object")
     pass_conditions = payload.get("pass_conditions")
+    capture = payload.get("capture")
+    output_name = payload.get("output_path")
+    if isinstance(capture, dict) and isinstance(capture.get("output_path"), str):
+        output_name = capture["output_path"]
+    frame_path, frame_error = _neighbor_artifact_path(repo_root=repo_root, anchor=path, raw_value=output_name)
+    frame_sha = _file_sha256(frame_path) if frame_path is not None and frame_path.is_file() else ""
     ok = (
         payload.get("schema_version") == "so101-camera-capture-report.v1"
         and payload.get("outcome") == "GO"
@@ -136,14 +153,23 @@ def _check_camera_report(repo_root: Path, path: Path) -> dict[str, Any]:
         and pass_conditions.get("dependencies_available") is True
         and pass_conditions.get("frame_captured") is True
         and pass_conditions.get("trace_only_motion_boundary_preserved") is True
+        and frame_path is not None
+        and frame_path.is_file()
     )
     check["ok"] = ok
-    check["reason"] = "SO-101 camera frame captured through trace-only path" if ok else "SO-101 camera report is not GO"
+    check["reason"] = (
+        "SO-101 camera frame captured through trace-only path"
+        if ok
+        else frame_error or "SO-101 camera report is not GO"
+    )
     check["evidence"] = {
         "schema_version": payload.get("schema_version"),
         "outcome": payload.get("outcome"),
         "camera_name": payload.get("camera_name"),
         "pass_conditions": pass_conditions if isinstance(pass_conditions, dict) else {},
+        "frame_path": _display_path(repo_root, frame_path) if frame_path is not None and frame_path.is_file() else "",
+        "frame_sha256": frame_sha,
+        "frame_error": frame_error,
     }
     return check
 
@@ -151,8 +177,10 @@ def _check_camera_report(repo_root: Path, path: Path) -> dict[str, Any]:
 def _check_trace(repo_root: Path, path: Path, *, mode: str, expected_gate_decision: str) -> dict[str, Any]:
     check = _base_check(f"{mode}_decisiontrace_verifies", repo_root, path)
     payload = _read_json(path)
+    if isinstance(payload, JsonReadError):
+        return _fail(check, payload.reason)
     if not isinstance(payload, dict):
-        return _fail(check, "trace is missing or not a JSON object")
+        return _fail(check, "trace is not a JSON object")
     try:
         trace = trace_from_dict(payload)
         summary_sha = verify_trace(trace)
@@ -181,7 +209,7 @@ def _check_trace(repo_root: Path, path: Path, *, mode: str, expected_gate_decisi
     return check
 
 
-def _check_trial_csv(repo_root: Path, path: Path) -> dict[str, Any]:
+def _check_trial_csv(repo_root: Path, path: Path, *, verified_trace_summaries: set[str]) -> dict[str, Any]:
     check = _base_check("measured_trial_csv_has_rows", repo_root, path)
     if not path.is_file():
         return _fail(check, "trial CSV is missing")
@@ -213,7 +241,11 @@ def _check_trial_csv(repo_root: Path, path: Path) -> dict[str, Any]:
         except ValueError as exc:
             invalid_reasons.append(f"row {index}: {exc}")
         else:
-            valid_rows += 1
+            trace_summary_sha = str(row.get("trace_summary_sha", ""))
+            if trace_summary_sha not in verified_trace_summaries:
+                invalid_reasons.append(f"row {index}: trace_summary_sha is not bound to an audited trace")
+            else:
+                valid_rows += 1
     ok = valid_rows > 0
     check["ok"] = ok
     check["reason"] = "trial CSV contains validated measured rows" if ok else "trial CSV has no validated measured rows"
@@ -222,6 +254,7 @@ def _check_trial_csv(repo_root: Path, path: Path) -> dict[str, Any]:
         "valid_row_count": valid_rows,
         "invalid_row_count": len(invalid_reasons),
         "invalid_reasons": invalid_reasons[:5],
+        "verified_trace_summary_count": len(verified_trace_summaries),
     }
     return check
 
@@ -229,10 +262,13 @@ def _check_trial_csv(repo_root: Path, path: Path) -> dict[str, Any]:
 def _check_ecs_report(repo_root: Path, path: Path) -> dict[str, Any]:
     check = _base_check("ecs_report_is_public_go", repo_root, path)
     payload = _read_json(path)
+    if isinstance(payload, JsonReadError):
+        return _fail(check, payload.reason)
     if not isinstance(payload, dict):
-        return _fail(check, "ECS report is missing or not a JSON object")
+        return _fail(check, "ECS report is not a JSON object")
     pass_conditions = payload.get("pass_conditions")
     deployment = payload.get("deployment")
+    checks = payload.get("checks")
     required_pass_conditions = {
         "healthz",
         "readyz",
@@ -248,10 +284,23 @@ def _check_ecs_report(repo_root: Path, path: Path) -> dict[str, Any]:
         "base_url_matches_public_ip_when_ip_literal",
     }
     pass_condition_keys = set(pass_conditions) if isinstance(pass_conditions, dict) else set()
+    required_check_names = {
+        "healthz",
+        "readyz",
+        "camera-fixture",
+        "swarm-demo",
+        "swarm-demo_summary.json",
+    }
+    check_names = {
+        str(item.get("name"))
+        for item in checks
+        if isinstance(item, dict) and item.get("ok") is True
+    } if isinstance(checks, list) else set()
     required_conditions_ok = (
         isinstance(pass_conditions, dict)
         and required_pass_conditions.issubset(pass_condition_keys)
         and all(pass_conditions.get(key) is True for key in required_pass_conditions)
+        and required_check_names.issubset(check_names)
         and any(
             key.startswith("qwen-ping_model_") and value is True
             for key, value in pass_conditions.items()
@@ -273,6 +322,7 @@ def _check_ecs_report(repo_root: Path, path: Path) -> dict[str, Any]:
         "proof_mode": payload.get("proof_mode"),
         "deployed_commit": payload.get("deployed_commit"),
         "missing_pass_conditions": sorted(required_pass_conditions - pass_condition_keys),
+        "missing_endpoint_checks": sorted(required_check_names - check_names),
         "qwen_ping_condition_present": any(
             key.startswith("qwen-ping_model_") and value is True
             for key, value in pass_conditions.items()
@@ -332,11 +382,18 @@ def _fail(check: dict[str, Any], reason: str) -> dict[str, Any]:
 
 def _read_json(path: Path) -> object:
     if not path.is_file():
-        return None
+        return JsonReadError(reason="file is missing")
     try:
         return json.loads(path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, UnicodeDecodeError):
-        return None
+    except json.JSONDecodeError:
+        return JsonReadError(reason="file is not valid JSON")
+    except UnicodeDecodeError:
+        return JsonReadError(reason="file is not valid UTF-8")
+
+
+class JsonReadError:
+    def __init__(self, *, reason: str) -> None:
+        self.reason = reason
 
 
 def _find_repo_root(start: Path) -> Path:
@@ -359,6 +416,28 @@ def _repo_path(repo_root: Path, raw_path: Path) -> Path:
 def _display_path(repo_root: Path, path: Path) -> str:
     relative = path.resolve().relative_to(repo_root.resolve())
     return PurePosixPath(relative).as_posix()
+
+
+def _neighbor_artifact_path(*, repo_root: Path, anchor: Path, raw_value: object) -> tuple[Path | None, str]:
+    if not isinstance(raw_value, str) or not raw_value.strip():
+        return None, "camera report does not reference a captured frame artifact"
+    raw_path = Path(raw_value)
+    if raw_path.is_absolute():
+        return None, "camera frame artifact path must be relative"
+    resolved = (anchor.parent / raw_path).resolve()
+    try:
+        resolved.relative_to(repo_root.resolve())
+    except ValueError:
+        return None, "camera frame artifact path must stay inside the repository checkout"
+    return resolved, ""
+
+
+def _file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 if __name__ == "__main__":
