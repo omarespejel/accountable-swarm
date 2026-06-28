@@ -34,11 +34,15 @@ from accountable_swarm.trace.models import (
 
 
 REPORT_SCHEMA_VERSION = "qwenguard-trial-record-report.v1"
+ISSUE_URL = "https://github.com/omarespejel/accountable-swarm/issues/103"
+UMBRELLA_ISSUE_URL = "https://github.com/omarespejel/accountable-swarm/issues/95"
 DEFAULT_TRACE_DIR = Path("runs/physical/qwenguard_trials/traces")
 DEFAULT_CSV_OUT = Path("runs/physical/qwenguard_trials/trial_results.csv")
 DEFAULT_TASK = "pick the red cube left of the green cube and place it in the bin"
 DEFAULT_TARGET_LABEL = "red cube left of green cube"
 CONTROL_LABELS = {"AUTONOMOUS", "TELEOP", "SCRIPTED"}
+ATTEMPTED_OUTCOMES = {"success", "wrong_object", "missed_grasp", "dropped_object", "not_in_bin"}
+NO_MOTION_OUTCOMES = {"cloud_hold", "unsafe_hold", "uncertain"}
 FAILURE_TYPE_BY_OUTCOME = {
     "success": "none",
     "wrong_object": "wrong_object",
@@ -66,6 +70,27 @@ SECRET_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"gh(?:p|o|u|s|r)_[A-Za-z0-9_]{12,}"),
     re.compile(r"(?<![A-Za-z0-9_-])sk-[A-Za-z0-9._-]{20,}"),
 )
+RAW_FRAME_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"data:image/[A-Za-z0-9.+-]+;base64,", re.IGNORECASE),
+    re.compile(r"base64,[A-Za-z0-9+/]{80,}={0,2}", re.IGNORECASE),
+    re.compile(r"(?<![A-Za-z0-9+/])[A-Za-z0-9+/]{160,}={0,2}(?![A-Za-z0-9+/])"),
+)
+TEXT_LIMITS = {
+    "trial_id": 81,
+    "task_instruction": 240,
+    "object_layout_id": 120,
+    "operator_label": 120,
+    "qwen_eval_label": 120,
+    "notes": 240,
+    "target_mark_id": 32,
+    "target_label": 120,
+    "source_ref": 160,
+    "selector_evidence": 512,
+    "evaluator_evidence": 512,
+    "trace_dir": 240,
+    "csv_out": 240,
+    "report_out": 240,
+}
 
 
 def main() -> int:
@@ -89,7 +114,7 @@ def main() -> int:
     parser.add_argument("--target-mark-id", default="A")
     parser.add_argument("--target-label", default=DEFAULT_TARGET_LABEL)
     parser.add_argument("--relation", choices=sorted(RELATIONS), default="left_of")
-    parser.add_argument("--reference-mark-id", action="append", default=["B"])
+    parser.add_argument("--reference-mark-id", action="append", default=None)
     parser.add_argument("--selector-confidence-milli", type=int, default=900)
     parser.add_argument("--evaluator-confidence-milli", type=int, default=800)
     parser.add_argument("--selector-evidence", default="Qwen selected the marked relational cube target.")
@@ -113,6 +138,8 @@ def main() -> int:
             args.report_out if args.report_out is not None else Path("runs/physical/qwenguard_trials/reports") / f"{args.trial_id}.json",
         )
         _validate_text_inputs(args)
+        _validate_trial_semantics(args)
+        reference_mark_ids = _normalize_reference_mark_ids(args.reference_mark_id, relation=args.relation)
         bbox = _parse_bbox(args.bbox_norm_1000)
         trace = build_trial_trace(
             trial_id=args.trial_id,
@@ -124,7 +151,7 @@ def main() -> int:
             target_mark_id=args.target_mark_id,
             target_label=args.target_label,
             relation=args.relation,
-            reference_mark_ids=tuple(args.reference_mark_id),
+            reference_mark_ids=reference_mark_ids,
             selector_mode=args.selector_mode,
             selector_confidence_milli=args.selector_confidence_milli,
             selector_evidence=args.selector_evidence,
@@ -387,7 +414,8 @@ def _report(
     return {
         "schema_version": REPORT_SCHEMA_VERSION,
         "outcome": "GO",
-        "issue": "https://github.com/omarespejel/accountable-swarm/issues/95",
+        "issue": ISSUE_URL,
+        "umbrella_issue": UMBRELLA_ISSUE_URL,
         "trial_record": trial_record.to_dict(),
         "control_label": control_label,
         "motion_executed": motion_executed,
@@ -431,15 +459,78 @@ def _validate_text_inputs(args: argparse.Namespace) -> None:
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,80}", args.trial_id):
         raise ValueError("trial_id must be ASCII and contain only letters, digits, dot, underscore, or dash")
     for name, value in values.items():
+        limit = TEXT_LIMITS[name]
+        if len(value) > limit:
+            raise ValueError(f"{name} must be {limit} characters or fewer")
         if _has_control_chars(value):
             raise ValueError(f"{name} must not contain control characters")
         if _contains_secret_material(value):
             raise ValueError(f"{name} contains secret-like material")
+        if _contains_raw_frame_material(value):
+            raise ValueError(f"{name} contains raw-frame-like material")
     if args.image_width <= 0 or args.image_height <= 0:
         raise ValueError("image dimensions must be positive")
     _validate_milli("predicted_success_milli", args.predicted_success_milli)
     _validate_milli("selector_confidence_milli", args.selector_confidence_milli)
     _validate_milli("evaluator_confidence_milli", args.evaluator_confidence_milli)
+
+
+def _validate_trial_semantics(args: argparse.Namespace) -> None:
+    motion_executed = args.motion_executed == "true"
+    if args.outcome == "cloud_hold":
+        if args.cloud_mode != "degraded":
+            raise ValueError("outcome=cloud_hold requires cloud_mode=degraded")
+        if args.gate_decision != "HOLD":
+            raise ValueError("outcome=cloud_hold requires gate_decision=HOLD")
+        if motion_executed:
+            raise ValueError("outcome=cloud_hold requires motion_executed=false")
+        if args.predicted_success_milli != 0:
+            raise ValueError("outcome=cloud_hold requires predicted_success_milli=0")
+        if args.risk_level != "high":
+            raise ValueError("outcome=cloud_hold requires risk_level=high")
+    if args.gate_decision == "HOLD" and motion_executed:
+        raise ValueError("gate_decision=HOLD requires motion_executed=false")
+    if args.outcome == "success":
+        if not motion_executed:
+            raise ValueError("outcome=success requires motion_executed=true")
+        if args.gate_decision not in {"ALLOW", "RETRY"}:
+            raise ValueError("outcome=success requires gate_decision=ALLOW or RETRY")
+    if args.outcome in ATTEMPTED_OUTCOMES - {"success"}:
+        if not motion_executed:
+            raise ValueError(f"outcome={args.outcome} requires motion_executed=true")
+        if args.gate_decision not in {"ALLOW", "RETRY"}:
+            raise ValueError(f"outcome={args.outcome} requires gate_decision=ALLOW or RETRY")
+    if not motion_executed and args.outcome not in NO_MOTION_OUTCOMES:
+        raise ValueError(f"outcome={args.outcome} requires motion_executed=true")
+    if args.outcome == "unsafe_hold":
+        if args.gate_decision != "HOLD":
+            raise ValueError("outcome=unsafe_hold requires gate_decision=HOLD")
+        if args.risk_level != "high":
+            raise ValueError("outcome=unsafe_hold requires risk_level=high")
+
+
+def _normalize_reference_mark_ids(raw_values: list[str] | None, *, relation: str) -> tuple[str, ...]:
+    values = raw_values if raw_values is not None else ["B"]
+    references: list[str] = []
+    seen: set[str] = set()
+    for raw in values:
+        value = raw.strip()
+        if not value:
+            raise ValueError("reference_mark_id must be non-empty")
+        if len(value) > 32:
+            raise ValueError("reference_mark_id must be 32 characters or fewer")
+        if not value.isascii():
+            raise ValueError("reference_mark_id must be ASCII")
+        if _has_control_chars(value) or _contains_secret_material(value) or _contains_raw_frame_material(value):
+            raise ValueError("reference_mark_id is not safe to record")
+        if value not in seen:
+            references.append(value)
+            seen.add(value)
+    if relation == "between" and len(references) != 2:
+        raise ValueError("relation between requires exactly two distinct reference marks")
+    if relation in {"left_of", "right_of", "nearest_bin"} and not references:
+        raise ValueError(f"relation {relation} requires at least one reference mark")
+    return tuple(references)
 
 
 def _parse_bbox(value: str) -> tuple[int, int, int, int]:
@@ -533,6 +624,10 @@ def _display_path(repo_root: Path, path: Path) -> str:
 
 def _contains_secret_material(text: str) -> bool:
     return any(pattern.search(text) for pattern in SECRET_PATTERNS)
+
+
+def _contains_raw_frame_material(text: str) -> bool:
+    return any(pattern.search(text) for pattern in RAW_FRAME_PATTERNS)
 
 
 def _has_control_chars(value: str) -> bool:

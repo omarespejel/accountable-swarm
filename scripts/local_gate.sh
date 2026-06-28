@@ -169,7 +169,11 @@ python3 -m venv "$gate_tmp/venv"
 
 "$gate_tmp/venv/bin/record-qwenguard-trial" \
     --trial-id local-gate-trial \
-    --outcome success \
+    --outcome cloud_hold \
+    --cloud-mode degraded \
+    --gate-decision HOLD \
+    --predicted-success-milli 0 \
+    --risk-level high \
     --motion-executed false \
     --control-label SCRIPTED \
     --trace-dir runs/physical/local_gate_qwenguard_trials/traces \
