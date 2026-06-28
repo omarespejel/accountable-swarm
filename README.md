@@ -173,6 +173,18 @@ phase that attempts an SO-101 frame capture. Physical success, ACT success, and
 SO-101 connectivity remain non-claims until the operator fills the generated
 evidence manifest with checked run artifacts.
 
+To prepare a claim-safe Track 5 submission scaffold before the physical session:
+
+```bash
+prepare-qwenguard-submission-pack \
+  --out-dir runs/submission/qwenguard-pack
+```
+
+The generated pack writes an architecture note, demo script, evidence manifest,
+and README. Its pack-generation outcome can be `GO`, but
+`submission_readiness` stays `NARROW_CLAIM` until SO-101 physical evidence and
+Alibaba ECS public-endpoint proof are added by the operator.
+
 ## Simulated Swarm Gate
 
 The first swarm-shaped gate is deterministic and local. It uses an integer grid,
