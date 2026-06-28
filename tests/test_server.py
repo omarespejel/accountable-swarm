@@ -295,6 +295,45 @@ class ServerTests(TestCase):
         self.assertEqual(payload["obstacles"], [{"x": 1, "y": 2}])
         self.assertTrue(any(agent["decision"] == "REROUTE" for agent in payload["timeline"][0]["agents"]))
 
+    def test_replan_endpoint_rejects_duplicate_json_keys(self) -> None:
+        body = (
+            '{"grid":{"w":7,"h":5},'
+            '"agents":[{"id":"sim-agent-0","cell":[0,2]},'
+            '{"id":"sim-agent-1","cell":[6,2]},'
+            '{"id":"sim-agent-2","cell":[3,0]},'
+            '{"id":"sim-agent-3","cell":[3,4]}],'
+            '"hazard":[3,2],'
+            '"obstacles":[],'
+            '"formation":"x",'
+            '"ticks":8,'
+            '"ticks":9}'
+        ).encode("utf-8")
+        with _test_server() as base_url:
+            with self.assertRaises(HTTPError) as ctx:
+                _post_raw_bytes(f"{base_url}/replan", body)
+
+        self.assertEqual(ctx.exception.code, 400)
+        payload = json.loads(ctx.exception.read().decode("utf-8"))
+        self.assertEqual(payload["status"], "rejected")
+        self.assertIn("duplicate JSON key: ticks", payload["error"])
+
+    def test_replan_world_model_hash_binds_observations(self) -> None:
+        first_request = _valid_replan_request()
+        first_request["observations"] = [_sample_observation(label="marked hazard")]
+        second_request = _valid_replan_request()
+        second_request["observations"] = [_sample_observation(label="changed hazard")]
+
+        with _test_server() as base_url:
+            first = json.loads(_post_json_bytes(f"{base_url}/replan", first_request).decode("utf-8"))
+            second = json.loads(_post_json_bytes(f"{base_url}/replan", second_request).decode("utf-8"))
+
+        first_frame = first["timeline"][0]
+        second_frame = second["timeline"][0]
+        self.assertEqual(first_frame["observations"][0]["label"], "marked hazard")
+        self.assertEqual(second_frame["observations"][0]["label"], "changed hazard")
+        self.assertNotEqual(first_frame["world_model_sha"], second_frame["world_model_sha"])
+        self.assertEqual(first["world_model"]["first_world_model_sha"], first_frame["world_model_sha"])
+
     def test_replan_endpoint_rejects_obstacle_on_hazard(self) -> None:
         with _test_server() as base_url:
             request_body = {
@@ -397,6 +436,18 @@ def _valid_replan_request() -> dict[str, object]:
     }
 
 
+def _sample_observation(*, label: str) -> dict[str, object]:
+    return {
+        "observation_id": "obs-hazard",
+        "source": "fixture_bbox",
+        "label": label,
+        "cell": {"x": 3, "y": 2},
+        "source_trace_sha": "a" * 64,
+        "bbox_2d_norm_1000": [250, 250, 750, 750],
+        "score_milli": 1000,
+    }
+
+
 def _post_json_bytes(
     url: str,
     payload: dict[str, object],
@@ -404,6 +455,25 @@ def _post_json_bytes(
     headers: dict[str, str] | None = None,
 ) -> bytes:
     body = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    request_headers = {"Content-Type": "application/json", "Content-Length": str(len(body))}
+    if headers:
+        request_headers.update(headers)
+    req = request.Request(
+        url,
+        data=body,
+        method="POST",
+        headers=request_headers,
+    )
+    with request.urlopen(req, timeout=5) as resp:
+        return resp.read()
+
+
+def _post_raw_bytes(
+    url: str,
+    body: bytes,
+    *,
+    headers: dict[str, str] | None = None,
+) -> bytes:
     request_headers = {"Content-Type": "application/json", "Content-Length": str(len(body))}
     if headers:
         request_headers.update(headers)

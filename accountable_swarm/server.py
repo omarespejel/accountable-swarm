@@ -24,7 +24,7 @@ from accountable_swarm.swarm import (
     run_swarm_custom,
 )
 from accountable_swarm.trace.models import PerceptionEvent, build_single_event_trace, canonical_json, verify_trace
-from accountable_swarm.world_model import WorldAgentState, WorldModelState, WorldReservation
+from accountable_swarm.world_model import WorldAgentState, WorldModelState, WorldObservation, WorldReservation
 
 
 FIXTURE_RESPONSE = '[{"bbox_2d":[250,250,750,750],"label":"marked hazard"}]'
@@ -40,6 +40,7 @@ INTERACTIVE_MIN_GRID_SIZE = 5
 INTERACTIVE_MAX_GRID_SIZE = 12
 INTERACTIVE_MAX_TICKS = 32
 INTERACTIVE_MAX_OBSTACLES = 24
+INTERACTIVE_MAX_OBSERVATIONS = 4
 
 
 class AccountableSwarmHandler(BaseHTTPRequestHandler):
@@ -278,8 +279,12 @@ class AccountableSwarmHandler(BaseHTTPRequestHandler):
             raise ValueError("request body too large")
         body = self.rfile.read(length)
         try:
-            parsed = json.loads(body.decode("utf-8"))
-        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            text = body.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise ValueError("request body must be valid UTF-8 JSON") from exc
+        try:
+            parsed = json.loads(text, object_pairs_hook=_reject_duplicate_json_keys)
+        except json.JSONDecodeError as exc:
             raise ValueError("request body must be valid UTF-8 JSON") from exc
         if not isinstance(parsed, dict):
             raise ValueError("request body must be a JSON object")
@@ -328,6 +333,11 @@ def _interactive_replan_response(payload: dict[str, Any]) -> dict[str, Any]:
 
     hazard = _grid_point_from_pair(payload.get("hazard"), "hazard")
     _validate_point_in_grid(hazard, grid_width=grid_width, grid_height=grid_height, name="hazard")
+    observations = _observations_from_request(
+        payload.get("observations", []),
+        grid_width=grid_width,
+        grid_height=grid_height,
+    )
 
     obstacles = tuple(sorted(_grid_points_from_pairs(payload.get("obstacles", []), "obstacles")))
     if len(obstacles) > INTERACTIVE_MAX_OBSTACLES:
@@ -379,6 +389,7 @@ def _interactive_replan_response(payload: dict[str, Any]) -> dict[str, Any]:
             result=result,
             tick=tick_record,
             hazard=hazard,
+            observations=observations,
             trace_summary_shas=trace_summary_shas,
             decision_event_shas=decision_event_shas,
         ).with_computed_sha()
@@ -457,6 +468,7 @@ def _interactive_replan_response(payload: dict[str, Any]) -> dict[str, Any]:
                     }
                     for conflict in states[tick_record.tick].predicted_conflicts
                 ],
+                "observations": states[tick_record.tick].to_dict()["observations"],
                 "world_model_sha": states[tick_record.tick].world_model_sha,
             }
             for tick_record in result.ticks
@@ -477,6 +489,7 @@ def _interactive_world_state_for_tick(
     result: Any,
     tick: Any,
     hazard: GridPoint,
+    observations: tuple[WorldObservation, ...],
     trace_summary_shas: dict[str, str],
     decision_event_shas: dict[str, dict[int, str]],
 ) -> WorldModelState:
@@ -500,12 +513,43 @@ def _interactive_world_state_for_tick(
         tick=tick.tick,
         grid_width=result.grid_width,
         grid_height=result.grid_height,
-        observations=(),
+        observations=observations,
         hazards=(hazard,),
         agents=agents,
         reservations=reservations,
         predicted_conflicts=(),
     )
+
+
+def _observations_from_request(
+    value: Any,
+    *,
+    grid_width: int,
+    grid_height: int,
+) -> tuple[WorldObservation, ...]:
+    items = _require_list(value, "observations")
+    if len(items) > INTERACTIVE_MAX_OBSERVATIONS:
+        raise ValueError(f"observations must contain at most {INTERACTIVE_MAX_OBSERVATIONS} items")
+    observations: list[WorldObservation] = []
+    for item in items:
+        observation = _require_dict(item, "observation")
+        cell = _grid_point_from_dict(_require_dict(observation.get("cell"), "observation cell"), "observation cell")
+        _validate_point_in_grid(cell, grid_width=grid_width, grid_height=grid_height, name="observation cell")
+        bbox_value = observation.get("bbox_2d_norm_1000")
+        bbox = _norm_bbox_from_request(bbox_value) if bbox_value is not None else None
+        score_milli = _require_optional_int(observation.get("score_milli"), "observation score_milli", default=1000)
+        observations.append(
+            WorldObservation(
+                observation_id=_require_string(observation.get("observation_id"), "observation_id"),
+                source=_require_string(observation.get("source"), "observation source"),
+                label=_require_string(observation.get("label"), "observation label"),
+                cell=cell,
+                source_trace_sha=_require_string(observation.get("source_trace_sha"), "observation source_trace_sha"),
+                bbox_2d_norm_1000=bbox,
+                score_milli=score_milli,
+            )
+        )
+    return tuple(sorted(observations, key=lambda item: item.observation_id))
 
 
 def _agent_positions_from_request(value: Any, *, grid_width: int, grid_height: int) -> dict[str, GridPoint]:
@@ -544,11 +588,33 @@ def _grid_point_from_pair(value: Any, name: str) -> GridPoint:
     return GridPoint(x=x, y=y)
 
 
+def _grid_point_from_dict(value: dict[str, Any], name: str) -> GridPoint:
+    x = _require_int(value.get("x"), f"{name}.x")
+    y = _require_int(value.get("y"), f"{name}.y")
+    return GridPoint(x=x, y=y)
+
+
+def _norm_bbox_from_request(value: Any) -> tuple[int, int, int, int]:
+    items = _require_list(value, "observation bbox_2d_norm_1000")
+    if len(items) != 4:
+        raise ValueError("observation bbox_2d_norm_1000 must contain four values")
+    return tuple(
+        _require_int(item, f"observation bbox_2d_norm_1000[{index}]")
+        for index, item in enumerate(items)
+    )
+
+
 def _require_positive_int(value: Any, name: str) -> int:
     integer = _require_int(value, name)
     if integer <= 0:
         raise ValueError(f"{name} must be positive")
     return integer
+
+
+def _require_optional_int(value: Any, name: str, *, default: int) -> int:
+    if value is None:
+        return default
+    return _require_int(value, name)
 
 
 def _require_optional_positive_int(value: Any, name: str, *, default: int) -> int:
@@ -560,6 +626,12 @@ def _require_optional_positive_int(value: Any, name: str, *, default: int) -> in
 def _require_int(value: Any, name: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int):
         raise ValueError(f"{name} must be an integer")
+    return value
+
+
+def _require_string(value: Any, name: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{name} must be a non-empty string")
     return value
 
 
@@ -578,6 +650,15 @@ def _require_list(value: Any, name: str) -> list[Any]:
     if not isinstance(value, list):
         raise ValueError(f"{name} must be an array")
     return value
+
+
+def _reject_duplicate_json_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, item in pairs:
+        if key in result:
+            raise ValueError(f"duplicate JSON key: {key}")
+        result[key] = item
+    return result
 
 
 def _is_loopback_host(value: str) -> bool:
