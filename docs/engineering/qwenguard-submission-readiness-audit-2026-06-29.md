@@ -26,15 +26,18 @@ The auditor checks:
 - SO-101 camera capture report is `GO`;
 - fixture `decisiontrace.v2` verifies with `ALLOW` and no executed motion;
 - degraded `decisiontrace.v2` verifies with `HOLD` and no executed motion;
-- trial CSV contains at least one valid measured `TrialRecord` row;
+- measured trial trace directory contains at least one verified trial trace;
+- trial CSV contains at least one valid measured `TrialRecord` row bound to one
+  of those verified measured-trial trace summaries;
 - ECS smoke report is `outcome: GO` with `proof_mode: ecs-public`;
 - final video review note contains the required claim labels and boundaries.
 
 The readiness checks fail closed on malformed JSON, path escape attempts, and
 self-asserted operator evidence. SO-101 camera readiness requires a referenced
 frame artifact next to the camera report, measured trial rows must bind to a
-trace summary SHA verified during the same audit, and ECS readiness requires
-both pass-condition booleans and matching endpoint-check evidence.
+measured-trial trace summary SHA verified during the same audit, and ECS
+readiness requires both pass-condition booleans and matching endpoint-check
+evidence.
 
 ## GO Gate
 
@@ -59,7 +62,7 @@ This writes a report with `outcome: NARROW_CLAIM`.
 
 ```text
 python3 -m unittest tests.test_qwenguard_submission_readiness_audit_cli tests.test_packaging
-# Ran 10 tests OK
+# Ran 11 tests OK
 
 python3 -m scripts.audit_qwenguard_submission_readiness --out runs/submission/qwenguard-readiness-smoke.json --allow-narrow-claim
 # outcome NARROW_CLAIM

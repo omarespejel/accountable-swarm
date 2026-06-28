@@ -194,8 +194,11 @@ audit-qwenguard-submission-readiness \
 ```
 
 The audit exits non-zero without `--allow-narrow-claim` until the SO-101 camera
-report, no-motion traces, measured trial CSV, Alibaba ECS public proof, and
-human video review all pass their checked gates.
+report, no-motion traces, measured trial trace directory, measured trial CSV,
+Alibaba ECS public proof, and human video review all pass their checked gates.
+Trial CSV rows must reference `trace_summary_sha` values from verified JSON
+traces under `runs/physical/qwenguard_trials/traces/`; a syntactically valid
+CSV row is not enough.
 
 ## Simulated Swarm Gate
 

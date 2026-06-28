@@ -205,6 +205,9 @@ def _render_readme(*, repo_root: Path, files: dict[str, Path], task: str, repo_u
             "- SO-101 camera report with `outcome: GO`.",
             "- Qwen selector/evaluator traces over the real setup.",
             "- Measured physical trials as `N/10` with failure taxonomy.",
+            "- Per-trial `decisiontrace.v2` JSON files under",
+            "  `runs/physical/qwenguard_trials/traces/`, with CSV rows bound",
+            "  to their `trace_summary_sha` values.",
             "- Cloud-degraded HOLD take.",
             "- Alibaba ECS smoke report with `proof_mode: ecs-public` and `outcome: GO`.",
             "- Human-reviewed video captions with no overclaims.",
@@ -342,7 +345,16 @@ def _evidence_manifest(*, task: str, repo_url: str) -> dict[str, Any]:
                 "name": "act_physical_trials",
                 "status": "pending",
                 "expected_path": "runs/physical/qwenguard_so101_training_pack/trial_template.csv",
-                "note": "operator fills this template or copies it to a measured trial-results CSV after physical attempts",
+                "note": (
+                    "operator fills this template or copies it to a measured trial-results CSV after physical attempts; "
+                    "each promoted row must bind to a verified trial trace summary"
+                ),
+            },
+            {
+                "name": "measured_trial_traces",
+                "status": "pending",
+                "expected_path": "runs/physical/qwenguard_trials/traces",
+                "note": "operator stores one decisiontrace.v2 JSON file per promoted physical trial",
             },
             {
                 "name": "cloud_degraded_hold_take",
