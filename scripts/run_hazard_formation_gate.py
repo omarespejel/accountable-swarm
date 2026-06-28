@@ -16,6 +16,8 @@ from accountable_swarm.qwen.client import DashScopeQwenClient, DashScopeResponse
 from accountable_swarm.swarm import (
     FORMATION_MISSION_FIXTURE_MODEL_ID,
     SUPPORTED_FORMATIONS,
+    SUPPORTED_FORMATION_MISSIONS,
+    SUPPORTED_MISSION_RISKS,
     AgentConfig,
     FormationMissionChoice,
     GridPoint,
@@ -73,6 +75,8 @@ def main() -> int:
         default=DEFAULT_MISSION_SOURCE,
     )
     parser.add_argument("--mission-model", default=DEFAULT_MODEL)
+    parser.add_argument("--fixture-mission", choices=SUPPORTED_FORMATION_MISSIONS, default="surround_hazard")
+    parser.add_argument("--fixture-risk", choices=SUPPORTED_MISSION_RISKS, default="cautious")
     parser.add_argument("--formation", choices=SUPPORTED_FORMATIONS, default="surround")
     parser.add_argument("--grid-width", type=int, default=DEFAULT_GRID_WIDTH)
     parser.add_argument("--grid-height", type=int, default=DEFAULT_GRID_HEIGHT)
@@ -89,6 +93,8 @@ def main() -> int:
             model=args.model,
             mission_source=args.mission_source,
             mission_model=args.mission_model,
+            fixture_mission=args.fixture_mission,
+            fixture_risk=args.fixture_risk,
             formation=args.formation,
             grid_width=args.grid_width,
             grid_height=args.grid_height,
@@ -140,6 +146,8 @@ def _build_report(
     model: str,
     mission_source: str,
     mission_model: str,
+    fixture_mission: str,
+    fixture_risk: str,
     formation: str,
     grid_width: int,
     grid_height: int,
@@ -184,6 +192,8 @@ def _build_report(
     mission_choice_report = _mission_choice_report(
         mission_source=mission_source,
         mission_model=mission_model,
+        fixture_mission=fixture_mission,
+        fixture_risk=fixture_risk,
         hazard_cell=hazard.cell,
         grid_width=grid_width,
         grid_height=grid_height,
@@ -402,6 +412,8 @@ def _mission_choice_report(
     *,
     mission_source: str,
     mission_model: str,
+    fixture_mission: str,
+    fixture_risk: str,
     hazard_cell: GridPoint,
     grid_width: int,
     grid_height: int,
@@ -414,6 +426,8 @@ def _mission_choice_report(
     response_text = _formation_mission_response(
         source=resolved_source,
         model=mission_model,
+        fixture_mission=fixture_mission,
+        fixture_risk=fixture_risk,
         hazard_cell=hazard_cell,
         grid_width=grid_width,
         grid_height=grid_height,
@@ -444,13 +458,15 @@ def _formation_mission_response(
     *,
     source: str,
     model: str,
+    fixture_mission: str,
+    fixture_risk: str,
     hazard_cell: GridPoint,
     grid_width: int,
     grid_height: int,
     requested_formation: str,
 ) -> str:
     if source == "fixture":
-        return fixture_formation_mission_response()
+        return fixture_formation_mission_response(mission=fixture_mission, risk=fixture_risk)
     prompt = qwen_formation_mission_prompt(
         hazard_cell=hazard_cell,
         grid_width=grid_width,

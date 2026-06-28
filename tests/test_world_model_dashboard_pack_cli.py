@@ -77,6 +77,21 @@ class WorldModelDashboardPackCliTests(TestCase):
         self.assertEqual(data["mission_choice"]["choice"]["risk"], "cautious")
         self.assertEqual(len(data["mission_trace_summary_sha"]), 64)
 
+    def test_dashboard_pack_rejects_rehashed_mission_choice_mismatch(self) -> None:
+        (ROOT / "runs").mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=ROOT / "runs") as tmpdir:
+            base = Path(tmpdir)
+            trace_dir = base / "hazard_x"
+            report_path = base / "hazard_x_report.json"
+            out_dir = base / "dashboard"
+            _run_hazard_gate(trace_dir=trace_dir, report_path=report_path, mission_source="fixture")
+            _rewrite_mission_trace_choice(trace_dir / "mission.json", mission="hold_position", risk="balanced")
+
+            result = _run_dashboard_pack(trace_dir=trace_dir, report_path=report_path, out_dir=out_dir)
+
+        self.assertEqual(result.returncode, 4)
+        self.assertIn("hazard report mission_choice choice does not match mission trace", result.stderr)
+
     def test_dashboard_pack_rejects_world_model_trace_drift_even_when_rehashed(self) -> None:
         (ROOT / "runs").mkdir(parents=True, exist_ok=True)
         with TemporaryDirectory(dir=ROOT / "runs") as tmpdir:
@@ -361,6 +376,26 @@ def _rewrite_agent_trace_actor_id(trace_path: Path, actor_id: str) -> None:
     events = []
     for event in trace.events:
         rewritten = replace(event, actor_id=actor_id, prev_sha=prev_sha, sha256="").with_computed_sha()
+        events.append(rewritten)
+        prev_sha = rewritten.sha256
+    rewritten_trace = DecisionTrace(
+        run_id=trace.run_id,
+        events=tuple(events),
+        schema_version=trace.schema_version,
+        genesis_sha=trace.genesis_sha,
+    ).with_computed_summary()
+    trace_path.write_text(rewritten_trace.to_canonical_json() + "\n", encoding="utf-8")
+
+
+def _rewrite_mission_trace_choice(trace_path: Path, *, mission: str, risk: str) -> None:
+    trace = trace_from_dict(json.loads(trace_path.read_text(encoding="utf-8")))
+    events = []
+    prev_sha = GENESIS_SHA
+    for event in trace.events:
+        command = dict(event.command)
+        command["mission"] = mission
+        command["risk"] = risk
+        rewritten = replace(event, command=command, prev_sha=prev_sha, sha256="").with_computed_sha()
         events.append(rewritten)
         prev_sha = rewritten.sha256
     rewritten_trace = DecisionTrace(

@@ -12,6 +12,11 @@ import sys
 from typing import Any
 
 from accountable_swarm.trace.models import DecisionTrace, canonical_json, trace_from_dict, verify_trace
+from accountable_swarm.swarm import (
+    FORMATION_MISSION_SCHEMA_VERSION,
+    SUPPORTED_FORMATION_MISSIONS,
+    SUPPORTED_MISSION_RISKS,
+)
 from accountable_swarm.world_model import WorldModelState, verify_world_model_state, world_model_from_dict
 
 
@@ -393,15 +398,55 @@ def _read_optional_mission_trace(
     trace_path = _contained_path(repo_root, trace_dir / "mission.json", "mission trace")
     mission_trace = _read_trace(trace_path, "mission trace")
     trace_summary_sha = verify_trace(mission_trace)
-    payload = {
-        "source": _require_string(report, "source"),
-        "model": _require_string(report, "model"),
-        "choice": _require_dict(report.get("choice"), "mission choice payload"),
-    }
+    payload = _mission_payload_from_trace(mission_trace)
+    if _require_string(report, "source") != payload["source"]:
+        raise ValueError("hazard report mission_choice source does not match mission trace")
+    if _require_string(report, "model") != payload["model"]:
+        raise ValueError("hazard report mission_choice model does not match mission trace")
+    if _require_dict(report.get("choice"), "mission choice payload") != payload["choice"]:
+        raise ValueError("hazard report mission_choice choice does not match mission trace")
     return {
         "path": _display_path(repo_root, trace_path),
         "trace_summary_sha": trace_summary_sha,
         "payload": payload,
+    }
+
+
+def _mission_payload_from_trace(trace: DecisionTrace) -> dict[str, Any]:
+    if len(trace.events) != 1:
+        raise ValueError("mission trace must contain exactly one event")
+    event = trace.events[0]
+    if event.actor_id != "mission-validator-0":
+        raise ValueError("mission trace actor_id must be mission-validator-0")
+    if event.decision != "MOVE":
+        raise ValueError("mission trace decision must be MOVE")
+    if event.mode == "cloud":
+        source = "dashscope"
+    elif event.mode == "fixture":
+        source = "fixture"
+    else:
+        raise ValueError("mission trace mode must be cloud or fixture")
+    command = _require_dict(event.command, "mission trace command")
+    if command.get("type") != "formation_mission":
+        raise ValueError("mission trace command type must be formation_mission")
+    if command.get("schema_version") != FORMATION_MISSION_SCHEMA_VERSION:
+        raise ValueError("mission trace command schema_version is unsupported")
+    mission = _require_string(command, "mission")
+    if mission not in SUPPORTED_FORMATION_MISSIONS:
+        raise ValueError("mission trace command mission is unsupported")
+    risk = _require_string(command, "risk")
+    if risk not in SUPPORTED_MISSION_RISKS:
+        raise ValueError("mission trace command risk is unsupported")
+    for key in ("requested_formation", "fallback_formation", "grid_width", "grid_height", "hazard_x", "hazard_y"):
+        if key not in command:
+            raise ValueError(f"mission trace command missing {key}")
+    model = event.perception.model
+    if not isinstance(model, str) or not model:
+        raise ValueError("mission trace model must be a non-empty string")
+    return {
+        "source": source,
+        "model": model,
+        "choice": {"mission": mission, "risk": risk},
     }
 
 

@@ -117,6 +117,53 @@ class HazardFormationGateCliTests(TestCase):
         self.assertTrue(report["pass_conditions"]["mission_trace_replay_deterministic"])
         self.assertTrue((trace_dir / "mission.json").is_file())
 
+    def test_fixture_bounded_hold_position_keeps_agents_at_starts(self) -> None:
+        trace_dir = ROOT / "runs/hazard_formation/test_fixture_hold_mission"
+        report_path = ROOT / "runs/hazard_formation/test_fixture_hold_mission_report.json"
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "scripts.run_hazard_formation_gate",
+                "--image",
+                "fixtures/hazard_marker.ppm",
+                "--mode",
+                "fixture",
+                "--mission-source",
+                "fixture",
+                "--fixture-mission",
+                "hold_position",
+                "--fixture-risk",
+                "balanced",
+                "--formation",
+                "x",
+                "--trace-dir",
+                str(trace_dir),
+                "--report-out",
+                str(report_path),
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(report["outcome"], "GO")
+        self.assertEqual(report["mission_choice"]["choice"], {"mission": "hold_position", "risk": "balanced"})
+        self.assertIsNone(report["formation_plan"])
+        self.assertEqual(report["ticks"], 1)
+        self.assertEqual(report["sim_report"]["hold_count"], 4)
+        self.assertTrue(report["pass_conditions"]["mission_choice_validated"])
+        for agent_id, goal in report["assigned_goals"].items():
+            agent_trace = trace_from_dict(
+                json.loads((trace_dir / "agents" / f"{agent_id}.json").read_text(encoding="utf-8"))
+            )
+            command = agent_trace.events[0].command
+            self.assertEqual(goal, {"x": command["from_x"], "y": command["from_y"]})
+            self.assertEqual(agent_trace.events[0].decision, "HOLD")
+
     def test_degraded_mode_writes_hold_traces_without_model(self) -> None:
         trace_dir = ROOT / "runs/hazard_formation/test_degraded"
         report_path = ROOT / "runs/hazard_formation/test_degraded_report.json"

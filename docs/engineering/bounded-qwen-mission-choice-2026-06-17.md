@@ -44,6 +44,13 @@ python3 -m unittest \
 The Qwen mission choice is not API-enforced beyond `json_object`. The allow-list
 is enforced locally by our validator before any local plan executes.
 
+## CI Pinning Note
+
+`.github/workflows/local-gate.yml` pins `actions/checkout` and
+`actions/setup-python` by full commit SHA. This is intentional supply-chain
+hardening for the research gate. Update those pins only in a focused maintenance
+PR that records the replacement SHAs and reruns `./scripts/local_gate.sh`.
+
 ## Non-claims
 
 - no Qwen real-time control
