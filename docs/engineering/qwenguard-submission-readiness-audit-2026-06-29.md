@@ -30,14 +30,21 @@ The auditor checks:
 - trial CSV contains at least one valid measured `TrialRecord` row bound to one
   of those verified measured-trial trace summaries;
 - ECS smoke report is `outcome: GO` with `proof_mode: ecs-public`;
-- final video review note contains the required claim labels and boundaries.
+- final video review note contains the required claim labels and explicit human
+  signoff fields.
 
 The readiness checks fail closed on malformed JSON, path escape attempts, and
 self-asserted operator evidence. SO-101 camera readiness requires a referenced
 frame artifact next to the camera report, measured trial rows must bind to a
 measured-trial trace summary SHA verified during the same audit, and ECS
 readiness requires both pass-condition booleans and matching endpoint-check
-evidence.
+evidence. The final video review check also rejects keyword-only notes,
+placeholder signoff values, and secret-like material. It requires `Reviewed-by`,
+`Review-date`, `Video-artifact`, `Privacy-reviewed`,
+`Claim-boundary-reviewed`, `Mode-labels-reviewed`, `ECS-proof-reviewed`,
+`SO-101-footage-reviewed`, and `Secrets-reviewed`. Local `Video-artifact`
+values must be repo-relative existing video files; hosted artifacts may be
+recorded as HTTPS URLs.
 
 ## GO Gate
 
@@ -62,7 +69,7 @@ This writes a report with `outcome: NARROW_CLAIM`.
 
 ```text
 python3 -m unittest tests.test_qwenguard_submission_readiness_audit_cli tests.test_packaging
-# Ran 12 tests OK
+# Ran 13+ packaging tests OK
 
 python3 -m scripts.audit_qwenguard_submission_readiness --out runs/submission/qwenguard-readiness-smoke.json --allow-narrow-claim
 # outcome NARROW_CLAIM

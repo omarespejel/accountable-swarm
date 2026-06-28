@@ -100,6 +100,7 @@ class QwenGuardSubmissionReadinessAuditCliTests(TestCase):
             trial_csv = audit_root / "trial_results.csv"
             ecs_report = audit_root / "ecs_smoke_report.json"
             video_review = audit_root / "final_video_review.md"
+            video_file = audit_root / "qwenguard-final-demo.mp4"
             out = audit_root / "readiness.json"
 
             _run_ok(
@@ -148,7 +149,8 @@ class QwenGuardSubmissionReadinessAuditCliTests(TestCase):
             camera_report.write_text(canonical_json(_camera_go_report()) + "\n", encoding="utf-8")
             trial_csv.write_text(_trial_csv(fixture_summary), encoding="utf-8")
             ecs_report.write_text(canonical_json(_ecs_go_report()) + "\n", encoding="utf-8")
-            video_review.write_text(_video_review(), encoding="utf-8")
+            video_file.write_bytes(b"synthetic-video-artifact")
+            video_review.write_text(_video_review(str(video_file.relative_to(ROOT))), encoding="utf-8")
 
             result = subprocess.run(
                 [
@@ -347,6 +349,314 @@ class QwenGuardSubmissionReadinessAuditCliTests(TestCase):
         manifest_check = next(check for check in report["checks"] if check["name"] == "submission_pack_manifest_go")
         self.assertFalse(manifest_check["ok"])
         self.assertEqual(manifest_check["reason"], "file is not valid JSON")
+
+    def test_video_review_keywords_without_signoff_fields_are_rejected(self) -> None:
+        base = ROOT / "runs" / "submission"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            audit_root = Path(tmpdir)
+            video_review = audit_root / "final_video_review.md"
+            out = audit_root / "readiness.json"
+            video_review.write_text(
+                "\n".join(
+                    [
+                        "# Final Video Review",
+                        "",
+                        "Qwen never controls motors.",
+                        "SO-101 footage is labeled with the observed mode.",
+                        "Alibaba ECS proof is shown only if the public report is GO.",
+                        "Labels checked in captions: AUTONOMOUS, TELEOP, SCRIPTED.",
+                        "",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.audit_qwenguard_submission_readiness",
+                    "--out",
+                    str(out.relative_to(ROOT)),
+                    "--video-review",
+                    str(video_review.relative_to(ROOT)),
+                    "--allow-narrow-claim",
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            report = json.loads(out.read_text(encoding="utf-8"))
+
+        video_check = next(check for check in report["checks"] if check["name"] == "human_video_review_present")
+        self.assertFalse(video_check["ok"])
+        self.assertIn("Reviewed-by", video_check["evidence"]["missing_fields"])
+        self.assertFalse(video_check["evidence"]["missing_phrases"])
+
+    def test_video_review_placeholder_signoff_fields_are_rejected(self) -> None:
+        base = ROOT / "runs" / "submission"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            audit_root = Path(tmpdir)
+            video_review = audit_root / "final_video_review.md"
+            out = audit_root / "readiness.json"
+            video_review.write_text(
+                _video_review()
+                .replace("Reviewed-by: human-reviewer", "Reviewed-by: <your name>")
+                .replace("Video-artifact: runs/submission/qwenguard-final-demo.mp4", "Video-artifact: TODO.mp4"),
+                encoding="utf-8",
+            )
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.audit_qwenguard_submission_readiness",
+                    "--out",
+                    str(out.relative_to(ROOT)),
+                    "--video-review",
+                    str(video_review.relative_to(ROOT)),
+                    "--allow-narrow-claim",
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            report = json.loads(out.read_text(encoding="utf-8"))
+
+        video_check = next(check for check in report["checks"] if check["name"] == "human_video_review_present")
+        self.assertFalse(video_check["ok"])
+        self.assertEqual(video_check["evidence"]["invalid_fields"]["Reviewed-by"], "placeholder value")
+        self.assertEqual(video_check["evidence"]["invalid_fields"]["Video-artifact"], "placeholder value")
+
+    def test_video_review_missing_local_artifact_is_rejected(self) -> None:
+        base = ROOT / "runs" / "submission"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            audit_root = Path(tmpdir)
+            video_review = audit_root / "final_video_review.md"
+            out = audit_root / "readiness.json"
+            missing_video = audit_root / "missing-demo.mp4"
+            video_review.write_text(_video_review(str(missing_video.relative_to(ROOT))), encoding="utf-8")
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.audit_qwenguard_submission_readiness",
+                    "--out",
+                    str(out.relative_to(ROOT)),
+                    "--video-review",
+                    str(video_review.relative_to(ROOT)),
+                    "--allow-narrow-claim",
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            report = json.loads(out.read_text(encoding="utf-8"))
+
+        video_check = next(check for check in report["checks"] if check["name"] == "human_video_review_present")
+        self.assertFalse(video_check["ok"])
+        self.assertEqual(video_check["evidence"]["invalid_fields"]["Video-artifact"], "video artifact file is missing")
+        self.assertEqual(video_check["evidence"]["video_artifact"]["exists"], "false")
+
+    def test_video_review_secret_like_text_is_rejected(self) -> None:
+        base = ROOT / "runs" / "submission"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            audit_root = Path(tmpdir)
+            video_review = audit_root / "final_video_review.md"
+            video_file = audit_root / "qwenguard-final-demo.mp4"
+            out = audit_root / "readiness.json"
+            video_file.write_bytes(b"synthetic-video-artifact")
+            video_review.write_text(
+                _video_review(str(video_file.relative_to(ROOT)))
+                + "\nOperator note: ALIBABA_API_KEY=sk-testsecret01234567890123456789\n",
+                encoding="utf-8",
+            )
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.audit_qwenguard_submission_readiness",
+                    "--out",
+                    str(out.relative_to(ROOT)),
+                    "--video-review",
+                    str(video_review.relative_to(ROOT)),
+                    "--allow-narrow-claim",
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            report = json.loads(out.read_text(encoding="utf-8"))
+
+        video_check = next(check for check in report["checks"] if check["name"] == "human_video_review_present")
+        self.assertFalse(video_check["ok"])
+        self.assertEqual(
+            video_check["evidence"]["invalid_fields"]["Secrets-reviewed"],
+            "review note contains secret-like material",
+        )
+
+    def test_video_review_non_yes_signoff_values_are_rejected(self) -> None:
+        base = ROOT / "runs" / "submission"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            audit_root = Path(tmpdir)
+            video_review = audit_root / "final_video_review.md"
+            out = audit_root / "readiness.json"
+            video_review.write_text(
+                _video_review()
+                .replace("Privacy-reviewed: yes", "Privacy-reviewed: no")
+                .replace("Mode-labels-reviewed: yes", "Mode-labels-reviewed: maybe"),
+                encoding="utf-8",
+            )
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.audit_qwenguard_submission_readiness",
+                    "--out",
+                    str(out.relative_to(ROOT)),
+                    "--video-review",
+                    str(video_review.relative_to(ROOT)),
+                    "--allow-narrow-claim",
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            report = json.loads(out.read_text(encoding="utf-8"))
+
+        video_check = next(check for check in report["checks"] if check["name"] == "human_video_review_present")
+        self.assertFalse(video_check["ok"])
+        self.assertEqual(video_check["evidence"]["invalid_fields"]["Privacy-reviewed"], "must be yes/reviewed")
+        self.assertEqual(video_check["evidence"]["invalid_fields"]["Mode-labels-reviewed"], "must be yes/reviewed")
+
+    def test_video_review_duplicate_required_fields_are_rejected(self) -> None:
+        base = ROOT / "runs" / "submission"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            audit_root = Path(tmpdir)
+            video_review = audit_root / "final_video_review.md"
+            out = audit_root / "readiness.json"
+            video_review.write_text(_video_review() + "Reviewed-by: second-reviewer\n", encoding="utf-8")
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.audit_qwenguard_submission_readiness",
+                    "--out",
+                    str(out.relative_to(ROOT)),
+                    "--video-review",
+                    str(video_review.relative_to(ROOT)),
+                    "--allow-narrow-claim",
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            report = json.loads(out.read_text(encoding="utf-8"))
+
+        video_check = next(check for check in report["checks"] if check["name"] == "human_video_review_present")
+        self.assertFalse(video_check["ok"])
+        self.assertEqual(video_check["evidence"]["invalid_fields"]["Reviewed-by"], "duplicate field")
+        self.assertEqual(video_check["evidence"]["duplicate_fields"]["reviewed-by"], 2)
+
+    def test_video_review_remote_artifact_must_use_https(self) -> None:
+        base = ROOT / "runs" / "submission"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            audit_root = Path(tmpdir)
+            video_review = audit_root / "final_video_review.md"
+            out = audit_root / "readiness.json"
+            video_review.write_text(_video_review("http://qwenguard.invalid/qwenguard-final-demo.mp4"), encoding="utf-8")
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.audit_qwenguard_submission_readiness",
+                    "--out",
+                    str(out.relative_to(ROOT)),
+                    "--video-review",
+                    str(video_review.relative_to(ROOT)),
+                    "--allow-narrow-claim",
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            report = json.loads(out.read_text(encoding="utf-8"))
+
+        video_check = next(check for check in report["checks"] if check["name"] == "human_video_review_present")
+        self.assertFalse(video_check["ok"])
+        self.assertEqual(
+            video_check["evidence"]["invalid_fields"]["Video-artifact"],
+            "remote video artifact URL must use https",
+        )
+
+    def test_video_review_date_must_be_literal_yyyy_mm_dd(self) -> None:
+        base = ROOT / "runs" / "submission"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            audit_root = Path(tmpdir)
+            video_review = audit_root / "final_video_review.md"
+            out = audit_root / "readiness.json"
+            video_review.write_text(
+                _video_review().replace("Review-date: 2026-06-29", "Review-date: 20260629"),
+                encoding="utf-8",
+            )
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.audit_qwenguard_submission_readiness",
+                    "--out",
+                    str(out.relative_to(ROOT)),
+                    "--video-review",
+                    str(video_review.relative_to(ROOT)),
+                    "--allow-narrow-claim",
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            report = json.loads(out.read_text(encoding="utf-8"))
+
+        video_check = next(check for check in report["checks"] if check["name"] == "human_video_review_present")
+        self.assertFalse(video_check["ok"])
+        self.assertEqual(video_check["evidence"]["invalid_fields"]["Review-date"], "must be YYYY-MM-DD")
 
     def test_repo_escape_path_rejected_before_report_write(self) -> None:
         base = ROOT / "runs" / "submission"
@@ -637,10 +947,20 @@ def _ecs_go_report() -> dict[str, object]:
     }
 
 
-def _video_review() -> str:
+def _video_review(video_artifact: str = "https://example.com/qwenguard-final-demo.mp4") -> str:
     return "\n".join(
         [
             "# Final Video Review",
+            "",
+            "Reviewed-by: human-reviewer",
+            "Review-date: 2026-06-29",
+            f"Video-artifact: {video_artifact}",
+            "Privacy-reviewed: yes",
+            "Claim-boundary-reviewed: yes",
+            "Mode-labels-reviewed: yes",
+            "ECS-proof-reviewed: yes",
+            "SO-101-footage-reviewed: yes",
+            "Secrets-reviewed: yes",
             "",
             "Qwen never controls motors.",
             "SO-101 footage is labeled with the observed mode.",

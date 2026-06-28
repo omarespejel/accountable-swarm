@@ -372,6 +372,11 @@ def _evidence_manifest(*, task: str, repo_url: str) -> dict[str, Any]:
                 "name": "human_reviewed_video",
                 "status": "pending",
                 "expected_path": "runs/submission/final_video_review.md",
+                "note": (
+                    "must include Reviewed-by, Review-date, Video-artifact, "
+                    "Privacy-reviewed, Claim-boundary-reviewed, Mode-labels-reviewed, "
+                    "ECS-proof-reviewed, SO-101-footage-reviewed, and Secrets-reviewed"
+                ),
             },
         ],
         "already_checked_locally": [

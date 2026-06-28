@@ -5,11 +5,14 @@ from __future__ import annotations
 
 import argparse
 import csv
+from datetime import date
 import hashlib
 import json
 from pathlib import Path, PurePosixPath
+import re
 import sys
 from typing import Any
+from urllib.parse import urlparse
 
 from accountable_swarm.qwenguard.trial import TrialRecord
 from accountable_swarm.trace.models import canonical_json, trace_from_dict, verify_trace
@@ -25,6 +28,52 @@ DEFAULT_TRIAL_CSV = Path("runs/physical/qwenguard_trials/trial_results.csv")
 DEFAULT_TRIAL_TRACE_DIR = Path("runs/physical/qwenguard_trials/traces")
 DEFAULT_ECS_REPORT = Path("runs/ecs/ecs_smoke_report.json")
 DEFAULT_VIDEO_REVIEW = Path("runs/submission/final_video_review.md")
+
+SECRET_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"Authorization:[ \t]*Bearer[ \t]+(?!<redacted>(?:$|[ \t]))\S+", re.IGNORECASE),
+    re.compile(r"ALIBABA_API_KEY[ \t]*=[ \t]*\S+", re.IGNORECASE),
+    re.compile(r"github_pat_[A-Za-z0-9_]{20,}"),
+    re.compile(r"gh(?:p|o|u|s|r)_[A-Za-z0-9_]{12,}"),
+    re.compile(r"(?<![A-Za-z0-9_-])sk-[A-Za-z0-9._-]{20,}"),
+)
+VIDEO_REVIEW_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+VIDEO_REVIEW_REQUIRED_PHRASES = [
+    "Qwen never controls motors",
+    "SO-101",
+    "Alibaba ECS",
+    "AUTONOMOUS",
+    "TELEOP",
+    "SCRIPTED",
+]
+VIDEO_REVIEW_REQUIRED_FIELDS = [
+    "Reviewed-by",
+    "Review-date",
+    "Video-artifact",
+    "Privacy-reviewed",
+    "Claim-boundary-reviewed",
+    "Mode-labels-reviewed",
+    "ECS-proof-reviewed",
+    "SO-101-footage-reviewed",
+    "Secrets-reviewed",
+]
+VIDEO_REVIEW_YES_FIELDS = [
+    "Privacy-reviewed",
+    "Claim-boundary-reviewed",
+    "Mode-labels-reviewed",
+    "ECS-proof-reviewed",
+    "SO-101-footage-reviewed",
+    "Secrets-reviewed",
+]
+VIDEO_REVIEW_PLACEHOLDER_TERMS = (
+    "todo",
+    "tbd",
+    "placeholder",
+    "replace",
+    "example",
+    "your ",
+    "n/a",
+    "none",
+)
 
 
 def main() -> int:
@@ -405,24 +454,128 @@ def _check_video_review(repo_root: Path, path: Path) -> dict[str, Any]:
         text = path.read_text(encoding="utf-8")
     except UnicodeDecodeError as exc:
         return _fail(check, f"final video review note is not UTF-8: {exc}")
-    required_phrases = [
-        "Qwen never controls motors",
-        "SO-101",
-        "Alibaba ECS",
-        "AUTONOMOUS",
-        "TELEOP",
-        "SCRIPTED",
-    ]
-    missing = [phrase for phrase in required_phrases if phrase not in text]
-    ok = not missing
+    missing_phrases = [phrase for phrase in VIDEO_REVIEW_REQUIRED_PHRASES if phrase not in text]
+    fields, duplicate_fields = _parse_review_fields(text)
+    missing_fields = [field for field in VIDEO_REVIEW_REQUIRED_FIELDS if field.lower() not in fields]
+    invalid_fields = _invalid_review_fields(fields, repo_root=repo_root)
+    for field in _duplicate_required_review_fields(duplicate_fields):
+        invalid_fields[field] = "duplicate field"
+    if _contains_secret_like_material(text):
+        invalid_fields["Secrets-reviewed"] = "review note contains secret-like material"
+    ok = not missing_phrases and not missing_fields and not invalid_fields
     check["ok"] = ok
-    check["reason"] = "human video review records required claim labels" if ok else "human video review lacks required labels"
+    check["reason"] = (
+        "human video review records explicit reviewer, artifact, and claim checks"
+        if ok
+        else "human video review lacks required signoff fields or labels"
+    )
     check["evidence"] = {
         "byte_count": len(text.encode("utf-8")),
         "sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
-        "missing_phrases": missing,
+        "missing_phrases": missing_phrases,
+        "missing_fields": missing_fields,
+        "invalid_fields": invalid_fields,
+        "duplicate_fields": duplicate_fields,
+        "video_artifact": _video_artifact_evidence(repo_root=repo_root, raw_value=fields.get("video-artifact", "")),
     }
     return check
+
+
+def _parse_review_fields(text: str) -> tuple[dict[str, str], dict[str, int]]:
+    fields: dict[str, str] = {}
+    duplicate_fields: dict[str, int] = {}
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line or ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        normalized_key = key.strip().lower()
+        if normalized_key:
+            if normalized_key in fields:
+                duplicate_fields[normalized_key] = duplicate_fields.get(normalized_key, 1) + 1
+                continue
+            fields[normalized_key] = value.strip()
+    return fields, duplicate_fields
+
+
+def _duplicate_required_review_fields(duplicate_fields: dict[str, int]) -> list[str]:
+    canonical_names = {field.lower(): field for field in VIDEO_REVIEW_REQUIRED_FIELDS}
+    return [canonical_names[key] for key in sorted(duplicate_fields) if key in canonical_names]
+
+
+def _invalid_review_fields(fields: dict[str, str], *, repo_root: Path) -> dict[str, str]:
+    invalid: dict[str, str] = {}
+    for field in VIDEO_REVIEW_REQUIRED_FIELDS:
+        value = fields.get(field.lower(), "")
+        reason = _review_field_error(field, value, repo_root=repo_root)
+        if reason:
+            invalid[field] = reason
+    return invalid
+
+
+def _review_field_error(field: str, value: str, *, repo_root: Path) -> str | None:
+    if not value:
+        return "empty"
+    if _contains_secret_like_material(value):
+        return "contains secret-like material"
+    lowered = value.lower()
+    if any(term in lowered for term in VIDEO_REVIEW_PLACEHOLDER_TERMS) or "<" in value or ">" in value:
+        return "placeholder value"
+    if field == "Review-date":
+        try:
+            if not VIDEO_REVIEW_DATE_RE.match(value):
+                return "must be YYYY-MM-DD"
+            date.fromisoformat(value)
+        except ValueError:
+            return "must be YYYY-MM-DD"
+    if field in VIDEO_REVIEW_YES_FIELDS and lowered not in {"yes", "true", "reviewed", "checked"}:
+        return "must be yes/reviewed"
+    if field == "Video-artifact":
+        return _video_artifact_error(repo_root=repo_root, raw_value=value)
+    return None
+
+
+def _video_artifact_error(*, repo_root: Path, raw_value: str) -> str | None:
+    parsed = urlparse(raw_value)
+    if parsed.scheme == "http":
+        return "remote video artifact URL must use https"
+    if parsed.scheme == "https":
+        return None if parsed.netloc else "must name a video file or URL"
+    path = Path(raw_value)
+    if path.is_absolute():
+        return "must be repo-relative path or URL"
+    if ".." in path.parts:
+        return "video artifact path must stay inside the repository checkout"
+    if PurePosixPath(raw_value).suffix.lower() not in {".mp4", ".mov", ".webm"}:
+        return "must name a video file or URL"
+    resolved = _repo_path(repo_root, path)
+    if not resolved.is_file():
+        return "video artifact file is missing"
+    return None
+
+
+def _video_artifact_evidence(*, repo_root: Path, raw_value: str) -> dict[str, str]:
+    if not raw_value:
+        return {}
+    parsed = urlparse(raw_value)
+    if parsed.scheme in {"http", "https"}:
+        return {"kind": "url", "url_sha256": hashlib.sha256(raw_value.encode("utf-8")).hexdigest()}
+    path = Path(raw_value)
+    if path.is_absolute() or ".." in path.parts:
+        return {"kind": "invalid-path"}
+    resolved = _repo_path(repo_root, path)
+    evidence = {
+        "kind": "repo-file",
+        "path": _display_path(repo_root, resolved),
+        "exists": str(resolved.is_file()).lower(),
+    }
+    if resolved.is_file():
+        evidence["sha256"] = _file_sha256(resolved)
+    return evidence
+
+
+def _contains_secret_like_material(value: str) -> bool:
+    return any(pattern.search(value) for pattern in SECRET_PATTERNS)
 
 
 def _base_check(name: str, repo_root: Path, path: Path) -> dict[str, Any]:
