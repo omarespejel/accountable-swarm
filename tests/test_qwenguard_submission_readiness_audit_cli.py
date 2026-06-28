@@ -179,6 +179,7 @@ class QwenGuardSubmissionReadinessAuditCliTests(TestCase):
         self.assertEqual(report["submission_readiness"], "READY")
         self.assertTrue(all(report["pass_conditions"].values()))
         self.assertEqual(report["checks"][4]["evidence"]["valid_row_count"], 1)
+        self.assertEqual(report["checks"][4]["evidence"]["invalid_row_count"], 1)
 
     def test_tampered_trace_keeps_readiness_narrow(self) -> None:
         base = ROOT / "runs" / "submission"
@@ -233,6 +234,76 @@ class QwenGuardSubmissionReadinessAuditCliTests(TestCase):
         fixture_check = next(check for check in report["checks"] if check["name"] == "fixture_decisiontrace_verifies")
         self.assertFalse(fixture_check["ok"])
 
+    def test_malformed_trace_missing_keys_does_not_crash_audit(self) -> None:
+        base = ROOT / "runs" / "submission"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            audit_root = Path(tmpdir)
+            fixture_trace = audit_root / "malformed_trace.json"
+            out = audit_root / "readiness.json"
+            fixture_trace.write_text('{"schema_version":"decisiontrace.v2"}\n', encoding="utf-8")
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.audit_qwenguard_submission_readiness",
+                    "--out",
+                    str(out.relative_to(ROOT)),
+                    "--fixture-trace",
+                    str(fixture_trace.relative_to(ROOT)),
+                    "--allow-narrow-claim",
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            report = json.loads(out.read_text(encoding="utf-8"))
+
+        fixture_check = next(check for check in report["checks"] if check["name"] == "fixture_decisiontrace_verifies")
+        self.assertFalse(fixture_check["ok"])
+        self.assertEqual(fixture_check["reason"], "trace verification failed")
+        self.assertEqual(fixture_check["evidence"]["error_type"], "KeyError")
+
+    def test_forged_ecs_report_with_empty_pass_conditions_is_rejected(self) -> None:
+        base = ROOT / "runs" / "submission"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            audit_root = Path(tmpdir)
+            ecs_report = audit_root / "forged_ecs_report.json"
+            out = audit_root / "readiness.json"
+            forged = _ecs_go_report()
+            forged["pass_conditions"] = {}
+            ecs_report.write_text(canonical_json(forged) + "\n", encoding="utf-8")
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.audit_qwenguard_submission_readiness",
+                    "--out",
+                    str(out.relative_to(ROOT)),
+                    "--ecs-report",
+                    str(ecs_report.relative_to(ROOT)),
+                    "--allow-narrow-claim",
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            report = json.loads(out.read_text(encoding="utf-8"))
+
+        ecs_check = next(check for check in report["checks"] if check["name"] == "ecs_report_is_public_go")
+        self.assertFalse(ecs_check["ok"])
+        self.assertIn("healthz", ecs_check["evidence"]["missing_pass_conditions"])
+        self.assertFalse(ecs_check["evidence"]["qwen_ping_condition_present"])
+
 
 def _run_ok(args: list[str]) -> None:
     result = subprocess.run(args, cwd=ROOT, text=True, capture_output=True, check=False)
@@ -277,7 +348,20 @@ def _trial_csv() -> str:
         "notes": "synthetic readiness fixture",
     }
     header = trial_csv_header()
-    return ",".join(header) + "\n" + ",".join(row[name] for name in header) + "\n"
+    invalid_row = {
+        **row,
+        "trial_id": "trial-invalid",
+        "trace_summary_sha": "not-a-sha",
+    }
+    return (
+        ",".join(header)
+        + "\n"
+        + ",".join(row[name] for name in header)
+        + "\n"
+        + "\n"
+        + ",".join(invalid_row[name] for name in header)
+        + "\n"
+    )
 
 
 def _ecs_go_report() -> dict[str, object]:
@@ -301,7 +385,7 @@ def _ecs_go_report() -> dict[str, object]:
             "proof_mode_is_ecs_public": True,
             "ecs_region_recorded": True,
             "ecs_instance_id_recorded": True,
-            "ecs_public_ip_recorded": True,
+            "ecs_public_ip_is_global": True,
             "base_url_is_public_endpoint": True,
             "base_url_matches_public_ip_when_ip_literal": True,
         },
