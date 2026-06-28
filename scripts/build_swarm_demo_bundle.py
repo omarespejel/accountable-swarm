@@ -32,7 +32,7 @@ BUNDLE_SCHEMA_VERSION = "swarm-demo-bundle-report.v1"
 DEFAULT_AGENT_COUNT = 4
 DEFAULT_TICKS = max(scenario_default_ticks(scenario) for scenario in scenario_names())
 DEFAULT_OUT_DIR = Path("runs/demo/swarm")
-RENDER_TIMEOUT_SECONDS = int(os.getenv("SWARM_RENDER_TIMEOUT_SECONDS", "180"))
+DEFAULT_RENDER_TIMEOUT_SECONDS = 180
 SUBPROCESS_SPAWN_ATTEMPTS = 5
 SUBPROCESS_SPAWN_RETRY_DELAY_SECONDS = 0.5
 
@@ -213,10 +213,10 @@ def _build_scenario_case(
         render_args.extend(["--obstacle", f"{obstacle.x},{obstacle.y}"])
     try:
         render_result = _run_child_command(
-            render_args,
-            cwd=Path(__file__).resolve().parents[1],
-            timeout=RENDER_TIMEOUT_SECONDS,
-        )
+        render_args,
+        cwd=Path(__file__).resolve().parents[1],
+        timeout=_render_timeout_seconds(),
+    )
     except subprocess.TimeoutExpired as exc:
         raise ValueError(f"trace renderer timed out for {scenario}") from exc
     if render_result.returncode != 0:
@@ -280,6 +280,19 @@ def _run_child_command(
 
 def _is_retryable_spawn_error(exc: OSError) -> bool:
     return isinstance(exc, BlockingIOError) or exc.errno == errno.EAGAIN
+
+
+def _render_timeout_seconds() -> int:
+    raw = os.getenv("SWARM_RENDER_TIMEOUT_SECONDS")
+    if raw is None or raw.strip() == "":
+        return DEFAULT_RENDER_TIMEOUT_SECONDS
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise ValueError("SWARM_RENDER_TIMEOUT_SECONDS must be an integer") from exc
+    if value <= 0:
+        raise ValueError("SWARM_RENDER_TIMEOUT_SECONDS must be positive")
+    return value
 
 
 def _relative_posix(path: Path, base: Path) -> str:
