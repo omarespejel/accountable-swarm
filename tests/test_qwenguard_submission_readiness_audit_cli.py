@@ -475,6 +475,71 @@ class QwenGuardSubmissionReadinessAuditCliTests(TestCase):
         self.assertFalse(csv_check["ok"])
         self.assertIn("trace_summary_sha is not bound to an audited trace", csv_check["evidence"]["invalid_reasons"][0])
 
+    def test_trial_csv_cannot_pass_when_trace_directory_has_invalid_trace(self) -> None:
+        base = ROOT / "runs" / "submission"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            audit_root = Path(tmpdir)
+            fixture_trace = audit_root / "fixture_trace.json"
+            fixture_report = audit_root / "fixture_report.json"
+            trial_csv = audit_root / "trial_results.csv"
+            trial_trace_dir = audit_root / "trial_traces"
+            out = audit_root / "readiness.json"
+            _run_ok(
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.run_qwenguard_no_motion_health_check",
+                    "--trace-out",
+                    str(fixture_trace.relative_to(ROOT)),
+                    "--report-out",
+                    str(fixture_report.relative_to(ROOT)),
+                    "--mode",
+                    "fixture",
+                    "--policy-available",
+                    "--simulate-safe-motion-authority",
+                    "--fixture-outcome",
+                    "success",
+                ]
+            )
+            fixture_summary = json.loads(fixture_report.read_text(encoding="utf-8"))["trace_summary_sha"]
+            trial_trace_dir.mkdir()
+            (trial_trace_dir / "trial-001.json").write_text(fixture_trace.read_text(encoding="utf-8"), encoding="utf-8")
+            (trial_trace_dir / "trial-corrupt.json").write_text("{not-json}\n", encoding="utf-8")
+            trial_csv.write_text(_trial_csv(fixture_summary), encoding="utf-8")
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.audit_qwenguard_submission_readiness",
+                    "--out",
+                    str(out.relative_to(ROOT)),
+                    "--fixture-trace",
+                    str(fixture_trace.relative_to(ROOT)),
+                    "--trial-csv",
+                    str(trial_csv.relative_to(ROOT)),
+                    "--trial-trace-dir",
+                    str(trial_trace_dir.relative_to(ROOT)),
+                    "--allow-narrow-claim",
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            report = json.loads(out.read_text(encoding="utf-8"))
+
+        trace_check = next(check for check in report["checks"] if check["name"] == "measured_trial_traces_verify")
+        csv_check = next(check for check in report["checks"] if check["name"] == "measured_trial_csv_has_rows")
+        self.assertFalse(trace_check["ok"])
+        self.assertEqual(trace_check["evidence"]["verified_trace_count"], 1)
+        self.assertEqual(trace_check["evidence"]["invalid_reason_count"], 1)
+        self.assertFalse(csv_check["ok"])
+        self.assertFalse(csv_check["evidence"]["trace_dependency_satisfied"])
+
 
 def _run_ok(args: list[str]) -> None:
     result = subprocess.run(args, cwd=ROOT, text=True, capture_output=True, check=False)

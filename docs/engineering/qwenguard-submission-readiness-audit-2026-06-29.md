@@ -62,7 +62,7 @@ This writes a report with `outcome: NARROW_CLAIM`.
 
 ```text
 python3 -m unittest tests.test_qwenguard_submission_readiness_audit_cli tests.test_packaging
-# Ran 11 tests OK
+# Ran 12 tests OK
 
 python3 -m scripts.audit_qwenguard_submission_readiness --out runs/submission/qwenguard-readiness-smoke.json --allow-narrow-claim
 # outcome NARROW_CLAIM
