@@ -135,29 +135,36 @@ class EcsOperatorPackCliTests(TestCase):
 
         self.assertEqual(returncode, 2)
 
-    def test_prepare_ecs_operator_pack_rejects_secret_pattern_before_writing(self) -> None:
+    def test_prepare_ecs_operator_pack_rejects_secret_patterns_before_writing(self) -> None:
         module = _load_module()
         test_root = ROOT / "runs" / "ecs"
         test_root.mkdir(parents=True, exist_ok=True)
-        with TemporaryDirectory(dir=test_root) as tmpdir:
-            out_dir = Path(tmpdir) / "operator-pack"
-            argv = [
-                "prepare_ecs_operator_pack.py",
-                "--out-dir",
-                str(out_dir.relative_to(ROOT)),
-                "--commit",
-                COMMIT,
-                "--repo-url",
-                "https://example.com/sk-secret-token",
-            ]
-            with patch.object(sys, "argv", argv):
-                returncode = module.main()
+        secret_cases = {
+            "sk": "https://example.com/sk-secret-token-01234567890123456789",
+            "github_pat": "https://example.com/github_pat_ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+            "gho": "https://example.com/gho_abcdefghijklmno",
+        }
+        for label, repo_url in secret_cases.items():
+            with self.subTest(label=label):
+                with TemporaryDirectory(dir=test_root) as tmpdir:
+                    out_dir = Path(tmpdir) / "operator-pack"
+                    argv = [
+                        "prepare_ecs_operator_pack.py",
+                        "--out-dir",
+                        str(out_dir.relative_to(ROOT)),
+                        "--commit",
+                        COMMIT,
+                        "--repo-url",
+                        repo_url,
+                    ]
+                    with patch.object(sys, "argv", argv):
+                        returncode = module.main()
 
-            self.assertEqual(returncode, 2)
-            self.assertFalse((out_dir / "README.md").exists())
-            self.assertFalse((out_dir / "operator_commands.sh").exists())
-            self.assertFalse((out_dir / ".env.template").exists())
-            self.assertFalse((out_dir / "manifest.json").exists())
+                    self.assertEqual(returncode, 2)
+                    self.assertFalse((out_dir / "README.md").exists())
+                    self.assertFalse((out_dir / "operator_commands.sh").exists())
+                    self.assertFalse((out_dir / ".env.template").exists())
+                    self.assertFalse((out_dir / "manifest.json").exists())
 
     def test_repo_path_rejects_absolute_paths(self) -> None:
         module = _load_module()

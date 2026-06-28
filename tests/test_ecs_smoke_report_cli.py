@@ -276,6 +276,20 @@ class EcsSmokeReportCliTests(TestCase):
                 fetcher=_raising_fetcher,
             )
 
+    def test_rejects_secret_like_inputs_before_fetch(self) -> None:
+        with self.assertRaisesRegex(ValueError, "secret-like material"):
+            collector.collect_report(
+                base_url="http://8.8.8.8:8000/github_pat_ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+                qwen_model="qwen-plus",
+                deployed_commit=COMMIT,
+                timeout_seconds=10,
+                proof_mode="ecs-public",
+                ecs_region="us-west-1",
+                ecs_instance_id="i-accountable-swarm",
+                ecs_public_ip="8.8.8.8",
+                fetcher=_raising_fetcher,
+            )
+
     def test_allow_narrow_claim_writes_invalid_input_report(self) -> None:
         with TemporaryDirectory() as tmpdir:
             out = Path(tmpdir) / "ecs_report.json"
@@ -313,6 +327,40 @@ class EcsSmokeReportCliTests(TestCase):
         self.assertFalse(report["pass_conditions"]["input_validation_passed"])
         self.assertNotIn("\n", report["base_url"])
         self.assertNotIn("\n", report["error"]["message"])
+
+    def test_allow_narrow_claim_does_not_write_secret_like_input_report(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            out = Path(tmpdir) / "ecs_report.json"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.collect_ecs_smoke_report",
+                    "--base-url",
+                    "http://8.8.8.8:8000/gho_abcdefghijklmno",
+                    "--commit",
+                    COMMIT,
+                    "--out",
+                    str(out),
+                    "--proof-mode",
+                    "ecs-public",
+                    "--ecs-region",
+                    "us-west-1",
+                    "--ecs-instance-id",
+                    "i-accountable-swarm",
+                    "--ecs-public-ip",
+                    "8.8.8.8",
+                    "--allow-narrow-claim",
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("secret-like material", result.stderr)
+        self.assertFalse(out.exists())
 
 
 class _fake_ecs_server:
