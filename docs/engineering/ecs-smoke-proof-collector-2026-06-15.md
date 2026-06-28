@@ -32,8 +32,9 @@ The collector reports `GO` only when all of these pass:
 - the deployed commit SHA is recorded;
 - `--proof-mode ecs-public` is used;
 - ECS region, instance ID, and global public IP are recorded;
-- the checked `--base-url` is a public endpoint, not localhost or a private IP;
-- an IP-literal `--base-url` matches `--ecs-public-ip`.
+- the checked `--base-url` is a public IP-literal endpoint, not localhost, a
+  private IP, or a hostname;
+- the IP-literal `--base-url` matches `--ecs-public-ip`.
 
 Any failed condition produces `NARROW_CLAIM` and exits non-zero unless the
 operator explicitly passes `--allow-narrow-claim`.
@@ -42,8 +43,9 @@ operator explicitly passes `--allow-narrow-claim`.
 
 Run this against the ECS public endpoint after the Docker container is running.
 `local-smoke` mode and localhost are useful diagnostics, but they intentionally
-produce `NARROW_CLAIM` rather than deployment proof. For IPv6 literals, bracket
-the host in `BASE_URL`, for example `http://[2001:db8::1]:8000`.
+produce `NARROW_CLAIM` rather than deployment proof. Use the ECS public IP
+literal in `BASE_URL`, not a hostname. For IPv6 literals, bracket the host, for
+example `http://[2001:4860:4860::8888]:8000`.
 
 ```bash
 BASE_URL="http://${ECS_PUBLIC_IP}:8000"  # IPv4

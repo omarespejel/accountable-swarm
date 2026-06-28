@@ -498,7 +498,7 @@ def _base_url_uses_public_host(base_url: str) -> bool:
         return False
     ip = _parse_ip(host)
     if ip is None:
-        return True
+        return False
     return ip.is_global
 
 
@@ -512,7 +512,7 @@ def _base_url_matches_ip(
         return False
     host_ip = _parse_ip(host)
     if host_ip is None:
-        return True
+        return False
     return host_ip == public_ip
 
 
