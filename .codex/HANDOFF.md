@@ -109,6 +109,11 @@ What is checked locally:
   `evidence_manifest.json`, and `manifest.json`. The pack generation outcome
   is `GO`, but `submission_readiness` is intentionally `NARROW_CLAIM` until
   SO-101 physical evidence and Alibaba ECS public endpoint proof are filled.
+- QwenGuard submission readiness auditor now checks the generated submission
+  pack, SO-101 camera report, fixture/degraded `decisiontrace.v2` traces,
+  measured trial CSV, Alibaba ECS public smoke report, and human video review.
+  In the current pre-hardware/pre-ECS state it writes `NARROW_CLAIM`; it exits
+  `GO` only when those operator artifacts exist and pass.
 - minimal stdlib HTTP server and Dockerfile exist for manual Alibaba ECS proof;
   operator still needs to provision ECS and run the smoke checks.
 - ECS operator proof pack generator prepares a non-secret runbook, command
