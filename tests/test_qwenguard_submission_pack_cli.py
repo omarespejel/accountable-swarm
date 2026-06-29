@@ -48,9 +48,13 @@ class QwenGuardSubmissionPackCliTests(TestCase):
         self.assertEqual(evidence["task"], "pick Bob's marked cube left of the green cube")
         self.assertIn("Track 5", readme)
         self.assertIn("Qwen proposes an object candidate", readme)
-        self.assertIn("designed to act only when the gate allows it", readme)
-        self.assertIn("physical execution", readme)
-        self.assertIn("pending operator proof", readme)
+        self.assertIn(
+            "local SO-101 policy is designed to act only when the gate allows it "
+            "(physical execution pending operator proof)",
+            readme.replace("\n> ", " "),
+        )
+        self.assertNotIn("physical execution succeeded", readme)
+        self.assertNotIn("physical success", readme)
         self.assertNotIn("policy acts only when", readme)
         self.assertNotIn("Qwen identifies the right object", readme)
         self.assertIn("Qwen proposes; local code validates", demo_script)
