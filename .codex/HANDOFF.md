@@ -14,10 +14,10 @@ matters must be reproducible as a hash-chained `DecisionTrace`.
 Status: `GO` for live Qwen API/model availability and single-keyframe
 DecisionTrace; `NARROW_CLAIM` for the broader robotics demo.
 
-## Latest Readiness State 2026-06-29 13:05 JST
+## Latest Readiness State 2026-06-29 14:22 JST
 
-Main is at `18e73461d36615883115dc0b0a711f5271f667b1` after the final
-readiness hardening pass:
+Main is at `d187cdfb7e4dcf6b63315fbb02302dfd9229868e` after the final
+readiness hardening and operator-attestation passes:
 
 - `0777890` / PR #115: SO-101 camera evidence artifact paths are guarded.
   `capture-so101-camera-frame` rejects absolute paths, `..` escapes,
@@ -27,18 +27,26 @@ readiness hardening pass:
   operator-readable `OK` / `MISS` checklist derived from the canonical JSON
   report. Checklist reasons are single-line, capped, and do not print raw
   exception text; diagnostic error types stay in JSON evidence.
+- `43ba3d4` / PR #117: the handoff and issue #106 snapshot were refreshed with
+  the final readiness checklist and explicit operator-artifact blockers.
+- `d187cdf` / PR #118: measured QwenGuard physical trial recording now
+  requires explicit operator attestation before writing artifacts. The
+  attestation is persisted as `operator_attested=true` in the `TrialRecord`
+  CSV schema and report, and both `summarize-qwenguard-trials` and
+  `audit-qwenguard-submission-readiness` reject missing or false attestation
+  in measured trial rows.
 
 Snapshot preflight command, pinned to that main commit:
 
 ```bash
 python3 -m scripts.prepare_qwenguard_readiness_operator_pack \
   --out-dir runs/submission/qwenguard-readiness-operator-pack-current \
-  --commit 18e73461d36615883115dc0b0a711f5271f667b1
+  --commit d187cdfb7e4dcf6b63315fbb02302dfd9229868e
 bash runs/submission/qwenguard-readiness-operator-pack-current/operator_commands.sh all-preflight
 ```
 
 Verbatim final audit checklist from that preflight on
-`main@18e73461d36615883115dc0b0a711f5271f667b1`:
+`main@d187cdfb7e4dcf6b63315fbb02302dfd9229868e`:
 
 ```text
 outcome NARROW_CLAIM
@@ -89,13 +97,13 @@ submission readiness, Qwen motor control, Qwen onboard execution, DimOS
 runtime control, safety, latency, reliability, or production hosting until the
 corresponding audit checks pass.
 
-QwenGuard update: `GO` for the no-hardware SO-101 software spine on branch
-`codex/qwenguard-so101-spine-2026-06-28`. Issue #95 is the current physical
-QwenGuard umbrella. The branch is based on `origin/main`, not the dashboard PR
-stack. It adds Set-of-Mark selector validation, before/after evaluator
+QwenGuard update: `GO` for the no-hardware SO-101 software spine on current
+main. Issue #95 is the physical QwenGuard umbrella, with final readiness
+tracked in issue #106 and Alibaba ECS proof tracked in issue #91. The merged
+spine includes Set-of-Mark selector validation, before/after evaluator
 validation, a deterministic local outcome gate, a no-motion health-check CLI,
-a non-secret SO-101 ACT training pack, and trial/eval schema. This is not
-SO-101 operation or physical motion evidence.
+a non-secret SO-101 ACT training pack, measured-trial schema, and final
+readiness auditing. This is not SO-101 operation or physical motion evidence.
 
 What is checked locally:
 
