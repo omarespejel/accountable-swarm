@@ -114,7 +114,7 @@ def validate_trial_semantics(
     predicted_success_milli: int | None = None,
     risk_level: str | None = None,
     control_label: str | None = None,
-    operator_attested: bool = True,
+    operator_attested: bool,
 ) -> None:
     """Shared physical-trial semantic checks for recorders and summarizers."""
 
