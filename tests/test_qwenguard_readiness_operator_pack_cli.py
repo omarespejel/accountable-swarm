@@ -77,7 +77,7 @@ class QwenGuardReadinessOperatorPackCliTests(TestCase):
                 "--out-dir",
                 str(out_dir.relative_to(ROOT)),
                 "--commit",
-                "0123456789abcdef0123456789abcdef01234567",
+                _git_head(),
             )
             self.assertEqual(prep.returncode, 0, prep.stderr)
             env = {
@@ -153,6 +153,22 @@ class QwenGuardReadinessOperatorPackCliTests(TestCase):
             self.assertIn("secret-like material", result.stderr)
             self.assertFalse(out_dir.exists())
 
+    def test_invalid_commit_is_rejected_before_write(self) -> None:
+        base = ROOT / "runs" / "submission"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            out_dir = Path(tmpdir) / "readiness-pack"
+            result = _run_pack_cli(
+                "--out-dir",
+                str(out_dir.relative_to(ROOT)),
+                "--commit",
+                "ffffffffffffffffffffffffffffffffffffffff",
+            )
+
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("commit must resolve", result.stderr)
+            self.assertFalse(out_dir.exists())
+
     def test_generated_runner_rejects_escaping_output_override(self) -> None:
         base = ROOT / "runs" / "submission"
         base.mkdir(parents=True, exist_ok=True)
@@ -174,6 +190,27 @@ class QwenGuardReadinessOperatorPackCliTests(TestCase):
             self.assertEqual(result.returncode, 2)
             self.assertIn("QWENGUARD_SUBMISSION_PACK_DIR", result.stderr)
 
+    def test_generated_runner_rejects_escaping_video_artifact_override(self) -> None:
+        base = ROOT / "runs" / "submission"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            out_dir = Path(tmpdir) / "readiness-pack"
+            prep = _run_pack_cli("--out-dir", str(out_dir.relative_to(ROOT)))
+            self.assertEqual(prep.returncode, 0, prep.stderr)
+            env = {**os.environ, "QWENGUARD_VIDEO_ARTIFACT": "../escape.mp4"}
+
+            result = subprocess.run(
+                ["bash", str(out_dir / "operator_commands.sh"), "video-review"],
+                cwd=ROOT,
+                env=env,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("QWENGUARD_VIDEO_ARTIFACT", result.stderr)
+
 
 def _run_pack_cli(*args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
@@ -188,3 +225,14 @@ def _run_pack_cli(*args: str) -> subprocess.CompletedProcess[str]:
         capture_output=True,
         check=False,
     )
+
+
+def _git_head() -> str:
+    result = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    return result.stdout.strip()

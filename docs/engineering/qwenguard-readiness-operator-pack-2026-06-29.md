@@ -33,18 +33,19 @@ The generated command script has these phases:
 - `audit-final`
 - `all-preflight`
 
-`all-preflight` is intentionally safe before hardware: it generates the
-physical, ECS, and submission packs; runs the no-motion fixture/degraded path;
-and runs the readiness audit with `--allow-narrow-claim`.
+`all-preflight` is the checked no-camera/no-ECS-host phase: in local tests it
+generates the physical, ECS, and submission packs, runs the existing
+physical-pack `all-safe` phase, and writes a readiness audit with
+`--allow-narrow-claim`.
 
 ## GO Gate
 
-- The readiness operator pack writes a manifest with `outcome: GO`.
-- The manifest keeps `submission_readiness: NARROW_CLAIM`.
-- The generated shell script passes `bash -n`.
-- The generated text contains no token-like material.
-- The generated file paths are repo-relative.
-- `all-preflight` runs without touching the SO-101 camera or requiring an ECS
+- The readiness operator pack manifest records `outcome: GO` and
+  `submission_readiness: NARROW_CLAIM`.
+- The generated shell script passes `bash -n` in the generator and tests.
+- The generated text is checked by the repo's secret-pattern scanner.
+- The manifest file paths are repo-relative.
+- The focused test suite runs `all-preflight` without camera hardware or an ECS
   host.
 
 ## Non-Claims
