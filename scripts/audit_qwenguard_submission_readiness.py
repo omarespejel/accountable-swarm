@@ -366,6 +366,7 @@ def _check_trial_csv(repo_root: Path, path: Path, *, verified_trace_summaries: s
                 outcome=row.get("outcome", ""),
                 operator_label=row.get("operator_label", ""),
                 qwen_eval_label=row.get("qwen_eval_label", ""),
+                operator_attested=row.get("operator_attested", ""),
                 trace_summary_sha=row.get("trace_summary_sha", ""),
                 notes=row.get("notes", ""),
             )

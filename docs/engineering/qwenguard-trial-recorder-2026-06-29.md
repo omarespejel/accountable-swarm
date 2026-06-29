@@ -33,8 +33,13 @@ record-qwenguard-trial \
   --trial-id trial-001 \
   --outcome success \
   --motion-executed true \
-  --control-label AUTONOMOUS
+  --control-label AUTONOMOUS \
+  --confirm-operator-attestation
 ```
+
+`--confirm-operator-attestation` is required for every measured trial row. It
+records that a human operator is intentionally creating operator-attested
+physical/degraded evidence; it is not automatic physical success proof.
 
 The generated physical GO pack exposes the same path through:
 

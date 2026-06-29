@@ -35,6 +35,7 @@ class RecordQwenGuardTrialCliTests(TestCase):
                     "true",
                     "--control-label",
                     "AUTONOMOUS",
+                    "--confirm-operator-attestation",
                     "--trace-dir",
                     str(trace_dir.relative_to(ROOT)),
                     "--csv-out",
@@ -61,8 +62,11 @@ class RecordQwenGuardTrialCliTests(TestCase):
         self.assertEqual(report["issue"], "https://github.com/omarespejel/accountable-swarm/issues/103")
         self.assertEqual(report["umbrella_issue"], "https://github.com/omarespejel/accountable-swarm/issues/95")
         self.assertEqual(report["trace_summary_sha"], summary_sha)
+        self.assertEqual(report["operator_attested"], "true")
+        self.assertTrue(report["pass_conditions"]["operator_attestation_persisted"])
         self.assertEqual(rows[0]["trial_id"], "trial-001")
         self.assertEqual(rows[0]["trace_summary_sha"], summary_sha)
+        self.assertEqual(rows[0]["operator_attested"], "true")
         self.assertEqual(rows[0]["outcome"], "success")
         self.assertEqual(rows[0]["policy"], "act")
         action_commands = [
@@ -72,6 +76,44 @@ class RecordQwenGuardTrialCliTests(TestCase):
         ]
         self.assertEqual(action_commands[0]["control_label"], "AUTONOMOUS")
         self.assertIs(action_commands[0]["motion_executed"], True)
+        self.assertIs(action_commands[0]["operator_attested"], True)
+
+    def test_missing_operator_attestation_is_rejected_before_write(self) -> None:
+        base = ROOT / "runs" / "physical"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            trace_dir = Path(tmpdir) / "traces"
+            csv_out = Path(tmpdir) / "trial_results.csv"
+            report_out = Path(tmpdir) / "reports" / "trial-001.json"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.record_qwenguard_trial",
+                    "--trial-id",
+                    "trial-001",
+                    "--outcome",
+                    "success",
+                    "--motion-executed",
+                    "true",
+                    "--trace-dir",
+                    str(trace_dir.relative_to(ROOT)),
+                    "--csv-out",
+                    str(csv_out.relative_to(ROOT)),
+                    "--report-out",
+                    str(report_out.relative_to(ROOT)),
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("--confirm-operator-attestation", result.stderr)
+            self.assertFalse(trace_dir.exists())
+            self.assertFalse(csv_out.exists())
+            self.assertFalse(report_out.exists())
 
     def test_duplicate_trial_id_is_rejected_without_overwrite(self) -> None:
         base = ROOT / "runs" / "physical"
@@ -90,6 +132,7 @@ class RecordQwenGuardTrialCliTests(TestCase):
                 "success",
                 "--motion-executed",
                 "true",
+                "--confirm-operator-attestation",
                 "--trace-dir",
                 str(trace_dir.relative_to(ROOT)),
                 "--csv-out",
@@ -119,6 +162,7 @@ class RecordQwenGuardTrialCliTests(TestCase):
                 "trial-001",
                 "--motion-executed",
                 "true",
+                "--confirm-operator-attestation",
                 "--trace-dir",
                 str(trace_dir.relative_to(ROOT)),
                 "--csv-out",
@@ -165,6 +209,7 @@ class RecordQwenGuardTrialCliTests(TestCase):
                     "trial-001",
                     "--outcome",
                     "cloud_hold",
+                    "--confirm-operator-attestation",
                     "--trace-dir",
                     str(trace_dir.relative_to(ROOT)),
                     "--csv-out",
@@ -205,6 +250,7 @@ class RecordQwenGuardTrialCliTests(TestCase):
                     "high",
                     "--motion-executed",
                     "true",
+                    "--confirm-operator-attestation",
                     "--trace-dir",
                     str(trace_dir.relative_to(ROOT)),
                     "--csv-out",
@@ -239,6 +285,7 @@ class RecordQwenGuardTrialCliTests(TestCase):
                     "trial-001",
                     "--outcome",
                     "success",
+                    "--confirm-operator-attestation",
                     "--trace-dir",
                     str(trace_dir.relative_to(ROOT)),
                     "--csv-out",
@@ -278,6 +325,7 @@ class RecordQwenGuardTrialCliTests(TestCase):
                     "success",
                     "--motion-executed",
                     "true",
+                    "--confirm-operator-attestation",
                     "--trace-dir",
                     str(trace_dir.relative_to(ROOT)),
                     "--csv-out",
@@ -315,6 +363,7 @@ class RecordQwenGuardTrialCliTests(TestCase):
                     "success",
                     "--motion-executed",
                     "true",
+                    "--confirm-operator-attestation",
                     "--relation",
                     "between",
                     "--reference-mark-id",
@@ -360,6 +409,7 @@ class RecordQwenGuardTrialCliTests(TestCase):
                     "success",
                     "--motion-executed",
                     "true",
+                    "--confirm-operator-attestation",
                     "--relation",
                     "between",
                     "--reference-mark-id",
@@ -397,6 +447,7 @@ class RecordQwenGuardTrialCliTests(TestCase):
                     "success",
                     "--notes",
                     "sk-testsecret01234567890123456789",
+                    "--confirm-operator-attestation",
                     "--trace-dir",
                     str(trace_dir.relative_to(ROOT)),
                     "--csv-out",
@@ -432,6 +483,7 @@ class RecordQwenGuardTrialCliTests(TestCase):
                     "true",
                     "--notes",
                     "data:image/png;base64," + ("A" * 100),
+                    "--confirm-operator-attestation",
                     "--trace-dir",
                     str(trace_dir.relative_to(ROOT)),
                     "--csv-out",

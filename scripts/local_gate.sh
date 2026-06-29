@@ -169,6 +169,7 @@ python3 -m venv "$gate_tmp/venv"
     --mode fixture \
     --out-dir runs/physical/local_gate_sensor_frame_proof
 
+rm -rf runs/physical/local_gate_qwenguard_trials
 "$gate_tmp/venv/bin/record-qwenguard-trial" \
     --trial-id local-gate-trial \
     --outcome cloud_hold \
@@ -178,6 +179,7 @@ python3 -m venv "$gate_tmp/venv"
     --risk-level high \
     --motion-executed false \
     --control-label SCRIPTED \
+    --confirm-operator-attestation \
     --trace-dir runs/physical/local_gate_qwenguard_trials/traces \
     --csv-out runs/physical/local_gate_qwenguard_trials/trial_results.csv \
     --report-out runs/physical/local_gate_qwenguard_trials/reports/local-gate-trial.json \
