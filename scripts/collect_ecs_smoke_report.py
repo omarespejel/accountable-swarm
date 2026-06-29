@@ -147,6 +147,7 @@ def collect_report(
     )
     if _has_control_chars(ecs_region) or _has_control_chars(ecs_instance_id) or _has_control_chars(ecs_public_ip):
         raise ValueError("ECS metadata must not contain control characters")
+    collector_head = _git_head()
     normalized_base_url = _normalize_base_url(base_url)
     fetch = fetcher or _fetch
     checks = [
@@ -211,7 +212,7 @@ def collect_report(
     )
     pass_conditions = {check["name"]: check["ok"] for check in checks}
     pass_conditions["deployed_commit_recorded"] = _is_git_oid(deployed_commit)
-    pass_conditions["deployed_commit_matches_collector_head"] = _is_git_oid(deployed_commit) and deployed_commit == _git_head()
+    pass_conditions["deployed_commit_matches_collector_head"] = _is_git_oid(deployed_commit) and deployed_commit == collector_head
     pass_conditions.update(deployment["pass_conditions"])
     outcome = "GO" if all(pass_conditions.values()) else "NARROW_CLAIM"
     return {
@@ -219,7 +220,7 @@ def collect_report(
         "outcome": outcome,
         "base_url": normalized_base_url,
         "deployed_commit": deployed_commit,
-        "collector_head": _git_head(),
+        "collector_head": collector_head,
         "proof_mode": proof_mode,
         "deployment": deployment["evidence"],
         "qwen_model": qwen_model,
@@ -309,6 +310,7 @@ def _response_payload(*, status_code: int, content_type: str, body: bytes) -> di
         "content_type": content_type,
         "body_sha256": hashlib.sha256(body).hexdigest(),
         "byte_count": len(body),
+        "text_prefix": body[:TEXT_PREVIEW_LIMIT].decode("utf-8", errors="replace"),
     }
     stripped_body = body.strip()
     if "application/json" in content_type or stripped_body.startswith((b"{", b"[")):
@@ -316,8 +318,6 @@ def _response_payload(*, status_code: int, content_type: str, body: bytes) -> di
             response["json"] = json.loads(body.decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError):
             response["json_parse_error"] = True
-    else:
-        response["text_prefix"] = body[:TEXT_PREVIEW_LIMIT].decode("utf-8", errors="replace")
     return response
 
 
@@ -596,7 +596,7 @@ def _fetch_ecs_metadata_url(
             body = resp.read()
             return _response_payload(
                 status_code=resp.status,
-                content_type=resp.headers.get("Content-Type", "application/json"),
+                content_type=resp.headers.get("Content-Type", ""),
                 body=body,
             )
     except (HTTPError, TimeoutError, URLError, OSError) as exc:
@@ -629,7 +629,10 @@ def _metadata_text(response: object) -> str:
     if not isinstance(response, dict):
         return ""
     value = response.get("text_prefix")
-    return value.strip() if isinstance(value, str) else ""
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    json_value = response.get("json")
+    return json_value.strip() if isinstance(json_value, str) else ""
 
 
 def _metadata_public_ip_matches(*, expected_public_ip: str, metadata_public_ips: tuple[str, ...]) -> bool:
