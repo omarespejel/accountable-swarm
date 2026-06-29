@@ -540,7 +540,8 @@ Smoke endpoints:
 GET /healthz
 GET /readyz
 GET /camera-fixture
-GET /qwen-ping?model=qwen-plus
+GET /qwen-vl-fixture?model=qwen3-vl-flash
+GET /qwen-ping?model=qwen3-vl-flash
 GET /swarm-demo
 GET /swarm-demo/summary.json
 ```
@@ -549,8 +550,11 @@ Run `python3 scripts/build_swarm_demo_bundle.py` before opening
 `/swarm-demo`. The `/swarm-demo` routes serve existing bundle artifacts
 read-only and do not generate or mutate bundle state on request. Auxiliary
 smoke endpoints also exist: `/camera-fixture` builds and verifies an in-memory
-fixture `DecisionTrace`, and `/qwen-ping` may call DashScope when
-`ALIBABA_API_KEY` is configured.
+fixture `DecisionTrace`, `/qwen-vl-fixture` performs the deployed Qwen3-VL
+fixture bbox round-trip, and `/qwen-ping` may call DashScope when
+`ALIBABA_API_KEY` is configured. Submission ECS proof must be collected on the
+Alibaba ECS host with `proof_mode: ecs-public`, commit-to-HEAD matching, and
+ECS metadata identity/public-IP binding.
 
 See `docs/engineering/alibaba-ecs-manual-deploy-2026-06-15.md`.
 
