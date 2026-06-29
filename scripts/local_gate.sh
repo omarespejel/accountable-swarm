@@ -181,6 +181,10 @@ python3 -m venv "$gate_tmp/venv"
     --report-out runs/physical/local_gate_qwenguard_trials/reports/local-gate-trial.json \
     --overwrite
 "$gate_tmp/venv/bin/verify-trace" runs/physical/local_gate_qwenguard_trials/traces/local-gate-trial.json
+"$gate_tmp/venv/bin/summarize-qwenguard-trials" \
+    --trial-csv runs/physical/local_gate_qwenguard_trials/trial_results.csv \
+    --trial-trace-dir runs/physical/local_gate_qwenguard_trials/traces \
+    --out runs/physical/local_gate_qwenguard_trials/trial_summary.json
 
 "$gate_tmp/venv/bin/run-hazard-formation-gate" \
     --image fixtures/hazard_marker.ppm \

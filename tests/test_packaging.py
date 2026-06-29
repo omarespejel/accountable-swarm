@@ -29,6 +29,7 @@ class PackagingTests(TestCase):
             text,
         )
         self.assertIn('record-qwenguard-trial = "scripts.record_qwenguard_trial:main"', text)
+        self.assertIn('summarize-qwenguard-trials = "scripts.summarize_qwenguard_trials:main"', text)
         self.assertIn('prepare-demo-recording-pack = "scripts.prepare_demo_recording_pack:main"', text)
         self.assertIn('prepare-ecs-operator-pack = "scripts.prepare_ecs_operator_pack:main"', text)
         self.assertIn('prepare-dimos-bridge-pack = "scripts.prepare_dimos_bridge_pack:main"', text)
@@ -37,13 +38,7 @@ class PackagingTests(TestCase):
         self.assertIn('collect-ecs-smoke-report = "scripts.collect_ecs_smoke_report:main"', text)
         self.assertIn('verify-trace = "scripts.verify_trace:main"', text)
 
-        try:
-            import tomllib
-        except ModuleNotFoundError:
-            return
-
-        parsed = tomllib.loads(text)
-        scripts = parsed["project"]["scripts"]
+        scripts = _project_scripts(text)
         self.assertEqual(
             scripts["prepare-sensor-frame-proof-pack"],
             "scripts.prepare_sensor_frame_proof_pack:main",
@@ -77,6 +72,10 @@ class PackagingTests(TestCase):
             "scripts.record_qwenguard_trial:main",
         )
         self.assertEqual(
+            scripts["summarize-qwenguard-trials"],
+            "scripts.summarize_qwenguard_trials:main",
+        )
+        self.assertEqual(
             scripts["prepare-demo-recording-pack"],
             "scripts.prepare_demo_recording_pack:main",
         )
@@ -96,3 +95,28 @@ class PackagingTests(TestCase):
             scripts["prepare-dimos-runtime-smoke-pack"],
             "scripts.prepare_dimos_runtime_smoke_pack:main",
         )
+        self.assertEqual(
+            scripts["collect-ecs-smoke-report"],
+            "scripts.collect_ecs_smoke_report:main",
+        )
+        self.assertEqual(
+            scripts["verify-trace"],
+            "scripts.verify_trace:main",
+        )
+
+
+def _project_scripts(pyproject_text: str) -> dict[str, str]:
+    scripts: dict[str, str] = {}
+    in_scripts = False
+    for raw_line in pyproject_text.splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("[") and line.endswith("]"):
+            in_scripts = line == "[project.scripts]"
+            continue
+        if not in_scripts or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        scripts[key.strip()] = value.strip().strip('"')
+    return scripts
