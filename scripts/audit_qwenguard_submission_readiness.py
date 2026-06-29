@@ -26,8 +26,10 @@ DEFAULT_FIXTURE_TRACE = Path("runs/physical/qwenguard_physical_go/fixture_trace.
 DEFAULT_DEGRADED_TRACE = Path("runs/physical/qwenguard_physical_go/degraded_trace.json")
 DEFAULT_TRIAL_CSV = Path("runs/physical/qwenguard_trials/trial_results.csv")
 DEFAULT_TRIAL_TRACE_DIR = Path("runs/physical/qwenguard_trials/traces")
+DEFAULT_TRIAL_SUMMARY = Path("runs/physical/qwenguard_trials/trial_summary.json")
 DEFAULT_ECS_REPORT = Path("runs/ecs/ecs_smoke_report.json")
 DEFAULT_VIDEO_REVIEW = Path("runs/submission/final_video_review.md")
+TRIAL_ID_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,80}")
 
 SECRET_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"Authorization:[ \t]*Bearer[ \t]+(?!<redacted>(?:$|[ \t]))\S+", re.IGNORECASE),
@@ -85,6 +87,7 @@ def main() -> int:
     parser.add_argument("--degraded-trace", type=Path, default=DEFAULT_DEGRADED_TRACE)
     parser.add_argument("--trial-csv", type=Path, default=DEFAULT_TRIAL_CSV)
     parser.add_argument("--trial-trace-dir", type=Path, default=DEFAULT_TRIAL_TRACE_DIR)
+    parser.add_argument("--trial-summary", type=Path, default=DEFAULT_TRIAL_SUMMARY)
     parser.add_argument("--ecs-report", type=Path, default=DEFAULT_ECS_REPORT)
     parser.add_argument("--video-review", type=Path, default=DEFAULT_VIDEO_REVIEW)
     parser.add_argument(
@@ -104,6 +107,7 @@ def main() -> int:
             "degraded_trace": _repo_path(repo_root, args.degraded_trace),
             "trial_csv": _repo_path(repo_root, args.trial_csv),
             "trial_trace_dir": _repo_path(repo_root, args.trial_trace_dir),
+            "trial_summary": _repo_path(repo_root, args.trial_summary),
             "ecs_report": _repo_path(repo_root, args.ecs_report),
             "video_review": _repo_path(repo_root, args.video_review),
         }
@@ -132,13 +136,22 @@ def audit_readiness(*, repo_root: Path, paths: dict[str, Path]) -> dict[str, Any
         if trial_trace_check["ok"]
         else set()
     )
+    trial_csv_check = _check_trial_csv(repo_root, paths["trial_csv"], verified_trace_summaries=verified_trial_trace_summaries)
     checks = [
         _check_submission_manifest(repo_root, paths["submission_manifest"]),
         _check_camera_report(repo_root, paths["so101_camera_report"]),
         fixture_trace_check,
         degraded_trace_check,
         trial_trace_check,
-        _check_trial_csv(repo_root, paths["trial_csv"], verified_trace_summaries=verified_trial_trace_summaries),
+        trial_csv_check,
+        _check_trial_summary(
+            repo_root,
+            paths["trial_summary"],
+            trial_csv=paths["trial_csv"],
+            trial_trace_dir=paths["trial_trace_dir"],
+            valid_row_count=int(trial_csv_check["evidence"].get("valid_row_count", 0)),
+            verified_trace_summaries=verified_trial_trace_summaries,
+        ),
         _check_ecs_report(repo_root, paths["ecs_report"]),
         _check_video_review(repo_root, paths["video_review"]),
     ]
@@ -351,6 +364,162 @@ def _check_trial_csv(repo_root: Path, path: Path, *, verified_trace_summaries: s
         "trace_dependency_satisfied": bool(verified_trace_summaries),
     }
     return check
+
+
+def _check_trial_summary(
+    repo_root: Path,
+    path: Path,
+    *,
+    trial_csv: Path,
+    trial_trace_dir: Path,
+    valid_row_count: int,
+    verified_trace_summaries: set[str],
+) -> dict[str, Any]:
+    check = _base_check("measured_trial_summary_go", repo_root, path)
+    payload = _read_json(path)
+    if isinstance(payload, JsonReadError):
+        return _fail(check, payload.reason)
+    if not isinstance(payload, dict):
+        return _fail(check, "trial summary is not a JSON object")
+    inputs = payload.get("inputs")
+    checks = payload.get("checks")
+    aggregate = payload.get("aggregate")
+    bindings = payload.get("trial_bindings")
+    expected_csv_path = _display_path(repo_root, trial_csv)
+    expected_trace_dir = _display_path(repo_root, trial_trace_dir)
+    expected_csv_sha = _file_sha256(trial_csv) if trial_csv.is_file() else ""
+    total_trials = aggregate.get("total_trials") if isinstance(aggregate, dict) else None
+    required_summary_checks = {
+        "trial_csv_present",
+        "trial_csv_schema_valid",
+        "trial_rows_present",
+        "trial_trace_dir_present",
+        "trial_bindings_verify",
+        "no_duplicate_trial_ids",
+        "secret_material_absent",
+        "raw_float_free_summary",
+    }
+    summary_check_keys = set(checks) if isinstance(checks, dict) else set()
+    missing_summary_checks = sorted(required_summary_checks - summary_check_keys)
+    summary_checks_ok = (
+        isinstance(checks, dict)
+        and not missing_summary_checks
+        and all(checks.get(key) is True for key in required_summary_checks)
+    )
+    binding_errors = _trial_summary_binding_errors(
+        repo_root=repo_root,
+        trial_trace_dir=trial_trace_dir,
+        bindings=bindings,
+        verified_trace_summaries=verified_trace_summaries,
+    )
+    bindings_ok = (
+        isinstance(bindings, list)
+        and len(bindings) == total_trials
+        and not binding_errors
+    )
+    ok = (
+        payload.get("schema_version") == "qwenguard-trial-summary.v1"
+        and payload.get("outcome") == "GO"
+        and payload.get("trial_readiness") == "READY"
+        and isinstance(inputs, dict)
+        and inputs.get("trial_csv") == expected_csv_path
+        and inputs.get("trial_trace_dir") == expected_trace_dir
+        and payload.get("csv_sha256") == expected_csv_sha
+        and isinstance(aggregate, dict)
+        and isinstance(total_trials, int)
+        and total_trials > 0
+        and total_trials == valid_row_count
+        and bindings_ok
+        and summary_checks_ok
+        and payload.get("invalid_reason_count") == 0
+    )
+    check["ok"] = ok
+    check["reason"] = "measured trial summary is GO and bound to CSV/traces" if ok else "trial summary is not GO or not bound to audited trial evidence"
+    check["evidence"] = {
+        "schema_version": payload.get("schema_version"),
+        "outcome": payload.get("outcome"),
+        "trial_readiness": payload.get("trial_readiness"),
+        "total_trials": total_trials,
+        "valid_row_count": valid_row_count,
+        "binding_count": len(bindings) if isinstance(bindings, list) else 0,
+        "verified_binding_count": (
+            sum(1 for binding in bindings if isinstance(binding, dict) and binding.get("verified") is True)
+            if isinstance(bindings, list)
+            else 0
+        ),
+        "binding_error_count": len(binding_errors),
+        "binding_errors": binding_errors[:5],
+        "csv_sha256_matches": payload.get("csv_sha256") == expected_csv_sha,
+        "input_trial_csv": inputs.get("trial_csv") if isinstance(inputs, dict) else None,
+        "input_trial_trace_dir": inputs.get("trial_trace_dir") if isinstance(inputs, dict) else None,
+        "missing_summary_checks": missing_summary_checks,
+        "summary_checks_ok": summary_checks_ok,
+        "invalid_reason_count": payload.get("invalid_reason_count"),
+    }
+    return check
+
+
+def _trial_summary_binding_errors(
+    *,
+    repo_root: Path,
+    trial_trace_dir: Path,
+    bindings: object,
+    verified_trace_summaries: set[str],
+) -> list[str]:
+    if not isinstance(bindings, list):
+        return ["trial_bindings is not a list"]
+    errors: list[str] = []
+    for index, binding in enumerate(bindings):
+        if not isinstance(binding, dict):
+            errors.append(f"binding {index}: not an object")
+            continue
+        trial_id = binding.get("trial_id")
+        trace_path_value = binding.get("trace_path")
+        trace_summary_sha = binding.get("trace_summary_sha")
+        computed_summary_sha = binding.get("computed_summary_sha")
+        if binding.get("verified") is not True:
+            errors.append(f"binding {index}: verified is not true")
+        if not isinstance(trial_id, str) or not TRIAL_ID_RE.fullmatch(trial_id):
+            errors.append(f"binding {index}: invalid trial_id")
+        if not isinstance(trace_summary_sha, str) or not _is_hex_64(trace_summary_sha):
+            errors.append(f"binding {index}: invalid trace_summary_sha")
+        elif trace_summary_sha not in verified_trace_summaries:
+            errors.append(f"binding {index}: trace_summary_sha not verified by audit")
+        if computed_summary_sha is not None and computed_summary_sha != trace_summary_sha:
+            errors.append(f"binding {index}: computed_summary_sha mismatch")
+        trace_path_error = _trial_summary_trace_path_error(
+            repo_root=repo_root,
+            trial_trace_dir=trial_trace_dir,
+            raw_value=trace_path_value,
+        )
+        if trace_path_error:
+            errors.append(f"binding {index}: {trace_path_error}")
+    return errors
+
+
+def _trial_summary_trace_path_error(*, repo_root: Path, trial_trace_dir: Path, raw_value: object) -> str:
+    if not isinstance(raw_value, str) or not raw_value:
+        return "trace_path missing"
+    raw_path = Path(raw_value)
+    if raw_path.is_absolute() or ".." in raw_path.parts:
+        return "trace_path must be repo-relative"
+    if raw_path.suffix != ".json":
+        return "trace_path must be a JSON trace"
+    try:
+        resolved = _repo_path(repo_root, raw_path)
+    except ValueError:
+        return "trace_path must stay inside repository"
+    try:
+        resolved.relative_to(trial_trace_dir.resolve())
+    except ValueError:
+        return "trace_path is outside audited trial trace directory"
+    if not resolved.is_file():
+        return "trace_path file is missing"
+    return ""
+
+
+def _is_hex_64(value: str) -> bool:
+    return bool(re.fullmatch(r"[0-9a-f]{64}", value))
 
 
 def _validate_trial_trace_shape(trace: Any) -> None:

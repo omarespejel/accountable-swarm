@@ -359,6 +359,12 @@ def _evidence_manifest(*, task: str, repo_url: str) -> dict[str, Any]:
                 "note": "operator stores one decisiontrace.v2 JSON file per promoted physical trial",
             },
             {
+                "name": "measured_trial_summary",
+                "status": "pending",
+                "expected_path": "runs/physical/qwenguard_trials/trial_summary.json",
+                "note": "operator runs summarize-qwenguard-trials after measured rows are recorded",
+            },
+            {
                 "name": "cloud_degraded_hold_take",
                 "status": "pending",
                 "expected_path": "runs/physical/qwenguard_physical_go/degraded_trace.json",
