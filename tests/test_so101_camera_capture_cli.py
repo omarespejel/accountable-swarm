@@ -4,10 +4,12 @@ import json
 from pathlib import Path
 import subprocess
 import sys
+from types import ModuleType
 from tempfile import TemporaryDirectory
 from unittest import TestCase
+from unittest.mock import patch
 
-from accountable_swarm.physical.so101 import parse_index_or_path
+from accountable_swarm.physical.so101 import SO101CameraSpec, capture_frame, parse_index_or_path
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -18,6 +20,107 @@ class So101CaptureHelpersTests(TestCase):
         self.assertEqual(parse_index_or_path("0"), 0)
         self.assertEqual(parse_index_or_path(" 12 "), 12)
         self.assertEqual(parse_index_or_path("/dev/video2"), "/dev/video2")
+
+    def test_capture_frame_uses_camera_read_path_without_actuation(self) -> None:
+        calls: list[str] = []
+
+        class FakeFrame:
+            shape = (480, 640, 3)
+
+        class FakeConfig:
+            def __init__(
+                self,
+                camera_index: int | str | None = None,
+                width: int | None = None,
+                height: int | None = None,
+                fps: int | None = None,
+                name: str | None = None,
+            ) -> None:
+                self.camera_index = camera_index
+                self.width = width
+                self.height = height
+                self.fps = fps
+                self.name = name
+
+        class FakeCamera:
+            def __init__(self, config: FakeConfig) -> None:
+                self.config = config
+                calls.append("construct_camera")
+
+            def connect(self) -> None:
+                calls.append("connect")
+
+            def async_read(self) -> FakeFrame:
+                calls.append("async_read")
+                return FakeFrame()
+
+            def disconnect(self) -> None:
+                calls.append("disconnect")
+
+            def close(self) -> None:
+                calls.append("close")
+
+            def send_action(self, *_args: object, **_kwargs: object) -> None:
+                raise AssertionError("camera probe must not send actions")
+
+            def set_goal_position(self, *_args: object, **_kwargs: object) -> None:
+                raise AssertionError("camera probe must not set goal positions")
+
+            def set_position(self, *_args: object, **_kwargs: object) -> None:
+                raise AssertionError("camera probe must not set positions")
+
+            def write_torque(self, *_args: object, **_kwargs: object) -> None:
+                raise AssertionError("camera probe must not write torque")
+
+        cv2_module = ModuleType("cv2")
+
+        def imwrite(path: str, _frame: FakeFrame) -> bool:
+            calls.append("imwrite")
+            Path(path).write_bytes(b"fake-png")
+            return True
+
+        cv2_module.imwrite = imwrite  # type: ignore[attr-defined]
+        camera_module = ModuleType("lerobot.cameras.opencv.camera_opencv")
+        camera_module.OpenCVCamera = FakeCamera  # type: ignore[attr-defined]
+        config_module = ModuleType("lerobot.cameras.opencv.configuration_opencv")
+        config_module.OpenCVCameraConfig = FakeConfig  # type: ignore[attr-defined]
+        fake_modules = {
+            "cv2": cv2_module,
+            "lerobot": ModuleType("lerobot"),
+            "lerobot.cameras": ModuleType("lerobot.cameras"),
+            "lerobot.cameras.opencv": ModuleType("lerobot.cameras.opencv"),
+            "lerobot.cameras.opencv.camera_opencv": camera_module,
+            "lerobot.cameras.opencv.configuration_opencv": config_module,
+        }
+
+        with TemporaryDirectory() as tmpdir:
+            out_path = Path(tmpdir) / "frame.png"
+            with patch.dict(sys.modules, fake_modules):
+                capture = capture_frame(SO101CameraSpec("so101-main", 0), out_path)
+
+        self.assertEqual(calls, ["construct_camera", "connect", "async_read", "imwrite", "disconnect", "close"])
+        self.assertEqual(capture["width"], 640)
+        self.assertEqual(capture["height"], 480)
+        self.assertEqual(capture["output_path"], "frame.png")
+
+    def test_so101_camera_module_does_not_import_or_call_actuation_surfaces(self) -> None:
+        source = (ROOT / "accountable_swarm" / "physical" / "so101.py").read_text(encoding="utf-8")
+        forbidden_terms = [
+            "lerobot.record",
+            "so101_follower",
+            "so101_leader",
+            "send_action",
+            "set_goal_position",
+            "goal_position",
+            "set_position",
+            "write_torque",
+            "torque",
+            "servo",
+            "motor",
+        ]
+        for term in forbidden_terms:
+            with self.subTest(term=term):
+                self.assertNotIn(term, source)
 
 
 class So101CameraCaptureCliTests(TestCase):

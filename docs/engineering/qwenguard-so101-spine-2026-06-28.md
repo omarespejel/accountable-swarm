@@ -131,6 +131,16 @@ schema_version qwenguard-so101-training-pack.v1
 task pick the red cube left of the green cube and place it in the bin
 ```
 
+Interlock decision:
+
+- The training pack can emit motion-capable LeRobot commands, but it is not a
+  QwenGuard ALLOW-to-actuation interlock.
+- Manual motion-capable commands require operator acknowledgement for emergency
+  stop readiness, low-speed mode, workspace bounds, and leader detachment or
+  non-authoritative leader state before autonomous rollout.
+- A future guarded-motion claim requires the separate interlock described in
+  `docs/engineering/qwenguard-motion-interlock-decision-2026-06-29.md`.
+
 ## Targeted validation
 
 ```bash

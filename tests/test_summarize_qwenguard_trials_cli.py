@@ -9,6 +9,7 @@ from tempfile import TemporaryDirectory
 from unittest import TestCase
 
 from accountable_swarm.qwenguard.trial import trial_csv_header
+from accountable_swarm.trace.models import DecisionEvent, DecisionTrace, GENESIS_SHA, trace_from_dict, verify_trace
 from scripts.summarize_qwenguard_trials import _contains_secret_like_material
 
 
@@ -69,10 +70,15 @@ class SummarizeQwenGuardTrialsCliTests(TestCase):
         self.assertEqual(report["aggregate"]["cloud_hold_count"], 1)
         self.assertEqual(report["aggregate"]["success_rate_all_trials_milli"], 333)
         self.assertEqual(report["aggregate"]["success_rate_attempted_milli"], 500)
+        self.assertEqual(
+            report["aggregate_qualification"],
+            "operator-attested measured rows only; not automatic physical-success proof",
+        )
         self.assertEqual(report["aggregate"]["failure_taxonomy_counts"]["missed_grasp"], 1)
         self.assertEqual(report["aggregate"]["failure_taxonomy_counts"]["cloud_hold"], 1)
         self.assertEqual(len(report["trial_bindings"]), 3)
         self.assertTrue(all(binding["verified"] for binding in report["trial_bindings"]))
+        self.assertTrue(report["checks"]["no_duplicate_trace_summary_shas"])
         self.assertNotIn(".333", json.dumps(report, sort_keys=True))
 
     def test_missing_trials_remain_narrow_claim_with_allow_flag(self) -> None:
@@ -347,6 +353,102 @@ class SummarizeQwenGuardTrialsCliTests(TestCase):
         self.assertFalse(report["checks"]["secret_material_absent"])
         self.assertIn("secret-like", " ".join(report["invalid_reasons"]))
 
+    def test_no_motion_scripted_success_trace_is_narrow_claim(self) -> None:
+        base = ROOT / "runs" / "physical"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            root = Path(tmpdir)
+            trace_dir = root / "traces"
+            csv_out = root / "trial_results.csv"
+            summary_out = root / "trial_summary.json"
+            _record_trial(
+                trial_id="trial-forged",
+                outcome="success",
+                trace_dir=trace_dir,
+                csv_out=csv_out,
+                extra=["--motion-executed", "true", "--control-label", "AUTONOMOUS"],
+            )
+            trace_path = trace_dir / "trial-forged.json"
+            _rewrite_action_metadata(
+                trace_path,
+                motion_executed=False,
+                control_label="SCRIPTED",
+            )
+            rows = _read_csv(csv_out)
+            rows[0]["trace_summary_sha"] = _trace_summary_sha(trace_path)
+            _write_csv(csv_out, rows)
+            result = _run_summary(csv_out=csv_out, trace_dir=trace_dir, out=summary_out, allow_narrow=True)
+            report = json.loads(summary_out.read_text(encoding="utf-8"))
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(report["outcome"], "NARROW_CLAIM")
+        self.assertFalse(report["checks"]["trial_bindings_verify"])
+        self.assertIn("outcome=success requires motion_executed=true", " ".join(report["invalid_reasons"]))
+
+    def test_trace_run_id_must_match_trial_id(self) -> None:
+        base = ROOT / "runs" / "physical"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            root = Path(tmpdir)
+            trace_dir = root / "traces"
+            csv_out = root / "trial_results.csv"
+            summary_out = root / "trial_summary.json"
+            _record_trial(
+                trial_id="other-run",
+                outcome="success",
+                trace_dir=trace_dir,
+                csv_out=csv_out,
+                extra=["--motion-executed", "true", "--control-label", "AUTONOMOUS"],
+            )
+            source_trace = trace_dir / "other-run.json"
+            forged_trace = trace_dir / "trial-forged.json"
+            forged_trace.write_text(source_trace.read_text(encoding="utf-8"), encoding="utf-8")
+            row = _base_trial_row()
+            row["trial_id"] = "trial-forged"
+            row["trace_summary_sha"] = _trace_summary_sha(forged_trace)
+            _write_csv(csv_out, [row])
+            result = _run_summary(csv_out=csv_out, trace_dir=trace_dir, out=summary_out, allow_narrow=True)
+            report = json.loads(summary_out.read_text(encoding="utf-8"))
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(report["outcome"], "NARROW_CLAIM")
+        self.assertFalse(report["checks"]["trial_bindings_verify"])
+        self.assertIn("trace run_id does not match trial_id", " ".join(report["invalid_reasons"]))
+
+    def test_duplicate_trace_summary_sha_is_narrow_claim(self) -> None:
+        base = ROOT / "runs" / "physical"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            root = Path(tmpdir)
+            trace_dir = root / "traces"
+            csv_out = root / "trial_results.csv"
+            summary_out = root / "trial_summary.json"
+            _record_trial(
+                trial_id="dup-source",
+                outcome="success",
+                trace_dir=trace_dir,
+                csv_out=csv_out,
+                extra=["--motion-executed", "true", "--control-label", "AUTONOMOUS"],
+            )
+            source_trace = trace_dir / "dup-source.json"
+            summary_sha = _trace_summary_sha(source_trace)
+            rows = []
+            for trial_id in ("dup-a", "dup-b", "dup-c"):
+                (trace_dir / f"{trial_id}.json").write_text(source_trace.read_text(encoding="utf-8"), encoding="utf-8")
+                row = _base_trial_row()
+                row["trial_id"] = trial_id
+                row["trace_summary_sha"] = summary_sha
+                rows.append(row)
+            _write_csv(csv_out, rows)
+            result = _run_summary(csv_out=csv_out, trace_dir=trace_dir, out=summary_out, allow_narrow=True)
+            report = json.loads(summary_out.read_text(encoding="utf-8"))
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(report["outcome"], "NARROW_CLAIM")
+        self.assertFalse(report["checks"]["no_duplicate_trace_summary_shas"])
+        self.assertFalse(report["checks"]["trial_bindings_verify"])
+        self.assertIn("duplicate trace_summary_sha", " ".join(report["invalid_reasons"]))
+
     def test_output_path_inside_trace_directory_is_rejected(self) -> None:
         base = ROOT / "runs" / "physical"
         base.mkdir(parents=True, exist_ok=True)
@@ -447,6 +549,46 @@ def _write_csv(path: Path, rows: list[dict[str, str]]) -> None:
         writer = csv.DictWriter(handle, fieldnames=list(trial_csv_header()))
         writer.writeheader()
         writer.writerows(rows)
+
+
+def _trace_summary_sha(path: Path) -> str:
+    return verify_trace(trace_from_dict(json.loads(path.read_text(encoding="utf-8"))))
+
+
+def _rewrite_action_metadata(path: Path, *, motion_executed: bool, control_label: str) -> None:
+    trace = trace_from_dict(json.loads(path.read_text(encoding="utf-8")))
+    events = []
+    prev_sha = GENESIS_SHA
+    for event in trace.events:
+        command = dict(event.command)
+        if command.get("type") == "physical_action_intent":
+            command["motion_executed"] = motion_executed
+            command["control_label"] = control_label
+        if command.get("type") == "qwenguard_outcome_gate":
+            reasons = []
+            for reason in command.get("reasons", []):
+                if reason.startswith("motion_executed:"):
+                    reasons.append(f"motion_executed:{str(motion_executed).lower()}")
+                elif reason.startswith("control_label:"):
+                    reasons.append(f"control_label:{control_label}")
+                else:
+                    reasons.append(reason)
+            command["reasons"] = reasons
+        rewritten = DecisionEvent(
+            tick=event.tick,
+            actor_id=event.actor_id,
+            mode=event.mode,
+            intent=event.intent,
+            decision=event.decision,
+            reason=event.reason,
+            command=command,
+            perception=event.perception,
+            prev_sha=prev_sha,
+        ).with_computed_sha()
+        events.append(rewritten)
+        prev_sha = rewritten.sha256
+    rewritten_trace = DecisionTrace(run_id=trace.run_id, events=tuple(events)).with_computed_summary()
+    path.write_text(rewritten_trace.to_canonical_json(), encoding="utf-8")
 
 
 def _base_trial_row() -> dict[str, str]:

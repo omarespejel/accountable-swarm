@@ -11,6 +11,7 @@ SELECTOR_MODES = {"qwen", "heuristic", "fixture"}
 GATE_MODES = {"on", "off"}
 POLICIES = {"act", "none", "smolvla"}
 CLOUD_MODES = {"online", "degraded"}
+CONTROL_LABELS = {"AUTONOMOUS", "TELEOP", "SCRIPTED"}
 OUTCOMES = {
     "success",
     "wrong_object",
@@ -20,6 +21,28 @@ OUTCOMES = {
     "unsafe_hold",
     "cloud_hold",
     "uncertain",
+}
+ATTEMPTED_OUTCOMES = {"success", "wrong_object", "missed_grasp", "dropped_object", "not_in_bin"}
+NO_MOTION_OUTCOMES = {"cloud_hold", "unsafe_hold", "uncertain"}
+EVALUATOR_OUTCOME_BY_TRIAL_OUTCOME = {
+    "success": "success",
+    "wrong_object": "failure",
+    "missed_grasp": "failure",
+    "dropped_object": "failure",
+    "not_in_bin": "failure",
+    "unsafe_hold": "failure",
+    "cloud_hold": "uncertain",
+    "uncertain": "uncertain",
+}
+FAILURE_TYPE_BY_OUTCOME = {
+    "success": "none",
+    "wrong_object": "wrong_object",
+    "missed_grasp": "missed_grasp",
+    "dropped_object": "dropped_object",
+    "not_in_bin": "not_in_bin",
+    "unsafe_hold": "unsafe_scene",
+    "cloud_hold": "cloud_unavailable",
+    "uncertain": "uncertain_view",
 }
 
 
@@ -72,6 +95,69 @@ class TrialRecord:
 
 def trial_csv_header() -> tuple[str, ...]:
     return tuple(TrialRecord.__dataclass_fields__.keys())
+
+
+def expected_trial_run_id(trial_id: str) -> str:
+    return f"qwenguard-trial-{trial_id}"
+
+
+def expected_trial_perception_event_id(trial_id: str) -> str:
+    return f"{trial_id}-perception"
+
+
+def validate_trial_semantics(
+    *,
+    outcome: str,
+    cloud_mode: str,
+    gate_decision: str,
+    motion_executed: bool,
+    predicted_success_milli: int | None = None,
+    risk_level: str | None = None,
+    control_label: str | None = None,
+    operator_attested: bool = True,
+) -> None:
+    """Shared physical-trial semantic checks for recorders and summarizers."""
+
+    if not operator_attested:
+        raise ValueError("recording a measured trial requires --confirm-operator-attestation")
+    _validate_enum("outcome", outcome, OUTCOMES)
+    _validate_enum("cloud_mode", cloud_mode, CLOUD_MODES)
+    if gate_decision not in {"ALLOW", "HOLD", "RETRY"}:
+        raise ValueError(f"unsupported gate_decision: {gate_decision}")
+    if control_label is not None:
+        _validate_enum("control_label", control_label, CONTROL_LABELS)
+    if outcome == "cloud_hold":
+        if cloud_mode != "degraded":
+            raise ValueError("outcome=cloud_hold requires cloud_mode=degraded")
+        if gate_decision != "HOLD":
+            raise ValueError("outcome=cloud_hold requires gate_decision=HOLD")
+        if motion_executed:
+            raise ValueError("outcome=cloud_hold requires motion_executed=false")
+        if predicted_success_milli is not None and predicted_success_milli != 0:
+            raise ValueError("outcome=cloud_hold requires predicted_success_milli=0")
+        if risk_level is not None and risk_level != "high":
+            raise ValueError("outcome=cloud_hold requires risk_level=high")
+    if gate_decision == "HOLD" and motion_executed:
+        raise ValueError("gate_decision=HOLD requires motion_executed=false")
+    if outcome == "success":
+        if not motion_executed:
+            raise ValueError("outcome=success requires motion_executed=true")
+        if gate_decision not in {"ALLOW", "RETRY"}:
+            raise ValueError("outcome=success requires gate_decision=ALLOW or RETRY")
+    if outcome in ATTEMPTED_OUTCOMES - {"success"}:
+        if not motion_executed:
+            raise ValueError(f"outcome={outcome} requires motion_executed=true")
+        if gate_decision not in {"ALLOW", "RETRY"}:
+            raise ValueError(f"outcome={outcome} requires gate_decision=ALLOW or RETRY")
+    if outcome in ATTEMPTED_OUTCOMES and control_label not in {"AUTONOMOUS", "TELEOP"}:
+        raise ValueError("attempted physical outcomes require control_label TELEOP or AUTONOMOUS")
+    if not motion_executed and outcome not in NO_MOTION_OUTCOMES:
+        raise ValueError(f"outcome={outcome} requires motion_executed=true")
+    if outcome == "unsafe_hold":
+        if gate_decision != "HOLD":
+            raise ValueError("outcome=unsafe_hold requires gate_decision=HOLD")
+        if risk_level is not None and risk_level != "high":
+            raise ValueError("outcome=unsafe_hold requires risk_level=high")
 
 
 def _validate_enum(field_name: str, value: object, allowed: set[str]) -> None:

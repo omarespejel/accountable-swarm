@@ -15,13 +15,21 @@ from accountable_swarm.qwenguard.evaluator import EvaluationResult
 from accountable_swarm.qwenguard.outcome_gate import GateDecision, GATE_DECISIONS, RISK_LEVELS
 from accountable_swarm.qwenguard.selector import RELATIONS, SelectorResult
 from accountable_swarm.qwenguard.trial import (
+    CONTROL_LABELS,
     CLOUD_MODES,
+    EVALUATOR_OUTCOME_BY_TRIAL_OUTCOME,
+    FAILURE_TYPE_BY_OUTCOME,
     GATE_MODES,
+    ATTEMPTED_OUTCOMES,
+    NO_MOTION_OUTCOMES,
     OUTCOMES,
     POLICIES,
     SELECTOR_MODES,
     TrialRecord,
+    expected_trial_perception_event_id,
+    expected_trial_run_id,
     trial_csv_header,
+    validate_trial_semantics,
 )
 from accountable_swarm.trace.models import (
     GENESIS_SHA,
@@ -40,29 +48,6 @@ DEFAULT_TRACE_DIR = Path("runs/physical/qwenguard_trials/traces")
 DEFAULT_CSV_OUT = Path("runs/physical/qwenguard_trials/trial_results.csv")
 DEFAULT_TASK = "pick the red cube left of the green cube and place it in the bin"
 DEFAULT_TARGET_LABEL = "red cube left of green cube"
-CONTROL_LABELS = {"AUTONOMOUS", "TELEOP", "SCRIPTED"}
-ATTEMPTED_OUTCOMES = {"success", "wrong_object", "missed_grasp", "dropped_object", "not_in_bin"}
-NO_MOTION_OUTCOMES = {"cloud_hold", "unsafe_hold", "uncertain"}
-FAILURE_TYPE_BY_OUTCOME = {
-    "success": "none",
-    "wrong_object": "wrong_object",
-    "missed_grasp": "missed_grasp",
-    "dropped_object": "dropped_object",
-    "not_in_bin": "not_in_bin",
-    "unsafe_hold": "unsafe_scene",
-    "cloud_hold": "cloud_unavailable",
-    "uncertain": "uncertain_view",
-}
-EVALUATOR_OUTCOME_BY_TRIAL_OUTCOME = {
-    "success": "success",
-    "wrong_object": "failure",
-    "missed_grasp": "failure",
-    "dropped_object": "failure",
-    "not_in_bin": "failure",
-    "unsafe_hold": "failure",
-    "cloud_hold": "uncertain",
-    "uncertain": "uncertain",
-}
 SECRET_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"Authorization:[ \t]*Bearer[ \t]+(?!<redacted>)\S+", re.IGNORECASE),
     re.compile(r"ALIBABA_API_KEY[ \t]*=[ \t]*\S+", re.IGNORECASE),
@@ -255,6 +240,16 @@ def build_trial_trace(
     evaluator_confidence_milli: int,
     evaluator_evidence: str,
 ) -> DecisionTrace:
+    validate_trial_semantics(
+        outcome=outcome,
+        cloud_mode=cloud_mode,
+        gate_decision=gate_decision,
+        motion_executed=motion_executed,
+        predicted_success_milli=predicted_success_milli,
+        risk_level=risk_level,
+        control_label=control_label,
+        operator_attested=True,
+    )
     selector = SelectorResult(
         target_mark_id=target_mark_id,
         target_label=target_label,
@@ -285,7 +280,7 @@ def build_trial_trace(
         evidence=evaluator_evidence,
     )
     perception = PerceptionEvent(
-        event_id=f"{trial_id}-perception",
+        event_id=expected_trial_perception_event_id(trial_id),
         source=source_ref,
         image_width=image_width,
         image_height=image_height,
@@ -361,7 +356,7 @@ def build_trial_trace(
     ).with_computed_sha()
     events.append(eval_event)
 
-    return DecisionTrace(run_id=f"qwenguard-trial-{trial_id}", events=tuple(events)).with_computed_summary()
+    return DecisionTrace(run_id=expected_trial_run_id(trial_id), events=tuple(events)).with_computed_summary()
 
 
 def _write_outputs(
@@ -532,39 +527,16 @@ def _validate_text_inputs(args: argparse.Namespace) -> None:
 
 
 def _validate_trial_semantics(args: argparse.Namespace) -> None:
-    if not args.confirm_operator_attestation:
-        raise ValueError("recording a measured trial requires --confirm-operator-attestation")
-    motion_executed = args.motion_executed == "true"
-    if args.outcome == "cloud_hold":
-        if args.cloud_mode != "degraded":
-            raise ValueError("outcome=cloud_hold requires cloud_mode=degraded")
-        if args.gate_decision != "HOLD":
-            raise ValueError("outcome=cloud_hold requires gate_decision=HOLD")
-        if motion_executed:
-            raise ValueError("outcome=cloud_hold requires motion_executed=false")
-        if args.predicted_success_milli != 0:
-            raise ValueError("outcome=cloud_hold requires predicted_success_milli=0")
-        if args.risk_level != "high":
-            raise ValueError("outcome=cloud_hold requires risk_level=high")
-    if args.gate_decision == "HOLD" and motion_executed:
-        raise ValueError("gate_decision=HOLD requires motion_executed=false")
-    if args.outcome == "success":
-        if not motion_executed:
-            raise ValueError("outcome=success requires motion_executed=true")
-        if args.gate_decision not in {"ALLOW", "RETRY"}:
-            raise ValueError("outcome=success requires gate_decision=ALLOW or RETRY")
-    if args.outcome in ATTEMPTED_OUTCOMES - {"success"}:
-        if not motion_executed:
-            raise ValueError(f"outcome={args.outcome} requires motion_executed=true")
-        if args.gate_decision not in {"ALLOW", "RETRY"}:
-            raise ValueError(f"outcome={args.outcome} requires gate_decision=ALLOW or RETRY")
-    if not motion_executed and args.outcome not in NO_MOTION_OUTCOMES:
-        raise ValueError(f"outcome={args.outcome} requires motion_executed=true")
-    if args.outcome == "unsafe_hold":
-        if args.gate_decision != "HOLD":
-            raise ValueError("outcome=unsafe_hold requires gate_decision=HOLD")
-        if args.risk_level != "high":
-            raise ValueError("outcome=unsafe_hold requires risk_level=high")
+    validate_trial_semantics(
+        outcome=args.outcome,
+        cloud_mode=args.cloud_mode,
+        gate_decision=args.gate_decision,
+        motion_executed=args.motion_executed == "true",
+        predicted_success_milli=args.predicted_success_milli,
+        risk_level=args.risk_level,
+        control_label=args.control_label,
+        operator_attested=args.confirm_operator_attestation,
+    )
 
 
 def _normalize_reference_mark_ids(raw_values: list[str] | None, *, relation: str) -> tuple[str, ...]:

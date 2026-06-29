@@ -12,7 +12,14 @@ import re
 import sys
 from typing import Any
 
-from accountable_swarm.qwenguard.trial import OUTCOMES, TrialRecord, trial_csv_header
+from accountable_swarm.qwenguard.trial import (
+    OUTCOMES,
+    TrialRecord,
+    expected_trial_perception_event_id,
+    expected_trial_run_id,
+    trial_csv_header,
+    validate_trial_semantics,
+)
 from accountable_swarm.trace.models import canonical_json, trace_from_dict, verify_trace
 
 
@@ -100,13 +107,21 @@ def summarize_trials(*, repo_root: Path, trial_csv: Path, trial_trace_dir: Path,
     records: list[TrialRecord] = []
     invalid_reasons = list(rows_result.invalid_reasons)
     duplicate_trial_ids = sorted(_duplicates([record.trial_id for record in rows_result.records]))
+    duplicate_trace_summary_shas = sorted(_duplicates([record.trace_summary_sha for record in rows_result.records]))
     if duplicate_trial_ids:
         invalid_reasons.append(f"duplicate trial_id values: {', '.join(duplicate_trial_ids[:5])}")
+    if duplicate_trace_summary_shas:
+        invalid_reasons.append(f"duplicate trace_summary_sha values: {', '.join(duplicate_trace_summary_shas[:3])}")
     if not trial_trace_dir.is_dir():
         invalid_reasons.append("trial trace directory is missing")
     else:
         for record in rows_result.records:
-            binding = _verify_trial_binding(repo_root=repo_root, trial_trace_dir=trial_trace_dir, record=record)
+            binding = _verify_trial_binding(
+                repo_root=repo_root,
+                trial_trace_dir=trial_trace_dir,
+                record=record,
+                duplicate_trace_summary_shas=set(duplicate_trace_summary_shas),
+            )
             bindings.append(binding)
             if not binding["verified"]:
                 invalid_reasons.append(f"{record.trial_id}: {binding['reason']}")
@@ -123,6 +138,7 @@ def summarize_trials(*, repo_root: Path, trial_csv: Path, trial_trace_dir: Path,
         "trial_trace_dir_present": trial_trace_dir.is_dir(),
         "trial_bindings_verify": bool(rows_result.records) and len(records) == len(rows_result.records),
         "no_duplicate_trial_ids": not duplicate_trial_ids,
+        "no_duplicate_trace_summary_shas": not duplicate_trace_summary_shas,
         "secret_material_absent": not rows_result.secret_or_frame_material_detected,
         "raw_float_free_summary": True,
     }
@@ -142,6 +158,7 @@ def summarize_trials(*, repo_root: Path, trial_csv: Path, trial_trace_dir: Path,
         "invalid_reason_count": len(invalid_reasons),
         "invalid_reasons": invalid_reasons[:10],
         "aggregate": aggregate,
+        "aggregate_qualification": "operator-attested measured rows only; not automatic physical-success proof",
         "trial_bindings": bindings,
         "csv_sha256": _file_sha256(trial_csv) if trial_csv.is_file() else "",
         "non_claims": [
@@ -150,6 +167,7 @@ def summarize_trials(*, repo_root: Path, trial_csv: Path, trial_trace_dir: Path,
             "not Qwen motor control",
             "not DimOS physical control",
             "not an ACT generalization claim beyond measured rows",
+            "READY means operator-attested traces are internally consistent, not automatic physical success proof",
         ],
     }
     canonical_json(report)
@@ -213,7 +231,13 @@ def _read_trial_rows(path: Path) -> "TrialRowsResult":
     )
 
 
-def _verify_trial_binding(*, repo_root: Path, trial_trace_dir: Path, record: TrialRecord) -> dict[str, Any]:
+def _verify_trial_binding(
+    *,
+    repo_root: Path,
+    trial_trace_dir: Path,
+    record: TrialRecord,
+    duplicate_trace_summary_shas: set[str],
+) -> dict[str, Any]:
     if not TRIAL_ID_RE.fullmatch(record.trial_id):
         return {
             "trial_id": record.trial_id,
@@ -262,6 +286,9 @@ def _verify_trial_binding(*, repo_root: Path, trial_trace_dir: Path, record: Tri
     if summary_sha != record.trace_summary_sha:
         binding["reason"] = "trace summary does not match CSV row"
         return binding
+    if record.trace_summary_sha in duplicate_trace_summary_shas:
+        binding["reason"] = "duplicate trace_summary_sha is not counted as unique trial evidence"
+        return binding
     mismatch_reason = _record_trace_mismatch(record, metadata)
     binding["trace_metadata"] = metadata
     if mismatch_reason:
@@ -274,6 +301,9 @@ def _verify_trial_binding(*, repo_root: Path, trial_trace_dir: Path, record: Tri
 
 def _trial_trace_metadata(trace: Any) -> dict[str, str]:
     commands = [event.command for event in trace.events if isinstance(event.command, dict)]
+    perception_event_ids = sorted({event.perception.event_id for event in trace.events})
+    if len(perception_event_ids) != 1:
+        raise ValueError("trial trace must use one bound perception event id")
     gate_command = _single_command(commands, "qwenguard_outcome_gate")
     action_command = _single_command(commands, "physical_action_intent")
     eval_command = _single_command(commands, "qwenguard_evaluate_outcome")
@@ -282,12 +312,21 @@ def _trial_trace_metadata(trace: Any) -> dict[str, str]:
         raise ValueError("trial trace gate reasons must be a list")
     reason_values = _reason_values(reasons)
     metadata = {
+        "run_id": trace.run_id,
+        "perception_event_id": perception_event_ids[0],
         "selector_mode": _string_reason(reason_values, "selector_mode"),
         "gate_mode": _string_reason(reason_values, "gate_mode"),
         "policy": _string_reason(reason_values, "policy"),
         "cloud_mode": _string_reason(reason_values, "cloud_mode"),
+        "motion_executed_reason": _string_reason(reason_values, "motion_executed"),
+        "control_label_reason": _string_reason(reason_values, "control_label"),
         "gate_decision": _string_command(gate_command, "gate_decision"),
+        "predicted_success_milli": _int_command(gate_command, "predicted_success_milli"),
+        "risk_level": _string_command(gate_command, "risk_level"),
         "action_policy": _string_command(action_command, "policy"),
+        "motion_executed": _bool_command(action_command, "motion_executed"),
+        "control_label": _string_command(action_command, "control_label"),
+        "operator_attested": _bool_command(action_command, "operator_attested"),
         "evaluator_outcome": _string_command(eval_command, "outcome"),
         "evaluator_failure_type": _string_command(eval_command, "failure_type"),
     }
@@ -327,14 +366,51 @@ def _string_command(command: dict[str, Any], key: str) -> str:
     return value
 
 
-def _record_trace_mismatch(record: TrialRecord, metadata: dict[str, str]) -> str:
+def _bool_command(command: dict[str, Any], key: str) -> bool:
+    value = command.get(key)
+    if not isinstance(value, bool):
+        raise ValueError(f"trial trace command missing bool field: {key}")
+    return value
+
+
+def _int_command(command: dict[str, Any], key: str) -> int:
+    value = command.get(key)
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"trial trace command missing int field: {key}")
+    return value
+
+
+def _record_trace_mismatch(record: TrialRecord, metadata: dict[str, Any]) -> str:
+    if metadata["run_id"] != expected_trial_run_id(record.trial_id):
+        return "trace run_id does not match trial_id"
+    if metadata["perception_event_id"] != expected_trial_perception_event_id(record.trial_id):
+        return "trace perception event_id does not match trial_id"
     for field_name in ("selector_mode", "gate_mode", "policy", "cloud_mode"):
         if getattr(record, field_name) != metadata[field_name]:
             return f"{field_name} does not match trace metadata"
+    if metadata["action_policy"] != record.policy:
+        return "action policy does not match CSV policy"
+    if metadata["motion_executed_reason"] != str(metadata["motion_executed"]).lower():
+        return "motion_executed gate reason does not match action metadata"
+    if metadata["control_label_reason"] != metadata["control_label"]:
+        return "control_label gate reason does not match action metadata"
     expected_eval = EVALUATOR_BY_TRIAL_OUTCOME[record.outcome]
     actual_eval = (metadata["evaluator_outcome"], metadata["evaluator_failure_type"])
     if actual_eval != expected_eval:
         return "outcome does not match trace evaluator metadata"
+    try:
+        validate_trial_semantics(
+            outcome=record.outcome,
+            cloud_mode=metadata["cloud_mode"],
+            gate_decision=metadata["gate_decision"],
+            motion_executed=metadata["motion_executed"],
+            predicted_success_milli=metadata["predicted_success_milli"],
+            risk_level=metadata["risk_level"],
+            control_label=metadata["control_label"],
+            operator_attested=metadata["operator_attested"],
+        )
+    except ValueError as exc:
+        return str(exc)
     return ""
 
 

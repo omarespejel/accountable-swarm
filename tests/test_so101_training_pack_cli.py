@@ -37,6 +37,12 @@ class SO101TrainingPackCliTests(TestCase):
             self.assertIn("trial_id", (out_dir / "trial_template.csv").read_text(encoding="utf-8"))
             self.assertIn("lerobot[feetech] @ git+https://github.com/huggingface/lerobot.git@", joined)
             self.assertIn("opencv-python==${QWENGUARD_OPENCV_PYTHON_VERSION}", joined)
+            self.assertIn("does **not** provide a programmatic interlock", joined)
+            self.assertIn("require_motion_readiness", joined)
+            self.assertIn("QWENGUARD_EMERGENCY_STOP_READY", joined)
+            self.assertIn("QWENGUARD_LOW_SPEED_MODE", joined)
+            self.assertIn("QWENGUARD_WORKSPACE_BOUNDS_SET", joined)
+            self.assertIn("QWENGUARD_LEADER_DETACHED_OR_NONAUTHORITATIVE", joined)
 
     def test_training_pack_quotes_shell_unsafe_task(self) -> None:
         with TemporaryDirectory() as tmp:
