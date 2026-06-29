@@ -270,12 +270,15 @@ def _image_artifact_error(path: Path) -> str | None:
     if not path.is_file():
         return "camera frame is missing"
     try:
-        header = path.read_bytes()[:16]
+        with path.open("rb") as handle:
+            header = handle.read(16)
     except OSError:
         return "camera frame cannot be read"
     if not header:
         return "camera frame is empty"
-    if header.startswith((b"\x89PNG\r\n\x1a\n", b"\xff\xd8\xff", b"GIF87a", b"GIF89a", b"P3", b"P6")):
+    if header.startswith((b"\x89PNG\r\n\x1a\n", b"\xff\xd8\xff", b"GIF87a", b"GIF89a")):
+        return None
+    if len(header) >= 3 and header[:2] in (b"P3", b"P6") and header[2:3] in b" \t\r\n":
         return None
     return "camera frame does not look like a supported image"
 

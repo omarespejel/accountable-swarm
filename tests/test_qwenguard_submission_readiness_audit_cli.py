@@ -329,6 +329,51 @@ class QwenGuardSubmissionReadinessAuditCliTests(TestCase):
         self.assertEqual(camera_check["reason"], "camera frame is empty")
         self.assertEqual(camera_check["evidence"]["frame_error"], "camera frame is empty")
 
+    def test_so101_camera_report_rejects_non_image_frame_file(self) -> None:
+        base = ROOT / "runs" / "submission"
+        base.mkdir(parents=True, exist_ok=True)
+        cases = {
+            "plain text": b"not-an-image",
+            "ppm prefix without separator": b"P3not-a-real-ppm",
+        }
+        for label, frame_bytes in cases.items():
+            with self.subTest(label=label):
+                with TemporaryDirectory(dir=base) as tmpdir:
+                    audit_root = Path(tmpdir)
+                    camera_report = audit_root / "so101_capture_report.json"
+                    camera_frame = audit_root / "so101_frame.png"
+                    out = audit_root / "readiness.json"
+                    camera_frame.write_bytes(frame_bytes)
+                    camera_report.write_text(canonical_json(_camera_go_report()) + "\n", encoding="utf-8")
+
+                    result = subprocess.run(
+                        [
+                            sys.executable,
+                            "-m",
+                            "scripts.audit_qwenguard_submission_readiness",
+                            "--out",
+                            str(out.relative_to(ROOT)),
+                            "--so101-camera-report",
+                            str(camera_report.relative_to(ROOT)),
+                            "--allow-narrow-claim",
+                        ],
+                        cwd=ROOT,
+                        text=True,
+                        capture_output=True,
+                        check=False,
+                    )
+
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    report = json.loads(out.read_text(encoding="utf-8"))
+
+                camera_check = next(check for check in report["checks"] if check["name"] == "so101_camera_report_go")
+                self.assertFalse(camera_check["ok"])
+                self.assertEqual(camera_check["reason"], "camera frame does not look like a supported image")
+                self.assertEqual(
+                    camera_check["evidence"]["frame_error"],
+                    "camera frame does not look like a supported image",
+                )
+
     def test_ecs_smoke_report_requires_human_proof_review_note(self) -> None:
         base = ROOT / "runs" / "submission"
         base.mkdir(parents=True, exist_ok=True)
