@@ -59,6 +59,7 @@ class QwenGuardReadinessOperatorPackCliTests(TestCase):
         self.assertIn("prepare_ecs_operator_pack", commands)
         self.assertIn("prepare_qwenguard_submission_pack", commands)
         self.assertIn("summarize_qwenguard_trials", commands)
+        self.assertIn("--trial-summary \"${TRIAL_SUMMARY}\"", commands)
         self.assertIn("prepare_qwenguard_final_video_review", commands)
         self.assertIn("audit_qwenguard_submission_readiness", commands)
         self.assertIn("No phase in this script enters raw secrets", commands)

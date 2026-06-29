@@ -98,6 +98,8 @@ class QwenGuardSubmissionReadinessAuditCliTests(TestCase):
             camera_frame = audit_root / "so101_frame.png"
             trial_trace_dir = audit_root / "trial_traces"
             trial_csv = audit_root / "trial_results.csv"
+            trial_summary = audit_root / "trial_summary.json"
+            trial_report = audit_root / "trial-001-report.json"
             ecs_report = audit_root / "ecs_smoke_report.json"
             video_review = audit_root / "final_video_review.md"
             video_file = audit_root / "qwenguard-final-demo.mp4"
@@ -142,12 +144,42 @@ class QwenGuardSubmissionReadinessAuditCliTests(TestCase):
                     "degraded",
                 ]
             )
-            fixture_summary = json.loads(fixture_report.read_text(encoding="utf-8"))["trace_summary_sha"]
-            trial_trace_dir.mkdir()
-            (trial_trace_dir / "trial-001.json").write_text(fixture_trace.read_text(encoding="utf-8"), encoding="utf-8")
             camera_frame.write_bytes(b"synthetic-so101-frame")
             camera_report.write_text(canonical_json(_camera_go_report()) + "\n", encoding="utf-8")
-            trial_csv.write_text(_trial_csv(fixture_summary), encoding="utf-8")
+            _run_ok(
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.record_qwenguard_trial",
+                    "--trial-id",
+                    "trial-001",
+                    "--outcome",
+                    "success",
+                    "--motion-executed",
+                    "true",
+                    "--control-label",
+                    "AUTONOMOUS",
+                    "--trace-dir",
+                    str(trial_trace_dir.relative_to(ROOT)),
+                    "--csv-out",
+                    str(trial_csv.relative_to(ROOT)),
+                    "--report-out",
+                    str(trial_report.relative_to(ROOT)),
+                ]
+            )
+            _run_ok(
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.summarize_qwenguard_trials",
+                    "--trial-csv",
+                    str(trial_csv.relative_to(ROOT)),
+                    "--trial-trace-dir",
+                    str(trial_trace_dir.relative_to(ROOT)),
+                    "--out",
+                    str(trial_summary.relative_to(ROOT)),
+                ]
+            )
             ecs_report.write_text(canonical_json(_ecs_go_report()) + "\n", encoding="utf-8")
             video_file.write_bytes(b"synthetic-video-artifact")
             video_review.write_text(_video_review(str(video_file.relative_to(ROOT))), encoding="utf-8")
@@ -171,6 +203,8 @@ class QwenGuardSubmissionReadinessAuditCliTests(TestCase):
                     str(trial_csv.relative_to(ROOT)),
                     "--trial-trace-dir",
                     str(trial_trace_dir.relative_to(ROOT)),
+                    "--trial-summary",
+                    str(trial_summary.relative_to(ROOT)),
                     "--ecs-report",
                     str(ecs_report.relative_to(ROOT)),
                     "--video-review",
@@ -190,9 +224,11 @@ class QwenGuardSubmissionReadinessAuditCliTests(TestCase):
         self.assertTrue(all(report["pass_conditions"].values()))
         trial_trace_check = next(check for check in report["checks"] if check["name"] == "measured_trial_traces_verify")
         trial_csv_check = next(check for check in report["checks"] if check["name"] == "measured_trial_csv_has_rows")
+        trial_summary_check = next(check for check in report["checks"] if check["name"] == "measured_trial_summary_go")
         self.assertEqual(trial_trace_check["evidence"]["verified_trace_count"], 1)
         self.assertEqual(trial_csv_check["evidence"]["valid_row_count"], 1)
-        self.assertEqual(trial_csv_check["evidence"]["invalid_row_count"], 1)
+        self.assertEqual(trial_csv_check["evidence"]["invalid_row_count"], 0)
+        self.assertEqual(trial_summary_check["evidence"]["total_trials"], 1)
 
     def test_tampered_trace_keeps_readiness_narrow(self) -> None:
         base = ROOT / "runs" / "submission"
@@ -280,6 +316,160 @@ class QwenGuardSubmissionReadinessAuditCliTests(TestCase):
         self.assertFalse(fixture_check["ok"])
         self.assertEqual(fixture_check["reason"], "trace verification failed")
         self.assertEqual(fixture_check["evidence"]["error_type"], "KeyError")
+
+    def test_trial_summary_is_required_even_when_trial_rows_verify(self) -> None:
+        base = ROOT / "runs" / "submission"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            audit_root = Path(tmpdir)
+            trial_trace_dir = audit_root / "trial_traces"
+            trial_csv = audit_root / "trial_results.csv"
+            trial_report = audit_root / "trial-001-report.json"
+            out = audit_root / "readiness.json"
+            _run_ok(
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.record_qwenguard_trial",
+                    "--trial-id",
+                    "trial-001",
+                    "--outcome",
+                    "success",
+                    "--motion-executed",
+                    "true",
+                    "--trace-dir",
+                    str(trial_trace_dir.relative_to(ROOT)),
+                    "--csv-out",
+                    str(trial_csv.relative_to(ROOT)),
+                    "--report-out",
+                    str(trial_report.relative_to(ROOT)),
+                ]
+            )
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.audit_qwenguard_submission_readiness",
+                    "--out",
+                    str(out.relative_to(ROOT)),
+                    "--trial-csv",
+                    str(trial_csv.relative_to(ROOT)),
+                    "--trial-trace-dir",
+                    str(trial_trace_dir.relative_to(ROOT)),
+                    "--trial-summary",
+                    str((audit_root / "missing-summary.json").relative_to(ROOT)),
+                    "--allow-narrow-claim",
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            report = json.loads(out.read_text(encoding="utf-8"))
+
+        trial_csv_check = next(check for check in report["checks"] if check["name"] == "measured_trial_csv_has_rows")
+        trial_summary_check = next(check for check in report["checks"] if check["name"] == "measured_trial_summary_go")
+        self.assertEqual(report["outcome"], "NARROW_CLAIM")
+        self.assertTrue(trial_csv_check["ok"])
+        self.assertFalse(trial_summary_check["ok"])
+        self.assertEqual(trial_summary_check["reason"], "file is missing")
+
+    def test_trial_summary_empty_checks_are_rejected(self) -> None:
+        base = ROOT / "runs" / "submission"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            audit_root = Path(tmpdir)
+            trial_trace_dir = audit_root / "trial_traces"
+            trial_csv = audit_root / "trial_results.csv"
+            trial_summary = audit_root / "trial_summary.json"
+            out = audit_root / "readiness.json"
+            _write_valid_trial_summary(
+                audit_root=audit_root,
+                trial_trace_dir=trial_trace_dir,
+                trial_csv=trial_csv,
+                trial_summary=trial_summary,
+            )
+            payload = json.loads(trial_summary.read_text(encoding="utf-8"))
+            payload["checks"] = {}
+            trial_summary.write_text(canonical_json(payload) + "\n", encoding="utf-8")
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.audit_qwenguard_submission_readiness",
+                    "--out",
+                    str(out.relative_to(ROOT)),
+                    "--trial-csv",
+                    str(trial_csv.relative_to(ROOT)),
+                    "--trial-trace-dir",
+                    str(trial_trace_dir.relative_to(ROOT)),
+                    "--trial-summary",
+                    str(trial_summary.relative_to(ROOT)),
+                    "--allow-narrow-claim",
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            report = json.loads(out.read_text(encoding="utf-8"))
+
+        trial_summary_check = next(check for check in report["checks"] if check["name"] == "measured_trial_summary_go")
+        self.assertFalse(trial_summary_check["ok"])
+        self.assertFalse(trial_summary_check["evidence"]["summary_checks_ok"])
+        self.assertIn("trial_csv_present", trial_summary_check["evidence"]["missing_summary_checks"])
+
+    def test_trial_summary_binding_must_match_audited_trace(self) -> None:
+        base = ROOT / "runs" / "submission"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            audit_root = Path(tmpdir)
+            trial_trace_dir = audit_root / "trial_traces"
+            trial_csv = audit_root / "trial_results.csv"
+            trial_summary = audit_root / "trial_summary.json"
+            out = audit_root / "readiness.json"
+            _write_valid_trial_summary(
+                audit_root=audit_root,
+                trial_trace_dir=trial_trace_dir,
+                trial_csv=trial_csv,
+                trial_summary=trial_summary,
+            )
+            payload = json.loads(trial_summary.read_text(encoding="utf-8"))
+            payload["trial_bindings"][0]["trace_summary_sha"] = "f" * 64
+            trial_summary.write_text(canonical_json(payload) + "\n", encoding="utf-8")
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.audit_qwenguard_submission_readiness",
+                    "--out",
+                    str(out.relative_to(ROOT)),
+                    "--trial-csv",
+                    str(trial_csv.relative_to(ROOT)),
+                    "--trial-trace-dir",
+                    str(trial_trace_dir.relative_to(ROOT)),
+                    "--trial-summary",
+                    str(trial_summary.relative_to(ROOT)),
+                    "--allow-narrow-claim",
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            report = json.loads(out.read_text(encoding="utf-8"))
+
+        trial_summary_check = next(check for check in report["checks"] if check["name"] == "measured_trial_summary_go")
+        self.assertFalse(trial_summary_check["ok"])
+        self.assertEqual(trial_summary_check["evidence"]["binding_error_count"], 2)
+        self.assertIn("trace_summary_sha not verified by audit", " ".join(trial_summary_check["evidence"]["binding_errors"]))
 
     def test_forged_ecs_report_with_empty_pass_conditions_is_rejected(self) -> None:
         base = ROOT / "runs" / "submission"
@@ -855,6 +1045,50 @@ def _run_ok(args: list[str]) -> None:
     result = subprocess.run(args, cwd=ROOT, text=True, capture_output=True, check=False)
     if result.returncode != 0:
         raise AssertionError(f"command failed: {args}\nstdout={result.stdout}\nstderr={result.stderr}")
+
+
+def _write_valid_trial_summary(
+    *,
+    audit_root: Path,
+    trial_trace_dir: Path,
+    trial_csv: Path,
+    trial_summary: Path,
+) -> None:
+    trial_report = audit_root / "trial-001-report.json"
+    _run_ok(
+        [
+            sys.executable,
+            "-m",
+            "scripts.record_qwenguard_trial",
+            "--trial-id",
+            "trial-001",
+            "--outcome",
+            "success",
+            "--motion-executed",
+            "true",
+            "--control-label",
+            "AUTONOMOUS",
+            "--trace-dir",
+            str(trial_trace_dir.relative_to(ROOT)),
+            "--csv-out",
+            str(trial_csv.relative_to(ROOT)),
+            "--report-out",
+            str(trial_report.relative_to(ROOT)),
+        ]
+    )
+    _run_ok(
+        [
+            sys.executable,
+            "-m",
+            "scripts.summarize_qwenguard_trials",
+            "--trial-csv",
+            str(trial_csv.relative_to(ROOT)),
+            "--trial-trace-dir",
+            str(trial_trace_dir.relative_to(ROOT)),
+            "--out",
+            str(trial_summary.relative_to(ROOT)),
+        ]
+    )
 
 
 def _camera_go_report() -> dict[str, object]:

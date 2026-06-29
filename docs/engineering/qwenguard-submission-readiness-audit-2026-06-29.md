@@ -5,8 +5,8 @@
 The QwenGuard Track 5 submission should have a deterministic final gate that
 distinguishes scaffold generation from actual submission readiness. The gate
 must stay `NARROW_CLAIM` until the operator supplies physical SO-101 evidence,
-measured trial rows, Alibaba ECS public endpoint proof, and human-reviewed video
-claim labels.
+measured trial rows plus their deterministic summary, Alibaba ECS public
+endpoint proof, and human-reviewed video claim labels.
 
 ## Why It Matters
 
@@ -29,6 +29,9 @@ The auditor checks:
 - measured trial trace directory contains at least one verified trial trace;
 - trial CSV contains at least one valid measured `TrialRecord` row bound to one
   of those verified measured-trial trace summaries;
+- trial summary report is `GO`, points at the same trial CSV and trace
+  directory, matches the current CSV SHA-256, and reports the same valid row
+  count as the audit;
 - ECS smoke report is `outcome: GO` with `proof_mode: ecs-public`;
 - final video review note contains the required claim labels and explicit human
   signoff fields.
@@ -36,15 +39,15 @@ The auditor checks:
 The readiness checks fail closed on malformed JSON, path escape attempts, and
 self-asserted operator evidence. SO-101 camera readiness requires a referenced
 frame artifact next to the camera report, measured trial rows must bind to a
-measured-trial trace summary SHA verified during the same audit, and ECS
-readiness requires both pass-condition booleans and matching endpoint-check
-evidence. The final video review check also rejects keyword-only notes,
-placeholder signoff values, and secret-like material. It requires `Reviewed-by`,
-`Review-date`, `Video-artifact`, `Privacy-reviewed`,
-`Claim-boundary-reviewed`, `Mode-labels-reviewed`, `ECS-proof-reviewed`,
-`SO-101-footage-reviewed`, and `Secrets-reviewed`. Local `Video-artifact`
-values must be repo-relative existing video files; hosted artifacts may be
-recorded as HTTPS URLs.
+measured-trial trace summary SHA verified during the same audit, and the trial
+summary must be generated from those same rows and traces. ECS readiness
+requires both pass-condition booleans and matching endpoint-check evidence. The
+final video review check also rejects keyword-only notes, placeholder signoff
+values, and secret-like material. It requires `Reviewed-by`, `Review-date`,
+`Video-artifact`, `Privacy-reviewed`, `Claim-boundary-reviewed`,
+`Mode-labels-reviewed`, `ECS-proof-reviewed`, `SO-101-footage-reviewed`, and
+`Secrets-reviewed`. Local `Video-artifact` values must be repo-relative
+existing video files; hosted artifacts may be recorded as HTTPS URLs.
 
 ## GO Gate
 
