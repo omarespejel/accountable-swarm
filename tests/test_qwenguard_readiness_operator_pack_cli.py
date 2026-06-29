@@ -55,6 +55,7 @@ class QwenGuardReadinessOperatorPackCliTests(TestCase):
         self.assertIn("ecs-pack", manifest["operator_phases"])
         self.assertIn("ecs-review", manifest["operator_phases"])
         self.assertIn("video-review", manifest["operator_phases"])
+        self.assertIn("next-steps", manifest["operator_phases"])
         self.assertIn("audit-final", manifest["operator_phases"])
         self.assertIn("prepare_qwenguard_physical_go_pack", commands)
         self.assertIn("prepare_ecs_operator_pack", commands)
@@ -65,11 +66,19 @@ class QwenGuardReadinessOperatorPackCliTests(TestCase):
         self.assertIn("--ecs-proof-review \"${ECS_PROOF_REVIEW}\"", commands)
         self.assertIn("prepare_qwenguard_final_video_review", commands)
         self.assertIn("audit_qwenguard_submission_readiness", commands)
+        self.assertIn("--ecs-report \"${ECS_REPORT}\"", commands)
+        self.assertIn("print_next_steps", commands)
+        self.assertIn("Next operator sequence", commands)
         self.assertIn("No phase in this script enters raw secrets", commands)
         self.assertIn("Submission readiness stays `NARROW_CLAIM`", runbook)
-        self.assertIn("locally test-covered no-camera/no-ECS-host", runbook)
-        self.assertIn("does not invoke camera capture or ECS proof collection", runbook)
-        self.assertIn("physical-pack `all-safe` phase", runbook)
+        self.assertIn("next-steps", runbook)
+        self.assertIn("`next-steps` only prints", runbook)
+        self.assertIn("`all-preflight` is the locally", runbook)
+        self.assertIn("test-covered no-camera/no-ECS-host preflight", runbook)
+        self.assertIn("It does not invoke", runbook)
+        self.assertIn("camera capture or ECS proof collection", runbook)
+        self.assertIn("existing physical-pack", runbook)
+        self.assertIn("`all-safe` phase", runbook)
         self.assertNotIn("safe to run before hardware", runbook)
         self.assertNotIn("no-hardware fixture/degraded traces", runbook)
         self.assertIn("SO-101 camera report", runbook)
@@ -118,6 +127,124 @@ class QwenGuardReadinessOperatorPackCliTests(TestCase):
             self.assertTrue((Path(tmpdir) / "ecs-pack" / "manifest.json").is_file())
             self.assertTrue((Path(tmpdir) / "submission-pack" / "manifest.json").is_file())
             self.assertFalse((Path(tmpdir) / "final_video_review.md").exists())
+
+    def test_next_steps_phase_prints_operator_sequence_without_evidence(self) -> None:
+        base = ROOT / "runs" / "submission"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            out_dir = Path(tmpdir) / "readiness-pack"
+            prep = _run_pack_cli("--out-dir", str(out_dir.relative_to(ROOT)))
+            self.assertEqual(prep.returncode, 0, prep.stderr)
+
+            result = subprocess.run(
+                ["bash", str(out_dir / "operator_commands.sh"), "next-steps"],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Next operator sequence:", result.stdout)
+        self.assertIn("so101-camera", result.stdout)
+        self.assertIn("record-success", result.stdout)
+        self.assertIn("record-cloud-hold", result.stdout)
+        self.assertIn("ecs-review", result.stdout)
+        self.assertIn("video-review", result.stdout)
+        self.assertIn("audit-final", result.stdout)
+        self.assertIn("runs/physical/qwenguard_trials/trial_results.csv", result.stdout)
+        self.assertIn(str((out_dir / "operator_commands.sh").relative_to(ROOT)), result.stdout)
+        self.assertNotIn("ALIBABA_API_KEY=", result.stdout)
+
+    def test_next_steps_phase_uses_operator_overrides(self) -> None:
+        base = ROOT / "runs" / "submission"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            out_dir = Path(tmpdir) / "readiness-pack"
+            prep = _run_pack_cli("--out-dir", str(out_dir.relative_to(ROOT)))
+            self.assertEqual(prep.returncode, 0, prep.stderr)
+            env = {
+                **os.environ,
+                "QWENGUARD_GO_RUN_DIR": "runs/custom/physical-go",
+                "QWENGUARD_TRIAL_CSV": "runs/custom/trials.csv",
+                "QWENGUARD_TRIAL_TRACE_DIR": "runs/custom/traces",
+                "QWENGUARD_TRIAL_SUMMARY": "runs/custom/summary.json",
+                "QWENGUARD_ECS_REPORT": "runs/custom/ecs.json",
+                "QWENGUARD_ECS_PROOF_REVIEW": "runs/custom/ecs_review.md",
+                "QWENGUARD_ECS_TERMINAL_ARTIFACT": "runs/custom/terminal.txt",
+                "QWENGUARD_FINAL_VIDEO_REVIEW": "runs/custom/video_review.md",
+                "QWENGUARD_VIDEO_ARTIFACT": "runs/custom/final.mp4",
+            }
+
+            result = subprocess.run(
+                ["bash", str(out_dir / "operator_commands.sh"), "next-steps"],
+                cwd=ROOT,
+                env=env,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("runs/custom/physical-go/so101_capture_report.json", result.stdout)
+        self.assertIn("runs/custom/trials.csv", result.stdout)
+        self.assertIn("runs/custom/traces/*.json", result.stdout)
+        self.assertIn("runs/custom/summary.json", result.stdout)
+        self.assertIn("runs/custom/ecs.json", result.stdout)
+        self.assertIn("runs/custom/ecs_review.md", result.stdout)
+        self.assertIn("runs/custom/terminal.txt", result.stdout)
+        self.assertIn("QWENGUARD_VIDEO_ARTIFACT=runs/custom/final.mp4", result.stdout)
+        self.assertIn("runs/custom/video_review.md", result.stdout)
+
+    def test_next_steps_rejects_secret_like_artifact_overrides(self) -> None:
+        base = ROOT / "runs" / "submission"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            out_dir = Path(tmpdir) / "readiness-pack"
+            prep = _run_pack_cli("--out-dir", str(out_dir.relative_to(ROOT)))
+            self.assertEqual(prep.returncode, 0, prep.stderr)
+            cases = {
+                "QWENGUARD_ECS_TERMINAL_ARTIFACT": "runs/ecs/sk-testsecret01234567890123456789.txt",
+                "QWENGUARD_VIDEO_ARTIFACT": "https://example.com/sk-testsecret01234567890123456789/final.mp4",
+            }
+
+            for env_name, env_value in cases.items():
+                with self.subTest(env_name=env_name):
+                    env = {**os.environ, env_name: env_value}
+                    result = subprocess.run(
+                        ["bash", str(out_dir / "operator_commands.sh"), "next-steps"],
+                        cwd=ROOT,
+                        env=env,
+                        text=True,
+                        capture_output=True,
+                        check=False,
+                    )
+
+                    self.assertEqual(result.returncode, 2)
+                    self.assertIn(env_name, result.stderr)
+                    self.assertNotIn(env_value, result.stdout)
+                    self.assertNotIn(env_value, result.stderr)
+
+    def test_next_steps_rejects_escaping_so101_run_dir_override(self) -> None:
+        base = ROOT / "runs" / "submission"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            out_dir = Path(tmpdir) / "readiness-pack"
+            prep = _run_pack_cli("--out-dir", str(out_dir.relative_to(ROOT)))
+            self.assertEqual(prep.returncode, 0, prep.stderr)
+            env = {**os.environ, "QWENGUARD_GO_RUN_DIR": "../escape"}
+
+            result = subprocess.run(
+                ["bash", str(out_dir / "operator_commands.sh"), "next-steps"],
+                cwd=ROOT,
+                env=env,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("QWENGUARD_GO_RUN_DIR", result.stderr)
 
     def test_video_review_phase_requires_human_metadata(self) -> None:
         base = ROOT / "runs" / "submission"
@@ -281,6 +408,27 @@ class QwenGuardReadinessOperatorPackCliTests(TestCase):
 
             self.assertEqual(result.returncode, 2)
             self.assertIn("QWENGUARD_ECS_PROOF_REVIEW", result.stderr)
+
+    def test_generated_runner_rejects_escaping_ecs_report_override(self) -> None:
+        base = ROOT / "runs" / "submission"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            out_dir = Path(tmpdir) / "readiness-pack"
+            prep = _run_pack_cli("--out-dir", str(out_dir.relative_to(ROOT)))
+            self.assertEqual(prep.returncode, 0, prep.stderr)
+            env = {**os.environ, "QWENGUARD_ECS_REPORT": "../escape.json"}
+
+            result = subprocess.run(
+                ["bash", str(out_dir / "operator_commands.sh"), "audit-narrow"],
+                cwd=ROOT,
+                env=env,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("QWENGUARD_ECS_REPORT", result.stderr)
 
     def _assert_summarize_trials_rejects_path_escape(self, *, env_name: str, env_value: str) -> None:
         base = ROOT / "runs" / "submission"
