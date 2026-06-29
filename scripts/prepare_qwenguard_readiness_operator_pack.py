@@ -68,8 +68,11 @@ def main() -> int:
         print(f"qwenguard readiness operator pack failed: {exc}", file=sys.stderr)
         return 2
 
-    commit = args.commit or _git_head(repo_root)
-    out_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        commit = _resolve_commit(repo_root, args.commit)
+    except ValueError as exc:
+        print(f"qwenguard readiness operator pack failed: {exc}", file=sys.stderr)
+        return 2
     files = {
         "runbook": out_dir / "README.md",
         "commands": out_dir / "operator_commands.sh",
@@ -99,15 +102,11 @@ def main() -> int:
         print("generated QwenGuard readiness operator pack would contain secret material; aborting", file=sys.stderr)
         return 2
 
-    files["runbook"].write_text(runbook, encoding="utf-8")
-    files["commands"].write_text(commands, encoding="utf-8")
-    files["commands"].chmod(files["commands"].stat().st_mode | stat.S_IXUSR)
-
     pass_conditions = {
         "deployed_commit_is_git_oid": _is_git_oid(commit),
-        "runbook_written": files["runbook"].is_file(),
-        "commands_script_written": files["commands"].is_file(),
-        "commands_bash_syntax_valid": _bash_syntax_ok(files["commands"]),
+        "runbook_rendered": bool(runbook.strip()),
+        "commands_script_rendered": bool(commands.strip()),
+        "commands_bash_syntax_valid": _bash_syntax_text_ok(commands),
         "generated_text_contains_no_secret_material": not _contains_secret_material(generated_text),
         "output_paths_are_repo_relative": True,
         "readiness_is_not_overclaimed": True,
@@ -167,7 +166,19 @@ def main() -> int:
     pass_conditions["manifest_contains_no_secret_material"] = not _contains_secret_material(canonical_json(manifest))
     pass_conditions["output_paths_are_repo_relative"] = _manifest_file_paths_are_repo_relative(manifest["files"])
     manifest["outcome"] = "GO" if all(pass_conditions.values()) else "NARROW_CLAIM"
-    files["manifest"].write_text(canonical_json(manifest) + "\n", encoding="utf-8")
+    manifest_text = canonical_json(manifest)
+    if _contains_secret_material(manifest_text):
+        print("generated QwenGuard readiness manifest would contain secret material; aborting", file=sys.stderr)
+        return 2
+    if manifest["outcome"] != "GO":
+        print("generated QwenGuard readiness manifest failed pass conditions; aborting", file=sys.stderr)
+        return 4
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    files["runbook"].write_text(runbook, encoding="utf-8")
+    files["commands"].write_text(commands, encoding="utf-8")
+    files["commands"].chmod(files["commands"].stat().st_mode | stat.S_IXUSR)
+    files["manifest"].write_text(manifest_text + "\n", encoding="utf-8")
 
     print(f"outcome {manifest['outcome']}")
     print(f"submission_readiness {manifest['submission_readiness']}")
@@ -341,6 +352,10 @@ def _render_commands(
             "repo_relative_guard \"${SUBMISSION_PACK_DIR}\" QWENGUARD_SUBMISSION_PACK_DIR",
             "repo_relative_guard \"${READINESS_REPORT}\" QWENGUARD_READINESS_REPORT",
             "repo_relative_guard \"${FINAL_VIDEO_REVIEW}\" QWENGUARD_FINAL_VIDEO_REVIEW",
+            "case \"${VIDEO_ARTIFACT}\" in",
+            "  https://*) : ;;",
+            "  *) repo_relative_guard \"${VIDEO_ARTIFACT}\" QWENGUARD_VIDEO_ARTIFACT ;;",
+            "esac",
             "",
             "usage() {",
             "  cat <<'EOUSAGE'",
@@ -495,25 +510,36 @@ def _has_control_chars(value: str) -> bool:
     return any(ord(ch) < 32 for ch in value)
 
 
-def _git_head(repo_root: Path) -> str:
+def _resolve_commit(repo_root: Path, supplied: str | None) -> str:
+    if supplied is None:
+        return _git_rev_parse(repo_root, "HEAD")
+    if not _is_git_oid(supplied):
+        raise ValueError("commit must be a full 40-character git object id")
+    return _git_rev_parse(repo_root, supplied)
+
+
+def _git_rev_parse(repo_root: Path, revision: str) -> str:
     result = subprocess.run(
-        ["git", "rev-parse", "HEAD"],
+        ["git", "rev-parse", "--verify", f"{revision}^{{commit}}"],
         cwd=repo_root,
         text=True,
         capture_output=True,
         check=False,
     )
     if result.returncode != 0:
-        return ""
-    return result.stdout.strip()
+        raise ValueError("commit must resolve to a commit in this checkout")
+    commit = result.stdout.strip()
+    if not _is_git_oid(commit):
+        raise ValueError("resolved commit is not a full 40-character git object id")
+    return commit
 
 
 def _is_git_oid(value: str) -> bool:
     return bool(re.fullmatch(r"[0-9a-f]{40}", value))
 
 
-def _bash_syntax_ok(path: Path) -> bool:
-    result = subprocess.run(["bash", "-n", str(path)], text=True, capture_output=True, check=False)
+def _bash_syntax_text_ok(script: str) -> bool:
+    result = subprocess.run(["bash", "-n"], input=script, text=True, capture_output=True, check=False)
     return result.returncode == 0
 
 
