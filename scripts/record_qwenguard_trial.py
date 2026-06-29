@@ -127,6 +127,11 @@ def main() -> int:
     parser.add_argument("--csv-out", type=Path, default=DEFAULT_CSV_OUT)
     parser.add_argument("--report-out", type=Path, default=None)
     parser.add_argument("--overwrite", action="store_true")
+    parser.add_argument(
+        "--confirm-operator-attestation",
+        action="store_true",
+        help="Required acknowledgment that this measured trial row is operator-attested evidence.",
+    )
     args = parser.parse_args()
 
     try:
@@ -179,6 +184,7 @@ def main() -> int:
             outcome=args.outcome,
             operator_label=args.operator_label or args.outcome,
             qwen_eval_label=args.qwen_eval_label or _qwen_eval_label(args.outcome),
+            operator_attested="true",
             trace_summary_sha=summary_sha,
             notes=args.notes,
         )
@@ -466,6 +472,7 @@ def _report(
         "trial_record": trial_record.to_dict(),
         "control_label": control_label,
         "motion_executed": motion_executed,
+        "operator_attested": trial_record.operator_attested,
         "trace_path": _display_path(repo_root, trace_path),
         "csv_path": _display_path(repo_root, csv_out),
         "report_path": _display_path(repo_root, report_out),
@@ -475,6 +482,7 @@ def _report(
             "csv_row_prepared": True,
             "report_prepared": True,
             "trace_summary_bound_to_csv": True,
+            "operator_attestation_persisted": trial_record.operator_attested == "true",
             "raw_float_free_trace": True,
             "secret_material_absent": True,
         },
@@ -524,6 +532,8 @@ def _validate_text_inputs(args: argparse.Namespace) -> None:
 
 
 def _validate_trial_semantics(args: argparse.Namespace) -> None:
+    if not args.confirm_operator_attestation:
+        raise ValueError("recording a measured trial requires --confirm-operator-attestation")
     motion_executed = args.motion_executed == "true"
     if args.outcome == "cloud_hold":
         if args.cloud_mode != "degraded":

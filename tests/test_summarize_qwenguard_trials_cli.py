@@ -165,6 +165,37 @@ class SummarizeQwenGuardTrialsCliTests(TestCase):
         self.assertFalse(report["checks"]["trial_bindings_verify"])
         self.assertIn("trace summary does not match CSV row", " ".join(report["invalid_reasons"]))
 
+    def test_operator_attestation_tamper_is_narrow_claim(self) -> None:
+        base = ROOT / "runs" / "physical"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            root = Path(tmpdir)
+            trace_dir = root / "traces"
+            csv_out = root / "trial_results.csv"
+            summary_out = root / "trial_summary.json"
+            _record_trial(
+                trial_id="trial-success",
+                outcome="success",
+                trace_dir=trace_dir,
+                csv_out=csv_out,
+                extra=["--motion-executed", "true"],
+            )
+            rows = _read_csv(csv_out)
+            rows[0]["operator_attested"] = "false"
+            _write_csv(csv_out, rows)
+            result = _run_summary(
+                csv_out=csv_out,
+                trace_dir=trace_dir,
+                out=summary_out,
+                allow_narrow=True,
+            )
+            report = json.loads(summary_out.read_text(encoding="utf-8"))
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(report["outcome"], "NARROW_CLAIM")
+        self.assertFalse(report["checks"]["trial_rows_present"])
+        self.assertIn("operator_attested must be true", " ".join(report["invalid_reasons"]))
+
     def test_csv_outcome_tamper_with_valid_sha_is_narrow_claim(self) -> None:
         base = ROOT / "runs" / "physical"
         base.mkdir(parents=True, exist_ok=True)
@@ -365,6 +396,7 @@ def _record_trial(*, trial_id: str, outcome: str, trace_dir: Path, csv_out: Path
             trial_id,
             "--outcome",
             outcome,
+            "--confirm-operator-attestation",
             "--trace-dir",
             str(trace_dir.relative_to(ROOT)),
             "--csv-out",
@@ -429,6 +461,7 @@ def _base_trial_row() -> dict[str, str]:
         "outcome": "success",
         "operator_label": "success",
         "qwen_eval_label": "success",
+        "operator_attested": "true",
         "trace_summary_sha": "a" * 64,
         "notes": "",
     }

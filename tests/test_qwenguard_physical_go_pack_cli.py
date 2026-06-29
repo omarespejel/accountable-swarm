@@ -67,6 +67,7 @@ class QwenGuardPhysicalGoPackCliTests(TestCase):
         self.assertIn("capture_so101_camera_frame", commands)
         self.assertIn("prepare_so101_training_pack", commands)
         self.assertIn("record_qwenguard_trial", commands)
+        self.assertIn("--confirm-operator-attestation", commands)
         self.assertIn("all-safe", commands)
         self.assertIn("Does not touch camera", commands)
         self.assertIn("could not locate repository root", commands)
@@ -79,6 +80,10 @@ class QwenGuardPhysicalGoPackCliTests(TestCase):
         self.assertEqual(evidence["task"], f"pick Bob's marked cube near {ROOT}")
         self.assertEqual(evidence["operator_fill_required"]["trial_csv"], "runs/physical/qwenguard_trials/trial_results.csv")
         self.assertEqual(evidence["operator_fill_required"]["trial_recorder"], "record-qwenguard-trial")
+        self.assertEqual(
+            evidence["operator_fill_required"]["trial_attestation"],
+            "measured rows require --confirm-operator-attestation",
+        )
         joined = "\n".join([json.dumps(manifest, sort_keys=True), commands, runbook])
         self.assertNotIn("ALIBABA_API_KEY=", joined)
         self.assertNotIn("ghp_", joined)

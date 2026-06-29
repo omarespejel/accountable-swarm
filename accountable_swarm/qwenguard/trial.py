@@ -35,6 +35,7 @@ class TrialRecord:
     outcome: str
     operator_label: str
     qwen_eval_label: str
+    operator_attested: str
     trace_summary_sha: str
     notes: str = ""
 
@@ -45,6 +46,7 @@ class TrialRecord:
             "object_layout_id",
             "operator_label",
             "qwen_eval_label",
+            "operator_attested",
             "trace_summary_sha",
         ):
             value = getattr(self, field_name)
@@ -57,6 +59,8 @@ class TrialRecord:
         _validate_enum("outcome", self.outcome, OUTCOMES)
         if not isinstance(self.notes, str):
             raise ValueError("notes must be a string")
+        if self.operator_attested != "true":
+            raise ValueError("operator_attested must be true")
         if len(self.trace_summary_sha) != 64 or any(char not in "0123456789abcdef" for char in self.trace_summary_sha):
             raise ValueError("trace_summary_sha must be a 64-character lowercase hex string")
 
