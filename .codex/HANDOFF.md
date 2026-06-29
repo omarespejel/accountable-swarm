@@ -16,8 +16,8 @@ DecisionTrace; `NARROW_CLAIM` for the broader robotics demo.
 
 ## Latest Readiness State 2026-06-29 15:33 JST
 
-Main is at `770ad0c38030e9122dcbb08407f947f7639030c5` after the final
-readiness operator-pack updates:
+Regenerate readiness artifacts from the current checkout HEAD. Do not copy an
+old commit literal from this handoff into operator commands.
 
 - `0777890` / PR #115: SO-101 camera evidence artifact paths are guarded.
   `capture-so101-camera-frame` rejects absolute paths, `..` escapes,
@@ -38,22 +38,22 @@ readiness operator-pack updates:
 - `62b86cc` / PR #119: refreshed the QwenGuard readiness handoff and issue
   snapshot after the operator-evidence gates were narrowed to SO-101, measured
   trials, ECS public proof, and final human review.
-- `770ad0c` / PR #120: added the readiness operator-pack `next-steps` phase so
+- PR #120 added the readiness operator-pack `next-steps` phase so
   the generated pack can print the exact SO-101, ECS, review-note, and final
   audit sequence without touching hardware, cloud secrets, or generated
   evidence.
 
-Snapshot preflight command, pinned to that main commit:
+Snapshot preflight command, pinned to the current checkout HEAD:
 
 ```bash
 python3 -m scripts.prepare_qwenguard_readiness_operator_pack \
   --out-dir runs/submission/qwenguard-readiness-operator-pack-current \
-  --commit 770ad0c38030e9122dcbb08407f947f7639030c5
+  --commit "$(git rev-parse HEAD)"
 bash runs/submission/qwenguard-readiness-operator-pack-current/operator_commands.sh all-preflight
 ```
 
 Verbatim final audit checklist from that preflight on
-`main@770ad0c38030e9122dcbb08407f947f7639030c5`:
+the current checkout HEAD:
 
 ```text
 outcome NARROW_CLAIM

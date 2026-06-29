@@ -236,7 +236,8 @@ def _check_camera_report(repo_root: Path, path: Path) -> dict[str, Any]:
     if isinstance(capture, dict) and isinstance(capture.get("output_path"), str):
         output_name = capture["output_path"]
     frame_path, frame_error = _neighbor_artifact_path(repo_root=repo_root, anchor=path, raw_value=output_name)
-    frame_sha = _file_sha256(frame_path) if frame_path is not None and frame_path.is_file() else ""
+    image_error = _image_artifact_error(frame_path) if frame_path is not None else "camera frame path is missing"
+    frame_sha = _file_sha256(frame_path) if image_error is None and frame_path is not None else ""
     ok = (
         payload.get("schema_version") == "so101-camera-capture-report.v1"
         and payload.get("outcome") == "GO"
@@ -245,24 +246,38 @@ def _check_camera_report(repo_root: Path, path: Path) -> dict[str, Any]:
         and pass_conditions.get("frame_captured") is True
         and pass_conditions.get("trace_only_motion_boundary_preserved") is True
         and frame_path is not None
-        and frame_path.is_file()
+        and image_error is None
     )
     check["ok"] = ok
     check["reason"] = (
         "SO-101 camera frame captured through trace-only path"
         if ok
-        else frame_error or "SO-101 camera report is not GO"
+        else frame_error or image_error or "SO-101 camera report is not GO"
     )
     check["evidence"] = {
         "schema_version": payload.get("schema_version"),
         "outcome": payload.get("outcome"),
         "camera_name": payload.get("camera_name"),
         "pass_conditions": pass_conditions if isinstance(pass_conditions, dict) else {},
-        "frame_path": _display_path(repo_root, frame_path) if frame_path is not None and frame_path.is_file() else "",
+        "frame_path": _display_path(repo_root, frame_path) if image_error is None and frame_path is not None else "",
         "frame_sha256": frame_sha,
-        "frame_error": frame_error,
+        "frame_error": frame_error or image_error,
     }
     return check
+
+
+def _image_artifact_error(path: Path) -> str | None:
+    if not path.is_file():
+        return "camera frame is missing"
+    try:
+        header = path.read_bytes()[:16]
+    except OSError:
+        return "camera frame cannot be read"
+    if not header:
+        return "camera frame is empty"
+    if header.startswith((b"\x89PNG\r\n\x1a\n", b"\xff\xd8\xff", b"GIF87a", b"GIF89a", b"P3", b"P6")):
+        return None
+    return "camera frame does not look like a supported image"
 
 
 def _check_trace(repo_root: Path, path: Path, *, mode: str, expected_gate_decision: str) -> dict[str, Any]:
