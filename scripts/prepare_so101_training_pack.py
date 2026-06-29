@@ -98,6 +98,22 @@ after the leader arm is detached or clearly not controlling the follower.
   inspect any external model before use.
 - If async inference is used, bind it to localhost only.
 - Record measured `N/10`; do not imply 100% success.
+- This pack does **not** provide a programmatic interlock between a QwenGuard
+  `ALLOW` decision and the LeRobot motion command. The shell checks below are
+  manual operator acknowledgements only.
+
+## Motion readiness checklist
+
+Before running any LeRobot command that can move the SO-101:
+
+1. Emergency stop path is reachable and tested.
+2. Low-speed mode is selected.
+3. Workspace bounds are physically marked and clear.
+4. For autonomous policy rollout, the leader is detached or clearly
+   non-authoritative.
+
+The camera probe command remains trace-only and does not require these motion
+acknowledgements.
 
 ## Suggested session order
 
@@ -142,6 +158,26 @@ export QWENGUARD_POLICY_OUT_DIR={shlex.quote(policy_out_dir)}
 export QWENGUARD_LEROBOT_GIT_REF={shlex.quote(lerobot_git_ref)}
 export QWENGUARD_OPENCV_PYTHON_VERSION={shlex.quote(opencv_python_version)}
 
+require_yes() {{
+  local name="$1"
+  local detail="$2"
+  if [[ "${{!name:-}}" != "yes" ]]; then
+    echo "${{name}}=yes required before SO-101 motion: ${{detail}}" >&2
+    exit 2
+  fi
+}}
+
+require_motion_readiness() {{
+  require_yes QWENGUARD_EMERGENCY_STOP_READY "emergency stop path reachable and tested"
+  require_yes QWENGUARD_LOW_SPEED_MODE "low-speed mode selected"
+  require_yes QWENGUARD_WORKSPACE_BOUNDS_SET "workspace bounds physically marked and clear"
+}}
+
+require_autonomous_readiness() {{
+  require_motion_readiness
+  require_yes QWENGUARD_LEADER_DETACHED_OR_NONAUTHORITATIVE "leader detached or non-authoritative for autonomous rollout"
+}}
+
 python -m pip install \\
   "lerobot[feetech] @ git+https://github.com/huggingface/lerobot.git@${{QWENGUARD_LEROBOT_GIT_REF}}" \\
   "opencv-python==${{QWENGUARD_OPENCV_PYTHON_VERSION}}"
@@ -155,6 +191,9 @@ capture-so101-camera-frame \\
 
 # 2. Record demonstrations.
 # Replace robot.type/ports/camera IDs with values from your calibrated SO-101.
+# This is manual teleoperation. It is guarded only by operator acknowledgements,
+# not by a QwenGuard ALLOW-to-LeRobot actuation interlock.
+require_motion_readiness
 python -m lerobot.record \\
   --robot.type=so101_follower \\
   --teleop.type=so101_leader \\
@@ -170,6 +209,8 @@ python -m lerobot.train \\
 
 # 4. Evaluate ACT over 10 trials.
 # Keep the leader detached/non-authoritative during autonomous rollout.
+# This is manual operator execution of a local policy, not Qwen motor control.
+require_autonomous_readiness
 python -m lerobot.record \\
   --robot.type=so101_follower \\
   --policy.path="$QWENGUARD_POLICY_OUT_DIR/checkpoints/last/pretrained_model" \\

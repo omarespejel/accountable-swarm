@@ -41,6 +41,13 @@ record-qwenguard-trial \
 records that a human operator is intentionally creating operator-attested
 physical/degraded evidence; it is not automatic physical success proof.
 
+The trial summarizer re-validates this evidence before it can become an
+aggregate `READY` report. It rejects rows whose verified trace has the wrong
+`run_id`, wrong perception event id, duplicate `trace_summary_sha`, no executed
+motion for attempted outcomes, or `SCRIPTED` control for attempted physical
+success/failure rows. The detailed hardening note is
+`docs/engineering/qwenguard-trial-summary-hardening-2026-06-29.md`.
+
 The generated physical GO pack exposes the same path through:
 
 ```bash
