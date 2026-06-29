@@ -1,6 +1,6 @@
 # QwenGuard Submission Pack 2026-06-29
 
-Issue: [#95](https://github.com/omarespejel/accountable-swarm/issues/95)
+Issue: [#106](https://github.com/omarespejel/accountable-swarm/issues/106)
 
 ## Thesis
 

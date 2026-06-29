@@ -2,7 +2,7 @@
 
 Issue: #103
 
-Umbrella: #95
+Readiness gate: #106
 
 ## Scope
 

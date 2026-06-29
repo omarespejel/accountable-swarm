@@ -157,7 +157,7 @@ prepare-so101-operator-probe-pack \
 That pack writes a runbook and command script pinned to the current official
 LeRobot installation and OpenCV camera flow.
 
-To prepare the full QwenGuard physical-session pack for issue #95:
+To prepare the full QwenGuard physical-session pack for issue #106:
 
 ```bash
 prepare-qwenguard-physical-go-pack \

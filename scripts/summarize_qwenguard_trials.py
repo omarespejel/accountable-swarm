@@ -25,7 +25,7 @@ from accountable_swarm.trace.models import canonical_json, trace_from_dict, veri
 
 REPORT_SCHEMA_VERSION = "qwenguard-trial-summary.v1"
 ISSUE_URL = "https://github.com/omarespejel/accountable-swarm/issues/106"
-UMBRELLA_ISSUE_URL = "https://github.com/omarespejel/accountable-swarm/issues/95"
+UMBRELLA_ISSUE_URL = "https://github.com/omarespejel/accountable-swarm/issues/106"
 DEFAULT_TRIAL_CSV = Path("runs/physical/qwenguard_trials/trial_results.csv")
 DEFAULT_TRIAL_TRACE_DIR = Path("runs/physical/qwenguard_trials/traces")
 DEFAULT_OUT = Path("runs/physical/qwenguard_trials/trial_summary.json")

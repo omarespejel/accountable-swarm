@@ -60,7 +60,7 @@ class RecordQwenGuardTrialCliTests(TestCase):
         self.assertEqual(report["schema_version"], "qwenguard-trial-record-report.v1")
         self.assertEqual(report["outcome"], "GO")
         self.assertEqual(report["issue"], "https://github.com/omarespejel/accountable-swarm/issues/103")
-        self.assertEqual(report["umbrella_issue"], "https://github.com/omarespejel/accountable-swarm/issues/95")
+        self.assertEqual(report["umbrella_issue"], "https://github.com/omarespejel/accountable-swarm/issues/106")
         self.assertEqual(report["trace_summary_sha"], summary_sha)
         self.assertEqual(report["operator_attested"], "true")
         self.assertTrue(report["pass_conditions"]["operator_attestation_persisted"])

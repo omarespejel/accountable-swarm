@@ -122,7 +122,7 @@ def main() -> int:
     manifest: dict[str, Any] = {
         "schema_version": PACK_SCHEMA_VERSION,
         "outcome": "GO",
-        "issue": "https://github.com/omarespejel/accountable-swarm/issues/95",
+        "issue": "https://github.com/omarespejel/accountable-swarm/issues/106",
         "task": args.task,
         "camera_name": args.camera_name,
         "camera_id": args.camera_id,
@@ -193,7 +193,7 @@ def _render_runbook(
         [
             "# QwenGuard Physical GO Operator Pack",
             "",
-            "This pack prepares the SO-101 hardware session for issue #95. It",
+            "This pack prepares the SO-101 hardware session for issue #106. It",
             "does not move the robot by itself and does not prove physical success.",
             "",
             "## Hero Task",
@@ -518,7 +518,7 @@ def _render_shotlist(task: str) -> str:
 def _evidence_template(task: str) -> dict[str, Any]:
     return {
         "schema_version": "qwenguard-physical-go-evidence-template.v1",
-        "issue": "https://github.com/omarespejel/accountable-swarm/issues/95",
+        "issue": "https://github.com/omarespejel/accountable-swarm/issues/106",
         "task": task,
         "operator_fill_required": {
             "so101_camera_report": "runs/physical/qwenguard_physical_go/so101_capture_report.json",
