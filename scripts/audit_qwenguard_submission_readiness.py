@@ -128,6 +128,8 @@ def main() -> int:
     print(f"outcome {report['outcome']}")
     print(f"submission_readiness {report['submission_readiness']}")
     print(f"report {_display_path(repo_root, paths['out'])}")
+    for line in _format_check_summary(report):
+        print(line)
     if report["outcome"] != "GO" and not args.allow_narrow_claim:
         return 4
     return 0
@@ -179,6 +181,20 @@ def audit_readiness(*, repo_root: Path, paths: dict[str, Path]) -> dict[str, Any
             "not DimOS physical control",
         ],
     }
+
+
+def _format_check_summary(report: dict[str, Any]) -> list[str]:
+    lines = ["checks:"]
+    for check in report.get("checks", []):
+        status = "OK" if check.get("ok") is True else "MISS"
+        reason = _stdout_reason(str(check.get("reason", "<no reason>")))
+        lines.append(f"{status} {check.get('name', '<unknown>')} - {reason}")
+    return lines
+
+
+def _stdout_reason(reason: str) -> str:
+    one_line = " ".join(reason.split())
+    return one_line if len(one_line) <= 160 else one_line[:157] + "..."
 
 
 def _check_submission_manifest(repo_root: Path, path: Path) -> dict[str, Any]:
@@ -331,7 +347,8 @@ def _check_trial_csv(repo_root: Path, path: Path, *, verified_trace_summaries: s
         with path.open("r", encoding="utf-8", newline="") as handle:
             rows = list(csv.DictReader(handle))
     except (csv.Error, UnicodeDecodeError) as exc:
-        return _fail(check, f"trial CSV could not be parsed: {exc}")
+        check["evidence"] = {"error_type": exc.__class__.__name__}
+        return _fail(check, "trial CSV could not be parsed")
     valid_rows = 0
     invalid_reasons: list[str] = []
     for index, row in enumerate(rows, start=1):
@@ -630,9 +647,11 @@ def _check_ecs_proof_review(repo_root: Path, path: Path, *, ecs_report: Path) ->
     try:
         text = path.read_text(encoding="utf-8")
     except UnicodeDecodeError as exc:
-        return _fail(check, f"ECS proof review note is not UTF-8: {exc}")
+        check["evidence"] = {"error_type": exc.__class__.__name__}
+        return _fail(check, "ECS proof review note is not UTF-8")
     except OSError as exc:
-        return _fail(check, f"ECS proof review note could not be read: {exc.__class__.__name__}")
+        check["evidence"] = {"error_type": exc.__class__.__name__}
+        return _fail(check, "ECS proof review note could not be read")
 
     fields = _parse_ecs_review_fields(text)
     duplicate_fields = _duplicate_ecs_review_fields(text)
@@ -754,7 +773,8 @@ def _check_video_review(repo_root: Path, path: Path) -> dict[str, Any]:
         text = path.read_text(encoding="utf-8")
     except UnicodeDecodeError as exc:
         check = _base_check("human_video_review_present", repo_root, path)
-        return _fail(check, f"final video review note is not UTF-8: {exc}")
+        check["evidence"] = {"error_type": exc.__class__.__name__}
+        return _fail(check, "final video review note is not UTF-8")
     return check_video_review_text(repo_root=repo_root, path=path, text=text)
 
 
