@@ -443,11 +443,14 @@ Only two issues are currently open:
 - Issue #106: final QwenGuard submission evidence readiness. The issue body was
   refreshed after the latest no-hardware hardening pass and now points at the
   readiness operator preflight and the full SO-101/trial/ECS/video GO gate.
-  Regenerate operator artifacts from the current checkout HEAD before use.
+  Regenerate operator artifacts from the current checkout HEAD before use, and
+  copy the generated manifest's pinned commit into the #106 issue/evidence
+  comment for that operator run.
 - Issue #91: operator-run Alibaba ECS proof from a public endpoint. The latest
   comment records the ECS operator-pack workflow. Regenerate it from the
-  current checkout HEAD before use. This remains operator-run cloud evidence,
-  not repo-side proof.
+  current checkout HEAD before use, and copy the generated operator-pack
+  `manifest.json` commit / deployed commit into the #91 issue/evidence comment.
+  This remains operator-run cloud evidence, not repo-side proof.
 
 Recently closed audit issues:
 
