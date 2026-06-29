@@ -28,6 +28,7 @@ SECRET_PATTERNS: tuple[re.Pattern[str], ...] = (
 GIT_OID_RE = re.compile(r"[0-9a-f]{40}")
 TEXT_ARTIFACT_SUFFIXES = {".txt", ".log", ".md"}
 LOCAL_ARTIFACT_SUFFIXES = TEXT_ARTIFACT_SUFFIXES | {".png", ".jpg", ".jpeg", ".webp", ".mp4", ".mov"}
+MAX_TEXT_ARTIFACT_BYTES = 1024 * 1024
 REQUIRED_ECS_PASS_CONDITIONS = {
     "healthz",
     "readyz",
@@ -240,6 +241,12 @@ def _validate_terminal_artifact(repo_root: Path, raw_value: str) -> dict[str, st
     if not artifact_path.is_file():
         return "terminal artifact file is missing"
     if artifact_path.suffix.lower() in TEXT_ARTIFACT_SUFFIXES:
+        try:
+            byte_count = artifact_path.stat().st_size
+        except OSError:
+            return "text terminal artifact could not be inspected"
+        if byte_count > MAX_TEXT_ARTIFACT_BYTES:
+            return "text terminal artifact is too large; provide a sanitized excerpt"
         try:
             text = artifact_path.read_text(encoding="utf-8")
         except UnicodeDecodeError:

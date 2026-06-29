@@ -53,6 +53,7 @@ class QwenGuardReadinessOperatorPackCliTests(TestCase):
         self.assertIn("so101-camera", manifest["operator_phases"])
         self.assertIn("summarize-trials", manifest["operator_phases"])
         self.assertIn("ecs-pack", manifest["operator_phases"])
+        self.assertIn("ecs-review", manifest["operator_phases"])
         self.assertIn("video-review", manifest["operator_phases"])
         self.assertIn("audit-final", manifest["operator_phases"])
         self.assertIn("prepare_qwenguard_physical_go_pack", commands)
@@ -60,6 +61,8 @@ class QwenGuardReadinessOperatorPackCliTests(TestCase):
         self.assertIn("prepare_qwenguard_submission_pack", commands)
         self.assertIn("summarize_qwenguard_trials", commands)
         self.assertIn("--trial-summary \"${TRIAL_SUMMARY}\"", commands)
+        self.assertIn("prepare_ecs_proof_review", commands)
+        self.assertIn("--ecs-proof-review \"${ECS_PROOF_REVIEW}\"", commands)
         self.assertIn("prepare_qwenguard_final_video_review", commands)
         self.assertIn("audit_qwenguard_submission_readiness", commands)
         self.assertIn("No phase in this script enters raw secrets", commands)
@@ -71,6 +74,7 @@ class QwenGuardReadinessOperatorPackCliTests(TestCase):
         self.assertNotIn("no-hardware fixture/degraded traces", runbook)
         self.assertIn("SO-101 camera report", runbook)
         self.assertIn("trial_summary.json", runbook)
+        self.assertIn("ecs_proof_review.md", runbook)
         self.assertNotIn("ALIBABA_API_KEY=", "\n".join([commands, runbook, json.dumps(manifest)]))
         self.assertNotIn("ghp_", "\n".join([commands, runbook, json.dumps(manifest)]))
         self.assertTrue(
@@ -133,6 +137,25 @@ class QwenGuardReadinessOperatorPackCliTests(TestCase):
 
             self.assertEqual(result.returncode, 2)
             self.assertIn("QWENGUARD_REVIEWED_BY", result.stderr)
+
+    def test_ecs_review_phase_requires_human_metadata(self) -> None:
+        base = ROOT / "runs" / "submission"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            out_dir = Path(tmpdir) / "readiness-pack"
+            prep = _run_pack_cli("--out-dir", str(out_dir.relative_to(ROOT)))
+            self.assertEqual(prep.returncode, 0, prep.stderr)
+
+            result = subprocess.run(
+                ["bash", str(out_dir / "operator_commands.sh"), "ecs-review"],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("QWENGUARD_ECS_REVIEWED_BY", result.stderr)
 
     def test_out_dir_must_stay_under_repo(self) -> None:
         result = _run_pack_cli("--out-dir", "../escape")
@@ -237,6 +260,27 @@ class QwenGuardReadinessOperatorPackCliTests(TestCase):
             env_name="QWENGUARD_TRIAL_TRACE_DIR",
             env_value="../escape-traces",
         )
+
+    def test_generated_runner_rejects_escaping_ecs_review_override(self) -> None:
+        base = ROOT / "runs" / "submission"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            out_dir = Path(tmpdir) / "readiness-pack"
+            prep = _run_pack_cli("--out-dir", str(out_dir.relative_to(ROOT)))
+            self.assertEqual(prep.returncode, 0, prep.stderr)
+            env = {**os.environ, "QWENGUARD_ECS_PROOF_REVIEW": "../escape.md"}
+
+            result = subprocess.run(
+                ["bash", str(out_dir / "operator_commands.sh"), "audit-narrow"],
+                cwd=ROOT,
+                env=env,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("QWENGUARD_ECS_PROOF_REVIEW", result.stderr)
 
     def _assert_summarize_trials_rejects_path_escape(self, *, env_name: str, env_value: str) -> None:
         base = ROOT / "runs" / "submission"

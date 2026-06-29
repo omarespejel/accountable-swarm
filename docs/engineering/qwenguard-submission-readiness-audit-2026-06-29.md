@@ -6,7 +6,8 @@ The QwenGuard Track 5 submission should have a deterministic final gate that
 distinguishes scaffold generation from actual submission readiness. The gate
 must stay `NARROW_CLAIM` until the operator supplies physical SO-101 evidence,
 measured trial rows plus their deterministic summary, Alibaba ECS public
-endpoint proof, and human-reviewed video claim labels.
+endpoint proof, a human ECS proof-review note, and human-reviewed video claim
+labels.
 
 ## Why It Matters
 
@@ -33,6 +34,9 @@ The auditor checks:
   directory, matches the current CSV SHA-256, and reports the same valid row
   count as the audit;
 - ECS smoke report is `outcome: GO` with `proof_mode: ecs-public`;
+- ECS proof review note explicitly binds to that smoke report and records human
+  review of Alibaba context, public endpoint, deployed commit, security-group
+  exposure, and secret exposure;
 - final video review note contains the required claim labels and explicit human
   signoff fields.
 
@@ -41,9 +45,11 @@ self-asserted operator evidence. SO-101 camera readiness requires a referenced
 frame artifact next to the camera report, measured trial rows must bind to a
 measured-trial trace summary SHA verified during the same audit, and the trial
 summary must be generated from those same rows and traces. ECS readiness
-requires both pass-condition booleans and matching endpoint-check evidence. The
-final video review check also rejects keyword-only notes, placeholder signoff
-values, and secret-like material. It requires `Reviewed-by`, `Review-date`,
+requires both pass-condition booleans and matching endpoint-check evidence plus
+`runs/ecs/ecs_proof_review.md`. The review note must bind to the same audited
+ECS smoke report and a reviewed terminal/screenshot/video artifact. The final
+video review check also rejects keyword-only notes, placeholder signoff values,
+and secret-like material. It requires `Reviewed-by`, `Review-date`,
 `Video-artifact`, `Privacy-reviewed`, `Claim-boundary-reviewed`,
 `Mode-labels-reviewed`, `ECS-proof-reviewed`, `SO-101-footage-reviewed`, and
 `Secrets-reviewed`. Local `Video-artifact` values must be repo-relative

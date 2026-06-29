@@ -27,7 +27,8 @@ The pack is intentionally claim-safe:
 - pack generation can be `GO`;
 - submission readiness remains `NARROW_CLAIM`;
 - SO-101 physical evidence remains pending;
-- Alibaba ECS public endpoint proof remains pending under issue #91.
+- Alibaba ECS public endpoint proof and the human ECS proof review remain
+  pending under issue #91.
 
 ## GO Gate
 
@@ -47,7 +48,8 @@ Expected boundaries:
 - `manifest.submission_readiness == "NARROW_CLAIM"`;
 - all generated paths are repo-relative;
 - generated text contains no secret-like material;
-- physical SO-101 and ECS proof are listed as required before submit.
+- physical SO-101, ECS proof, and human ECS proof-review artifacts are listed
+  as required before submit.
 
 ## Non-Claims
 

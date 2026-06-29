@@ -326,6 +326,40 @@ class PrepareEcsProofReviewCliTests(TestCase):
             self.assertIn("terminal artifact file contains secret-like material", result.stderr)
             self.assertFalse(review.exists())
 
+    def test_large_text_terminal_transcript_refuses_to_write_review(self) -> None:
+        base = ROOT / "runs" / "ecs"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            audit_root = Path(tmpdir)
+            report = audit_root / "ecs_smoke_report.json"
+            terminal = audit_root / "terminal-proof.txt"
+            review = audit_root / "ecs_proof_review.md"
+            report.write_text(canonical_json(_ecs_go_report()) + "\n", encoding="utf-8")
+            terminal.write_text("x" * (1024 * 1024 + 1), encoding="utf-8")
+
+            result = _run_review_cli(
+                "--out",
+                str(review.relative_to(ROOT)),
+                "--ecs-report",
+                str(report.relative_to(ROOT)),
+                "--terminal-artifact",
+                str(terminal.relative_to(ROOT)),
+                "--reviewed-by",
+                "human-reviewer",
+                "--review-date",
+                "2026-06-29",
+                "--confirm-report-go",
+                "--confirm-alibaba-context",
+                "--confirm-public-endpoint",
+                "--confirm-deployed-commit",
+                "--confirm-security-group",
+                "--confirm-secrets",
+            )
+
+            self.assertEqual(result.returncode, 4)
+            self.assertIn("text terminal artifact is too large", result.stderr)
+            self.assertFalse(review.exists())
+
     def test_https_terminal_artifact_is_allowed(self) -> None:
         base = ROOT / "runs" / "ecs"
         base.mkdir(parents=True, exist_ok=True)
