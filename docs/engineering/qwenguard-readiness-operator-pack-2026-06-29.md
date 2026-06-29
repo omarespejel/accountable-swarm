@@ -31,9 +31,15 @@ The generated command script has these phases:
 - `ecs-review`
 - `submission-pack`
 - `video-review`
+- `next-steps`
 - `audit-narrow`
 - `audit-final`
 - `all-preflight`
+
+`next-steps` is a no-side-effect phase that prints the remaining operator
+sequence and expected artifact paths. It is the preferred first command for a
+fresh operator session because it keeps SO-101, Alibaba ECS, ECS proof review,
+final video review, and final audit work in one checked order.
 
 `all-preflight` is the checked no-camera/no-ECS-host phase: in local tests it
 generates the physical, ECS, and submission packs, runs the existing
@@ -54,6 +60,40 @@ note in addition to `runs/ecs/ecs_smoke_report.json`.
 - The manifest file paths are repo-relative.
 - The focused test suite runs `all-preflight` without camera hardware or an ECS
   host.
+- The generated `next-steps` phase prints only operator commands and expected
+  repo-relative evidence paths; it does not request raw secrets or claim final
+  readiness.
+
+## Current Operator Sequence
+
+Run this first from the repository root:
+
+```bash
+python3 -m scripts.prepare_qwenguard_readiness_operator_pack \
+  --out-dir runs/submission/qwenguard-readiness-operator-pack-current \
+  --commit "$(git rev-parse HEAD)"
+bash runs/submission/qwenguard-readiness-operator-pack-current/operator_commands.sh next-steps
+```
+
+The next non-scaffold work is:
+
+1. Hardware evidence on the supervised SO-101 machine:
+   - `so101-camera`
+   - `record-success`
+   - `record-cloud-hold`
+   - `summarize-trials`
+2. Alibaba ECS evidence from issue #91:
+   - run the generated ECS pack on the ECS host;
+   - copy back sanitized `runs/ecs/ecs_smoke_report.json`;
+   - copy or link a terminal/screenshot/video proof artifact with no secrets.
+3. Human review notes:
+   - `ecs-review`
+   - `video-review`
+4. Final readiness:
+   - `audit-final`
+
+Until those operator artifacts exist, the expected final readiness state is
+`NARROW_CLAIM`.
 
 ## Non-Claims
 
