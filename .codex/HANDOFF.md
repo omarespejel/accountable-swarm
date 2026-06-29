@@ -14,10 +14,10 @@ matters must be reproducible as a hash-chained `DecisionTrace`.
 Status: `GO` for live Qwen API/model availability and single-keyframe
 DecisionTrace; `NARROW_CLAIM` for the broader robotics demo.
 
-## Latest Readiness State 2026-06-29 14:22 JST
+## Latest Readiness State 2026-06-29 15:33 JST
 
-Main is at `d187cdfb7e4dcf6b63315fbb02302dfd9229868e` after the final
-readiness hardening and operator-attestation passes:
+Main is at `770ad0c38030e9122dcbb08407f947f7639030c5` after the final
+readiness operator-pack updates:
 
 - `0777890` / PR #115: SO-101 camera evidence artifact paths are guarded.
   `capture-so101-camera-frame` rejects absolute paths, `..` escapes,
@@ -35,18 +35,25 @@ readiness hardening and operator-attestation passes:
   CSV schema and report, and both `summarize-qwenguard-trials` and
   `audit-qwenguard-submission-readiness` reject missing or false attestation
   in measured trial rows.
+- `62b86cc` / PR #119: refreshed the QwenGuard readiness handoff and issue
+  snapshot after the operator-evidence gates were narrowed to SO-101, measured
+  trials, ECS public proof, and final human review.
+- `770ad0c` / PR #120: added the readiness operator-pack `next-steps` phase so
+  the generated pack can print the exact SO-101, ECS, review-note, and final
+  audit sequence without touching hardware, cloud secrets, or generated
+  evidence.
 
 Snapshot preflight command, pinned to that main commit:
 
 ```bash
 python3 -m scripts.prepare_qwenguard_readiness_operator_pack \
   --out-dir runs/submission/qwenguard-readiness-operator-pack-current \
-  --commit d187cdfb7e4dcf6b63315fbb02302dfd9229868e
+  --commit 770ad0c38030e9122dcbb08407f947f7639030c5
 bash runs/submission/qwenguard-readiness-operator-pack-current/operator_commands.sh all-preflight
 ```
 
 Verbatim final audit checklist from that preflight on
-`main@d187cdfb7e4dcf6b63315fbb02302dfd9229868e`:
+`main@770ad0c38030e9122dcbb08407f947f7639030c5`:
 
 ```text
 outcome NARROW_CLAIM
@@ -92,10 +99,36 @@ are operator evidence only:
 6. Human ECS proof-review note from issue #91.
 7. Human-reviewed final video note.
 
+The generated readiness operator pack now also supports:
+
+```bash
+bash runs/submission/qwenguard-readiness-operator-pack-current/operator_commands.sh next-steps
+```
+
+Current next operator sequence:
+
+1. On the supervised SO-101 machine: run `so101-camera`, record one
+   operator-attested success trial, record one degraded-cloud HOLD trial, then
+   `summarize-trials`.
+2. On an Alibaba ECS host: run the #91 ECS operator pack from the pinned commit
+   and copy back only sanitized `runs/ecs/ecs_smoke_report.json` plus terminal
+   or screenshot proof.
+3. After the proof artifacts exist: create `runs/ecs/ecs_proof_review.md`,
+   create `runs/submission/final_video_review.md`, then run `audit-final`
+   without `--allow-narrow-claim`.
+
 Do not claim SO-101 operation, ACT success, Alibaba deployment, final
 submission readiness, Qwen motor control, Qwen onboard execution, DimOS
 runtime control, safety, latency, reliability, or production hosting until the
 corresponding audit checks pass.
+
+Latest full local validation:
+
+```text
+./scripts/local_gate.sh
+# Ran 445 tests in 214.645s
+# local gate passed
+```
 
 QwenGuard update: `GO` for the no-hardware SO-101 software spine on current
 main. Issue #95 is the physical QwenGuard umbrella, with final readiness
