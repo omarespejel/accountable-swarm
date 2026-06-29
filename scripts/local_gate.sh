@@ -49,6 +49,7 @@ required = [
     "scripts/render_swarm_trace_html.py",
     "scripts/prepare_demo_recording_pack.py",
     "scripts/prepare_ecs_operator_pack.py",
+    "scripts/prepare_ecs_proof_review.py",
     "scripts/prepare_dimos_bridge_pack.py",
     "scripts/run_dimos_replay_consumer.py",
     "scripts/verify_swarm_mission_suite.py",
@@ -73,6 +74,7 @@ required = [
     "docs/engineering/animated-swarm-replay-2026-06-16.md",
     "docs/engineering/demo-recording-pack-2026-06-16.md",
     "docs/engineering/ecs-operator-proof-pack-2026-06-16.md",
+    "docs/engineering/ecs-proof-review-helper-2026-06-29.md",
     "docs/engineering/dimos-bridge-probe-2026-06-16.md",
     "docs/engineering/dimos-replay-consumer-2026-06-16.md",
     "docs/engineering/live-dashscope-hazard-formation-2026-06-16.md",
@@ -197,6 +199,74 @@ python3 -m venv "$gate_tmp/venv"
 "$gate_tmp/venv/bin/prepare-ecs-operator-pack" \
     --out-dir runs/ecs/local_gate_operator_pack \
     --commit "$gate_commit"
+
+mkdir -p runs/ecs/local_gate_proof_review
+"$gate_tmp/venv/bin/python" - <<'PY'
+from pathlib import Path
+
+from accountable_swarm.trace.models import canonical_json
+
+report = {
+    "schema_version": "ecs-smoke-report.v1",
+    "outcome": "GO",
+    "base_url": "http://8.8.8.8:8000",
+    "deployed_commit": "d" * 40,
+    "proof_mode": "ecs-public",
+    "deployment": {
+        "provider_asserted": "Alibaba Cloud ECS",
+        "deployment_context_verified": True,
+        "ecs_region": "us-west-1",
+        "ecs_instance_id": "i-accountable-swarm",
+        "ecs_public_ip": "8.8.8.8",
+        "base_url_is_public_endpoint": True,
+        "base_url_matches_public_ip_when_ip_literal": True,
+    },
+    "qwen_model": "qwen-plus",
+    "checks": [
+        {"name": "healthz", "ok": True},
+        {"name": "readyz", "ok": True},
+        {"name": "camera-fixture", "ok": True},
+        {"name": "swarm-demo", "ok": True},
+        {"name": "swarm-demo_summary.json", "ok": True},
+        {"name": "qwen-ping_model_qwen-plus", "ok": True},
+    ],
+    "pass_conditions": {
+        "healthz": True,
+        "readyz": True,
+        "camera-fixture": True,
+        "swarm-demo": True,
+        "swarm-demo_summary.json": True,
+        "qwen-ping_model_qwen-plus": True,
+        "deployed_commit_recorded": True,
+        "proof_mode_is_ecs_public": True,
+        "ecs_region_recorded": True,
+        "ecs_instance_id_recorded": True,
+        "ecs_public_ip_is_global": True,
+        "base_url_is_public_endpoint": True,
+        "base_url_matches_public_ip_when_ip_literal": True,
+    },
+    "non_claims": ["not a production hosting claim"],
+}
+out = Path("runs/ecs/local_gate_proof_review/ecs_smoke_report.json")
+out.write_text(canonical_json(report) + "\n", encoding="utf-8")
+Path("runs/ecs/local_gate_proof_review/terminal-proof.txt").write_text(
+    "Alibaba ECS public endpoint proof transcript reviewed for local gate.\n",
+    encoding="utf-8",
+)
+PY
+"$gate_tmp/venv/bin/prepare-ecs-proof-review" \
+    --ecs-report runs/ecs/local_gate_proof_review/ecs_smoke_report.json \
+    --terminal-artifact runs/ecs/local_gate_proof_review/terminal-proof.txt \
+    --out runs/ecs/local_gate_proof_review/ecs_proof_review.md \
+    --reviewed-by local-gate \
+    --review-date 2026-06-29 \
+    --confirm-report-go \
+    --confirm-alibaba-context \
+    --confirm-public-endpoint \
+    --confirm-deployed-commit \
+    --confirm-security-group \
+    --confirm-secrets \
+    --allow-overwrite
 
 "$gate_tmp/venv/bin/python" scripts/build_swarm_demo_bundle.py \
     --out-dir runs/demo/local_gate_dimos_source

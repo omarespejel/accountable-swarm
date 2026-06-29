@@ -32,6 +32,7 @@ class PackagingTests(TestCase):
         self.assertIn('summarize-qwenguard-trials = "scripts.summarize_qwenguard_trials:main"', text)
         self.assertIn('prepare-demo-recording-pack = "scripts.prepare_demo_recording_pack:main"', text)
         self.assertIn('prepare-ecs-operator-pack = "scripts.prepare_ecs_operator_pack:main"', text)
+        self.assertIn('prepare-ecs-proof-review = "scripts.prepare_ecs_proof_review:main"', text)
         self.assertIn('prepare-dimos-bridge-pack = "scripts.prepare_dimos_bridge_pack:main"', text)
         self.assertIn('collect-dimos-runtime-smoke-report = "scripts.collect_dimos_runtime_smoke_report:main"', text)
         self.assertIn('prepare-dimos-runtime-smoke-pack = "scripts.prepare_dimos_runtime_smoke_pack:main"', text)
@@ -82,6 +83,10 @@ class PackagingTests(TestCase):
         self.assertEqual(
             scripts["prepare-ecs-operator-pack"],
             "scripts.prepare_ecs_operator_pack:main",
+        )
+        self.assertEqual(
+            scripts["prepare-ecs-proof-review"],
+            "scripts.prepare_ecs_proof_review:main",
         )
         self.assertEqual(
             scripts["prepare-dimos-bridge-pack"],
