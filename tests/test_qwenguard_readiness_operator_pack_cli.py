@@ -1,0 +1,190 @@
+from __future__ import annotations
+
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+from tempfile import TemporaryDirectory
+from unittest import TestCase
+
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+class QwenGuardReadinessOperatorPackCliTests(TestCase):
+    def test_prepare_pack_writes_claim_safe_operator_commands(self) -> None:
+        base = ROOT / "runs" / "submission"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            out_dir = Path(tmpdir) / "readiness-pack"
+            result = _run_pack_cli(
+                "--out-dir",
+                str(out_dir.relative_to(ROOT)),
+                "--task",
+                "pick Bob's marked cube left of the green cube",
+                "--camera-name",
+                "so101-main",
+                "--camera-id",
+                "0",
+                "--video-artifact",
+                "runs/submission/qwenguard-final-demo.mp4",
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
+            commands = (out_dir / "operator_commands.sh").read_text(encoding="utf-8")
+            runbook = (out_dir / "README.md").read_text(encoding="utf-8")
+
+            syntax = subprocess.run(
+                ["bash", "-n", str(out_dir / "operator_commands.sh")],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+        self.assertEqual(syntax.returncode, 0, syntax.stderr)
+        self.assertEqual(manifest["schema_version"], "qwenguard-readiness-operator-pack.v1")
+        self.assertEqual(manifest["outcome"], "GO")
+        self.assertEqual(manifest["submission_readiness"], "NARROW_CLAIM")
+        self.assertTrue(all(manifest["pass_conditions"].values()))
+        self.assertIn("all-preflight", manifest["operator_phases"])
+        self.assertIn("so101-camera", manifest["operator_phases"])
+        self.assertIn("ecs-pack", manifest["operator_phases"])
+        self.assertIn("video-review", manifest["operator_phases"])
+        self.assertIn("audit-final", manifest["operator_phases"])
+        self.assertIn("prepare_qwenguard_physical_go_pack", commands)
+        self.assertIn("prepare_ecs_operator_pack", commands)
+        self.assertIn("prepare_qwenguard_submission_pack", commands)
+        self.assertIn("prepare_qwenguard_final_video_review", commands)
+        self.assertIn("audit_qwenguard_submission_readiness", commands)
+        self.assertIn("No phase in this script enters raw secrets", commands)
+        self.assertIn("Submission readiness stays `NARROW_CLAIM`", runbook)
+        self.assertIn("SO-101 camera report", runbook)
+        self.assertNotIn("ALIBABA_API_KEY=", "\n".join([commands, runbook, json.dumps(manifest)]))
+        self.assertNotIn("ghp_", "\n".join([commands, runbook, json.dumps(manifest)]))
+        self.assertTrue(
+            all(not Path(path).is_absolute() and ".." not in Path(path).parts for path in manifest["files"].values())
+        )
+
+    def test_all_preflight_runs_without_camera_or_ecs_host(self) -> None:
+        base = ROOT / "runs" / "submission"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            out_dir = Path(tmpdir) / "readiness-pack"
+            prep = _run_pack_cli(
+                "--out-dir",
+                str(out_dir.relative_to(ROOT)),
+                "--commit",
+                "0123456789abcdef0123456789abcdef01234567",
+            )
+            self.assertEqual(prep.returncode, 0, prep.stderr)
+            env = {
+                **os.environ,
+                "QWENGUARD_PHYSICAL_PACK_DIR": str((Path(tmpdir) / "physical-pack").relative_to(ROOT)),
+                "QWENGUARD_ECS_PACK_DIR": str((Path(tmpdir) / "ecs-pack").relative_to(ROOT)),
+                "QWENGUARD_SUBMISSION_PACK_DIR": str((Path(tmpdir) / "submission-pack").relative_to(ROOT)),
+                "QWENGUARD_READINESS_REPORT": str((Path(tmpdir) / "readiness.json").relative_to(ROOT)),
+                "QWENGUARD_FINAL_VIDEO_REVIEW": str((Path(tmpdir) / "final_video_review.md").relative_to(ROOT)),
+            }
+
+            result = subprocess.run(
+                ["bash", str(out_dir / "operator_commands.sh"), "all-preflight"],
+                cwd=ROOT,
+                env=env,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            readiness = json.loads((Path(tmpdir) / "readiness.json").read_text(encoding="utf-8"))
+            self.assertEqual(readiness["outcome"], "NARROW_CLAIM")
+            self.assertTrue((Path(tmpdir) / "physical-pack" / "manifest.json").is_file())
+            self.assertTrue((Path(tmpdir) / "ecs-pack" / "manifest.json").is_file())
+            self.assertTrue((Path(tmpdir) / "submission-pack" / "manifest.json").is_file())
+            self.assertFalse((Path(tmpdir) / "final_video_review.md").exists())
+
+    def test_video_review_phase_requires_human_metadata(self) -> None:
+        base = ROOT / "runs" / "submission"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            out_dir = Path(tmpdir) / "readiness-pack"
+            prep = _run_pack_cli("--out-dir", str(out_dir.relative_to(ROOT)))
+            self.assertEqual(prep.returncode, 0, prep.stderr)
+
+            result = subprocess.run(
+                ["bash", str(out_dir / "operator_commands.sh"), "video-review"],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("QWENGUARD_REVIEWED_BY", result.stderr)
+
+    def test_out_dir_must_stay_under_repo(self) -> None:
+        result = _run_pack_cli("--out-dir", "../escape")
+
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("inside the repository checkout", result.stderr)
+
+    def test_control_characters_are_rejected(self) -> None:
+        result = _run_pack_cli("--task", "bad\ntask")
+
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("control characters", result.stderr)
+
+    def test_secret_like_task_is_rejected_before_write(self) -> None:
+        base = ROOT / "runs" / "submission"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            out_dir = Path(tmpdir) / "readiness-pack"
+            result = _run_pack_cli(
+                "--out-dir",
+                str(out_dir.relative_to(ROOT)),
+                "--task",
+                "pick cube using sk-redactedsecret01234567890123456789",
+            )
+
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("secret-like material", result.stderr)
+            self.assertFalse(out_dir.exists())
+
+    def test_generated_runner_rejects_escaping_output_override(self) -> None:
+        base = ROOT / "runs" / "submission"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            out_dir = Path(tmpdir) / "readiness-pack"
+            prep = _run_pack_cli("--out-dir", str(out_dir.relative_to(ROOT)))
+            self.assertEqual(prep.returncode, 0, prep.stderr)
+            env = {**os.environ, "QWENGUARD_SUBMISSION_PACK_DIR": "../escape"}
+
+            result = subprocess.run(
+                ["bash", str(out_dir / "operator_commands.sh"), "bootstrap"],
+                cwd=ROOT,
+                env=env,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("QWENGUARD_SUBMISSION_PACK_DIR", result.stderr)
+
+
+def _run_pack_cli(*args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "scripts.prepare_qwenguard_readiness_operator_pack",
+            *args,
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )

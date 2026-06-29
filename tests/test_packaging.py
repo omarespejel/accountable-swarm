@@ -24,6 +24,10 @@ class PackagingTests(TestCase):
             'prepare-qwenguard-final-video-review = "scripts.prepare_qwenguard_final_video_review:main"',
             text,
         )
+        self.assertIn(
+            'prepare-qwenguard-readiness-operator-pack = "scripts.prepare_qwenguard_readiness_operator_pack:main"',
+            text,
+        )
         self.assertIn('record-qwenguard-trial = "scripts.record_qwenguard_trial:main"', text)
         self.assertIn('prepare-demo-recording-pack = "scripts.prepare_demo_recording_pack:main"', text)
         self.assertIn('prepare-ecs-operator-pack = "scripts.prepare_ecs_operator_pack:main"', text)
@@ -63,6 +67,10 @@ class PackagingTests(TestCase):
         self.assertEqual(
             scripts["prepare-qwenguard-final-video-review"],
             "scripts.prepare_qwenguard_final_video_review:main",
+        )
+        self.assertEqual(
+            scripts["prepare-qwenguard-readiness-operator-pack"],
+            "scripts.prepare_qwenguard_readiness_operator_pack:main",
         )
         self.assertEqual(
             scripts["record-qwenguard-trial"],
