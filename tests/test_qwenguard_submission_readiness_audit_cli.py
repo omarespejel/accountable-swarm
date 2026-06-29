@@ -141,7 +141,7 @@ class QwenGuardSubmissionReadinessAuditCliTests(TestCase):
             trial_report = audit_root / "trial-001-report.json"
             ecs_report = audit_root / "ecs_smoke_report.json"
             ecs_review = audit_root / "ecs_proof_review.md"
-            ecs_terminal_artifact = audit_root / "ecs-terminal-proof.txt"
+            ecs_terminal_artifact = audit_root / "ecs_terminal_proof.txt"
             video_review = audit_root / "final_video_review.md"
             video_file = audit_root / "qwenguard-final-demo.mp4"
             out = audit_root / "readiness.json"
@@ -185,7 +185,7 @@ class QwenGuardSubmissionReadinessAuditCliTests(TestCase):
                     "degraded",
                 ]
             )
-            camera_frame.write_bytes(b"synthetic-so101-frame")
+            camera_frame.write_bytes(_tiny_ppm_bytes())
             camera_report.write_text(canonical_json(_camera_go_report()) + "\n", encoding="utf-8")
             _run_ok(
                 [
@@ -293,6 +293,42 @@ class QwenGuardSubmissionReadinessAuditCliTests(TestCase):
         ecs_review_check = next(check for check in report["checks"] if check["name"] == "ecs_proof_review_present")
         self.assertTrue(ecs_review_check["ok"])
 
+    def test_so101_camera_report_rejects_empty_frame_file(self) -> None:
+        base = ROOT / "runs" / "submission"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            audit_root = Path(tmpdir)
+            camera_report = audit_root / "so101_capture_report.json"
+            camera_frame = audit_root / "so101_frame.png"
+            out = audit_root / "readiness.json"
+            camera_frame.write_bytes(b"")
+            camera_report.write_text(canonical_json(_camera_go_report()) + "\n", encoding="utf-8")
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.audit_qwenguard_submission_readiness",
+                    "--out",
+                    str(out.relative_to(ROOT)),
+                    "--so101-camera-report",
+                    str(camera_report.relative_to(ROOT)),
+                    "--allow-narrow-claim",
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            report = json.loads(out.read_text(encoding="utf-8"))
+
+        camera_check = next(check for check in report["checks"] if check["name"] == "so101_camera_report_go")
+        self.assertFalse(camera_check["ok"])
+        self.assertEqual(camera_check["reason"], "camera frame is empty")
+        self.assertEqual(camera_check["evidence"]["frame_error"], "camera frame is empty")
+
     def test_ecs_smoke_report_requires_human_proof_review_note(self) -> None:
         base = ROOT / "runs" / "submission"
         base.mkdir(parents=True, exist_ok=True)
@@ -338,7 +374,7 @@ class QwenGuardSubmissionReadinessAuditCliTests(TestCase):
             ecs_report = audit_root / "ecs_smoke_report.json"
             other_report = audit_root / "other_ecs_smoke_report.json"
             ecs_review = audit_root / "ecs_proof_review.md"
-            terminal_artifact = audit_root / "ecs-terminal-proof.txt"
+            terminal_artifact = audit_root / "ecs_terminal_proof.txt"
             out = audit_root / "readiness.json"
             ecs_report.write_text(canonical_json(_ecs_go_report()) + "\n", encoding="utf-8")
             terminal_artifact.write_text("Alibaba ECS public endpoint proof.\n", encoding="utf-8")
@@ -1420,6 +1456,10 @@ def _camera_go_report() -> dict[str, object]:
             "sha256": "b" * 64,
         },
     }
+
+
+def _tiny_ppm_bytes() -> bytes:
+    return b"P6\n1 1\n255\n\x00\x00\x00"
 
 
 def _trial_csv(trace_summary_sha: str) -> str:

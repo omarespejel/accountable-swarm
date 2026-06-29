@@ -84,6 +84,10 @@ class QwenGuardReadinessOperatorPackCliTests(TestCase):
         self.assertIn("SO-101 camera report", runbook)
         self.assertIn("trial_summary.json", runbook)
         self.assertIn("ecs_proof_review.md", runbook)
+        self.assertIn('QWENGUARD_ECS_REVIEW_DATE="YYYY-MM-DD"', runbook)
+        self.assertIn('QWENGUARD_REVIEW_DATE="YYYY-MM-DD"', runbook)
+        self.assertIn("runs/ecs/ecs_terminal_proof.txt", runbook)
+        self.assertNotIn("runs/ecs/ecs-terminal-proof.txt", runbook)
         self.assertNotIn("ALIBABA_API_KEY=", "\n".join([commands, runbook, json.dumps(manifest)]))
         self.assertNotIn("ghp_", "\n".join([commands, runbook, json.dumps(manifest)]))
         self.assertTrue(
@@ -153,6 +157,8 @@ class QwenGuardReadinessOperatorPackCliTests(TestCase):
         self.assertIn("video-review", result.stdout)
         self.assertIn("audit-final", result.stdout)
         self.assertIn("runs/physical/qwenguard_trials/trial_results.csv", result.stdout)
+        self.assertIn("runs/ecs/ecs_terminal_proof.txt", result.stdout)
+        self.assertNotIn("runs/ecs/ecs-terminal-proof.txt", result.stdout)
         self.assertIn(str((out_dir / "operator_commands.sh").relative_to(ROOT)), result.stdout)
         self.assertNotIn("ALIBABA_API_KEY=", result.stdout)
 
