@@ -16,9 +16,12 @@ from urllib.parse import urlparse
 
 from accountable_swarm.qwenguard.trial import TrialRecord
 from accountable_swarm.trace.models import canonical_json, trace_from_dict, verify_trace
+from scripts.prepare_ecs_proof_review import _parse_fields as _parse_ecs_review_fields
+from scripts.prepare_ecs_proof_review import _review_note_error as _ecs_review_note_error
 
 
 REPORT_SCHEMA_VERSION = "qwenguard-submission-readiness-report.v1"
+MAX_ECS_TEXT_ARTIFACT_BYTES = 1024 * 1024
 DEFAULT_OUT = Path("runs/submission/qwenguard-readiness-report.json")
 DEFAULT_SUBMISSION_MANIFEST = Path("runs/submission/qwenguard-pack/manifest.json")
 DEFAULT_SO101_CAMERA_REPORT = Path("runs/physical/qwenguard_physical_go/so101_capture_report.json")
@@ -28,6 +31,7 @@ DEFAULT_TRIAL_CSV = Path("runs/physical/qwenguard_trials/trial_results.csv")
 DEFAULT_TRIAL_TRACE_DIR = Path("runs/physical/qwenguard_trials/traces")
 DEFAULT_TRIAL_SUMMARY = Path("runs/physical/qwenguard_trials/trial_summary.json")
 DEFAULT_ECS_REPORT = Path("runs/ecs/ecs_smoke_report.json")
+DEFAULT_ECS_PROOF_REVIEW = Path("runs/ecs/ecs_proof_review.md")
 DEFAULT_VIDEO_REVIEW = Path("runs/submission/final_video_review.md")
 TRIAL_ID_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,80}")
 
@@ -89,6 +93,7 @@ def main() -> int:
     parser.add_argument("--trial-trace-dir", type=Path, default=DEFAULT_TRIAL_TRACE_DIR)
     parser.add_argument("--trial-summary", type=Path, default=DEFAULT_TRIAL_SUMMARY)
     parser.add_argument("--ecs-report", type=Path, default=DEFAULT_ECS_REPORT)
+    parser.add_argument("--ecs-proof-review", type=Path, default=DEFAULT_ECS_PROOF_REVIEW)
     parser.add_argument("--video-review", type=Path, default=DEFAULT_VIDEO_REVIEW)
     parser.add_argument(
         "--allow-narrow-claim",
@@ -109,6 +114,7 @@ def main() -> int:
             "trial_trace_dir": _repo_path(repo_root, args.trial_trace_dir),
             "trial_summary": _repo_path(repo_root, args.trial_summary),
             "ecs_report": _repo_path(repo_root, args.ecs_report),
+            "ecs_proof_review": _repo_path(repo_root, args.ecs_proof_review),
             "video_review": _repo_path(repo_root, args.video_review),
         }
     except ValueError as exc:
@@ -153,6 +159,7 @@ def audit_readiness(*, repo_root: Path, paths: dict[str, Path]) -> dict[str, Any
             verified_trace_summaries=verified_trial_trace_summaries,
         ),
         _check_ecs_report(repo_root, paths["ecs_report"]),
+        _check_ecs_proof_review(repo_root, paths["ecs_proof_review"], ecs_report=paths["ecs_report"]),
         _check_video_review(repo_root, paths["video_review"]),
     ]
     pass_conditions = {check["name"]: check["ok"] for check in checks}
@@ -166,6 +173,7 @@ def audit_readiness(*, repo_root: Path, paths: dict[str, Path]) -> dict[str, Any
         "non_claims": [
             "not a physical success claim when outcome is NARROW_CLAIM",
             "not an Alibaba ECS proof unless ecs_report_is_public_go passes",
+            "not a human-reviewed Alibaba ECS proof unless ecs_proof_review_present passes",
             "not a safety, latency, or reliability claim",
             "not Qwen motor control",
             "not DimOS physical control",
@@ -613,6 +621,129 @@ def _check_ecs_report(repo_root: Path, path: Path) -> dict[str, Any]:
         ),
     }
     return check
+
+
+def _check_ecs_proof_review(repo_root: Path, path: Path, *, ecs_report: Path) -> dict[str, Any]:
+    check = _base_check("ecs_proof_review_present", repo_root, path)
+    if not path.is_file():
+        return _fail(check, "ECS proof review note is missing")
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError as exc:
+        return _fail(check, f"ECS proof review note is not UTF-8: {exc}")
+    except OSError as exc:
+        return _fail(check, f"ECS proof review note could not be read: {exc.__class__.__name__}")
+
+    fields = _parse_ecs_review_fields(text)
+    duplicate_fields = _duplicate_ecs_review_fields(text)
+    validation_error = _ecs_review_note_error(text)
+    invalid_reasons: list[str] = []
+    if validation_error:
+        invalid_reasons.append(validation_error)
+    expected_ecs_report = _display_path(repo_root, ecs_report)
+    if fields.get("ECS-report") != expected_ecs_report:
+        invalid_reasons.append("ECS-report field does not match audited ECS smoke report")
+    terminal_error = _ecs_terminal_artifact_error(repo_root=repo_root, fields=fields)
+    if terminal_error:
+        invalid_reasons.append(terminal_error)
+    if duplicate_fields:
+        invalid_reasons.append("duplicate review fields: " + ", ".join(sorted(duplicate_fields)))
+
+    ok = not invalid_reasons
+    check["ok"] = ok
+    check["reason"] = (
+        "human ECS proof review records public endpoint and secret checks"
+        if ok
+        else "ECS proof review note is missing required signoffs or bindings"
+    )
+    check["evidence"] = {
+        "byte_count": len(text.encode("utf-8")),
+        "sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
+        "ecs_report": fields.get("ECS-report", ""),
+        "expected_ecs_report": expected_ecs_report,
+        "terminal_artifact": _ecs_terminal_artifact_evidence(repo_root=repo_root, fields=fields),
+        "duplicate_fields": duplicate_fields,
+        "invalid_reason_count": len(invalid_reasons),
+        "invalid_reasons": invalid_reasons[:5],
+    }
+    return check
+
+
+def _duplicate_ecs_review_fields(text: str) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for line in text.splitlines():
+        if line.strip() == "## Reviewer Notes":
+            break
+        if ":" not in line:
+            continue
+        key, _value = line.split(":", 1)
+        key = key.strip()
+        if key:
+            counts[key] = counts.get(key, 0) + 1
+    return {key: count for key, count in counts.items() if count > 1}
+
+
+def _ecs_terminal_artifact_error(*, repo_root: Path, fields: dict[str, str]) -> str:
+    value = fields.get("Terminal-artifact", "")
+    kind = fields.get("Terminal-artifact-kind", "")
+    if not value or not kind:
+        return "Terminal-artifact and Terminal-artifact-kind are required"
+    if kind == "https":
+        parsed = urlparse(value)
+        return "" if parsed.scheme == "https" and bool(parsed.netloc) else "Terminal-artifact https reference is invalid"
+    if kind != "local":
+        return "Terminal-artifact-kind must be local or https"
+    raw_path = Path(value)
+    if raw_path.is_absolute() or ".." in raw_path.parts:
+        return "Terminal-artifact local path must be repo-relative"
+    try:
+        artifact = _repo_path(repo_root, raw_path)
+    except ValueError:
+        return "Terminal-artifact local path must stay inside repository"
+    if not artifact.is_file():
+        return "Terminal-artifact local file is missing"
+    if artifact.suffix.lower() in {".txt", ".log", ".md"}:
+        try:
+            byte_count = artifact.stat().st_size
+        except OSError:
+            return "Terminal-artifact local text could not be inspected"
+        if byte_count > MAX_ECS_TEXT_ARTIFACT_BYTES:
+            return "Terminal-artifact local text is too large; provide a sanitized excerpt"
+        try:
+            text = artifact.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            return "Terminal-artifact local text is not UTF-8"
+        except OSError:
+            return "Terminal-artifact local text could not be read"
+        if _contains_secret_like_material(text):
+            return "Terminal-artifact local text contains secret-like material"
+    return ""
+
+
+def _ecs_terminal_artifact_evidence(*, repo_root: Path, fields: dict[str, str]) -> dict[str, str]:
+    value = fields.get("Terminal-artifact", "")
+    kind = fields.get("Terminal-artifact-kind", "")
+    if not value:
+        return {}
+    if kind == "https":
+        return {"kind": "https", "url_sha256": hashlib.sha256(value.encode("utf-8")).hexdigest()}
+    if kind != "local":
+        return {"kind": "invalid-kind"}
+    raw_path = Path(value)
+    if raw_path.is_absolute() or ".." in raw_path.parts:
+        return {"kind": "invalid-path"}
+    try:
+        resolved = _repo_path(repo_root, raw_path)
+    except ValueError:
+        return {"kind": "invalid-path", "error": "path must stay inside repository"}
+    evidence = {
+        "kind": "repo-file",
+        "path": _display_path(repo_root, resolved),
+        "exists": str(resolved.is_file()).lower(),
+    }
+    if resolved.is_file():
+        evidence["sha256"] = _file_sha256(resolved)
+    return evidence
 
 
 def _check_video_review(repo_root: Path, path: Path) -> dict[str, Any]:

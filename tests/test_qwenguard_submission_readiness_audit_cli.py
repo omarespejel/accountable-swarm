@@ -101,6 +101,8 @@ class QwenGuardSubmissionReadinessAuditCliTests(TestCase):
             trial_summary = audit_root / "trial_summary.json"
             trial_report = audit_root / "trial-001-report.json"
             ecs_report = audit_root / "ecs_smoke_report.json"
+            ecs_review = audit_root / "ecs_proof_review.md"
+            ecs_terminal_artifact = audit_root / "ecs-terminal-proof.txt"
             video_review = audit_root / "final_video_review.md"
             video_file = audit_root / "qwenguard-final-demo.mp4"
             out = audit_root / "readiness.json"
@@ -181,6 +183,14 @@ class QwenGuardSubmissionReadinessAuditCliTests(TestCase):
                 ]
             )
             ecs_report.write_text(canonical_json(_ecs_go_report()) + "\n", encoding="utf-8")
+            ecs_terminal_artifact.write_text("Alibaba ECS instance i-accountable-swarm served public endpoint.\n", encoding="utf-8")
+            ecs_review.write_text(
+                _ecs_proof_review(
+                    ecs_report=ecs_report.relative_to(ROOT),
+                    terminal_artifact=ecs_terminal_artifact.relative_to(ROOT),
+                ),
+                encoding="utf-8",
+            )
             video_file.write_bytes(b"synthetic-video-artifact")
             video_review.write_text(_video_review(str(video_file.relative_to(ROOT))), encoding="utf-8")
 
@@ -207,6 +217,8 @@ class QwenGuardSubmissionReadinessAuditCliTests(TestCase):
                     str(trial_summary.relative_to(ROOT)),
                     "--ecs-report",
                     str(ecs_report.relative_to(ROOT)),
+                    "--ecs-proof-review",
+                    str(ecs_review.relative_to(ROOT)),
                     "--video-review",
                     str(video_review.relative_to(ROOT)),
                 ],
@@ -229,6 +241,193 @@ class QwenGuardSubmissionReadinessAuditCliTests(TestCase):
         self.assertEqual(trial_csv_check["evidence"]["valid_row_count"], 1)
         self.assertEqual(trial_csv_check["evidence"]["invalid_row_count"], 0)
         self.assertEqual(trial_summary_check["evidence"]["total_trials"], 1)
+        ecs_review_check = next(check for check in report["checks"] if check["name"] == "ecs_proof_review_present")
+        self.assertTrue(ecs_review_check["ok"])
+
+    def test_ecs_smoke_report_requires_human_proof_review_note(self) -> None:
+        base = ROOT / "runs" / "submission"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            audit_root = Path(tmpdir)
+            ecs_report = audit_root / "ecs_smoke_report.json"
+            out = audit_root / "readiness.json"
+            ecs_report.write_text(canonical_json(_ecs_go_report()) + "\n", encoding="utf-8")
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.audit_qwenguard_submission_readiness",
+                    "--out",
+                    str(out.relative_to(ROOT)),
+                    "--ecs-report",
+                    str(ecs_report.relative_to(ROOT)),
+                    "--ecs-proof-review",
+                    str((audit_root / "missing-ecs-review.md").relative_to(ROOT)),
+                    "--allow-narrow-claim",
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            report = json.loads(out.read_text(encoding="utf-8"))
+
+        ecs_report_check = next(check for check in report["checks"] if check["name"] == "ecs_report_is_public_go")
+        ecs_review_check = next(check for check in report["checks"] if check["name"] == "ecs_proof_review_present")
+        self.assertTrue(ecs_report_check["ok"])
+        self.assertFalse(ecs_review_check["ok"])
+        self.assertEqual(ecs_review_check["reason"], "ECS proof review note is missing")
+
+    def test_ecs_proof_review_must_bind_to_audited_ecs_report(self) -> None:
+        base = ROOT / "runs" / "submission"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            audit_root = Path(tmpdir)
+            ecs_report = audit_root / "ecs_smoke_report.json"
+            other_report = audit_root / "other_ecs_smoke_report.json"
+            ecs_review = audit_root / "ecs_proof_review.md"
+            terminal_artifact = audit_root / "ecs-terminal-proof.txt"
+            out = audit_root / "readiness.json"
+            ecs_report.write_text(canonical_json(_ecs_go_report()) + "\n", encoding="utf-8")
+            terminal_artifact.write_text("Alibaba ECS public endpoint proof.\n", encoding="utf-8")
+            ecs_review.write_text(
+                _ecs_proof_review(
+                    ecs_report=other_report.relative_to(ROOT),
+                    terminal_artifact=terminal_artifact.relative_to(ROOT),
+                ),
+                encoding="utf-8",
+            )
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.audit_qwenguard_submission_readiness",
+                    "--out",
+                    str(out.relative_to(ROOT)),
+                    "--ecs-report",
+                    str(ecs_report.relative_to(ROOT)),
+                    "--ecs-proof-review",
+                    str(ecs_review.relative_to(ROOT)),
+                    "--allow-narrow-claim",
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            report = json.loads(out.read_text(encoding="utf-8"))
+
+        ecs_review_check = next(check for check in report["checks"] if check["name"] == "ecs_proof_review_present")
+        self.assertFalse(ecs_review_check["ok"])
+        self.assertIn(
+            "ECS-report field does not match audited ECS smoke report",
+            ecs_review_check["evidence"]["invalid_reasons"],
+        )
+
+    def test_ecs_proof_review_symlink_terminal_artifact_fails_without_crash(self) -> None:
+        base = ROOT / "runs" / "submission"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir, TemporaryDirectory() as outside_tmpdir:
+            audit_root = Path(tmpdir)
+            outside_file = Path(outside_tmpdir) / "outside-terminal.txt"
+            outside_file.write_text("outside repo terminal proof\n", encoding="utf-8")
+            ecs_report = audit_root / "ecs_smoke_report.json"
+            ecs_review = audit_root / "ecs_proof_review.md"
+            terminal_link = audit_root / "terminal-link.txt"
+            out = audit_root / "readiness.json"
+            try:
+                terminal_link.symlink_to(outside_file)
+            except OSError as exc:
+                self.skipTest(f"symlink creation unavailable: {exc}")
+            ecs_report.write_text(canonical_json(_ecs_go_report()) + "\n", encoding="utf-8")
+            ecs_review.write_text(
+                _ecs_proof_review(
+                    ecs_report=ecs_report.relative_to(ROOT),
+                    terminal_artifact=terminal_link.relative_to(ROOT),
+                ),
+                encoding="utf-8",
+            )
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.audit_qwenguard_submission_readiness",
+                    "--out",
+                    str(out.relative_to(ROOT)),
+                    "--ecs-report",
+                    str(ecs_report.relative_to(ROOT)),
+                    "--ecs-proof-review",
+                    str(ecs_review.relative_to(ROOT)),
+                    "--allow-narrow-claim",
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            report = json.loads(out.read_text(encoding="utf-8"))
+
+        ecs_review_check = next(check for check in report["checks"] if check["name"] == "ecs_proof_review_present")
+        self.assertFalse(ecs_review_check["ok"])
+        self.assertIn("Terminal-artifact local path must stay inside repository", ecs_review_check["evidence"]["invalid_reasons"])
+        self.assertEqual(ecs_review_check["evidence"]["terminal_artifact"]["kind"], "invalid-path")
+
+    def test_ecs_proof_review_large_terminal_artifact_fails_without_reading_all(self) -> None:
+        base = ROOT / "runs" / "submission"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            audit_root = Path(tmpdir)
+            ecs_report = audit_root / "ecs_smoke_report.json"
+            ecs_review = audit_root / "ecs_proof_review.md"
+            terminal_artifact = audit_root / "large-terminal-proof.txt"
+            out = audit_root / "readiness.json"
+            ecs_report.write_text(canonical_json(_ecs_go_report()) + "\n", encoding="utf-8")
+            terminal_artifact.write_text("x" * (1024 * 1024 + 1), encoding="utf-8")
+            ecs_review.write_text(
+                _ecs_proof_review(
+                    ecs_report=ecs_report.relative_to(ROOT),
+                    terminal_artifact=terminal_artifact.relative_to(ROOT),
+                ),
+                encoding="utf-8",
+            )
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.audit_qwenguard_submission_readiness",
+                    "--out",
+                    str(out.relative_to(ROOT)),
+                    "--ecs-report",
+                    str(ecs_report.relative_to(ROOT)),
+                    "--ecs-proof-review",
+                    str(ecs_review.relative_to(ROOT)),
+                    "--allow-narrow-claim",
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            report = json.loads(out.read_text(encoding="utf-8"))
+
+        ecs_review_check = next(check for check in report["checks"] if check["name"] == "ecs_proof_review_present")
+        self.assertFalse(ecs_review_check["ok"])
+        self.assertIn(
+            "Terminal-artifact local text is too large; provide a sanitized excerpt",
+            ecs_review_check["evidence"]["invalid_reasons"],
+        )
 
     def test_tampered_trace_keeps_readiness_narrow(self) -> None:
         base = ROOT / "runs" / "submission"
@@ -1157,10 +1356,16 @@ def _ecs_go_report() -> dict[str, object]:
         "schema_version": "ecs-smoke-report.v1",
         "outcome": "GO",
         "proof_mode": "ecs-public",
+        "base_url": "http://8.8.8.8:8000",
         "deployed_commit": COMMIT,
         "deployment": {
             "provider_asserted": "Alibaba Cloud ECS",
             "deployment_context_verified": True,
+            "ecs_region": "us-west-1",
+            "ecs_instance_id": "i-accountable-swarm",
+            "ecs_public_ip": "8.8.8.8",
+            "base_url_is_public_endpoint": True,
+            "base_url_matches_public_ip_when_ip_literal": True,
         },
         "checks": checks,
         "pass_conditions": {
@@ -1179,6 +1384,41 @@ def _ecs_go_report() -> dict[str, object]:
             "base_url_matches_public_ip_when_ip_literal": True,
         },
     }
+
+
+def _ecs_proof_review(*, ecs_report: Path, terminal_artifact: Path) -> str:
+    return "\n".join(
+        [
+            "# Alibaba ECS Proof Review",
+            "",
+            "Reviewed-by: human-reviewer",
+            "Review-date: 2026-06-29",
+            f"ECS-report: {ecs_report.as_posix()}",
+            f"Terminal-artifact: {terminal_artifact.as_posix()}",
+            "Terminal-artifact-kind: local",
+            "Terminal-artifact-exists: true",
+            "ECS-region: us-west-1",
+            "ECS-instance-id: i-accountable-swarm",
+            "ECS-public-ip: 8.8.8.8",
+            "Base-url: http://8.8.8.8:8000",
+            f"Deployed-commit: {COMMIT}",
+            "ECS-report-GO-reviewed: yes",
+            "Alibaba-context-reviewed: yes",
+            "Public-endpoint-reviewed: yes",
+            "Deployed-commit-reviewed: yes",
+            "Security-group-reviewed: yes",
+            "Secrets-reviewed: yes",
+            "",
+            "Alibaba ECS proof is claimed only because the checked ECS smoke report is GO with proof_mode ecs-public.",
+            "The terminal or screenshot artifact was reviewed for Alibaba ECS context and secret exposure.",
+            "This note does not claim production hosting, availability, latency, reliability, SO-101 operation, or Qwen onboard execution.",
+            "",
+            "## Reviewer Notes",
+            "",
+            "Synthetic test review.",
+            "",
+        ]
+    )
 
 
 def _video_review(video_artifact: str = "https://example.com/qwenguard-final-demo.mp4") -> str:

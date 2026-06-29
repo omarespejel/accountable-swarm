@@ -8,7 +8,7 @@ Issue: #106
 
 The final Track 5 readiness gate should be operator-executable from one
 generated, non-secret pack instead of scattered commands across SO-101,
-Alibaba ECS, video review, and submission-audit docs.
+Alibaba ECS, ECS proof review, video review, and submission-audit docs.
 
 ## What Changed
 
@@ -26,7 +26,9 @@ The generated command script has these phases:
 - `record-success`
 - `record-failure`
 - `record-cloud-hold`
+- `summarize-trials`
 - `ecs-pack`
+- `ecs-review`
 - `submission-pack`
 - `video-review`
 - `audit-narrow`
@@ -37,6 +39,11 @@ The generated command script has these phases:
 generates the physical, ECS, and submission packs, runs the existing
 physical-pack `all-safe` phase, and writes a readiness audit with
 `--allow-narrow-claim`.
+
+`ecs-review` writes `runs/ecs/ecs_proof_review.md` only after the operator
+supplies reviewer/date metadata plus a terminal, screenshot, or video artifact
+from the public Alibaba ECS proof. The final readiness audit now requires that
+note in addition to `runs/ecs/ecs_smoke_report.json`.
 
 ## GO Gate
 

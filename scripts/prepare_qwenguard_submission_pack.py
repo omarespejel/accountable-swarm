@@ -375,6 +375,15 @@ def _evidence_manifest(*, task: str, repo_url: str) -> dict[str, Any]:
                 "expected_path": "runs/ecs/ecs_smoke_report.json",
             },
             {
+                "name": "human_reviewed_alibaba_ecs_proof",
+                "status": "pending",
+                "expected_path": "runs/ecs/ecs_proof_review.md",
+                "note": (
+                    "operator runs prepare-ecs-proof-review after the public ECS "
+                    "smoke report and terminal/screenshot evidence exist"
+                ),
+            },
+            {
                 "name": "human_reviewed_video",
                 "status": "pending",
                 "expected_path": "runs/submission/final_video_review.md",
