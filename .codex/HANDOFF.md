@@ -14,7 +14,7 @@ matters must be reproducible as a hash-chained `DecisionTrace`.
 Status: `GO` for live Qwen API/model availability and single-keyframe
 DecisionTrace; `NARROW_CLAIM` for the broader robotics demo.
 
-## Latest Readiness State 2026-06-29 15:33 JST
+## Latest Readiness State 2026-06-29 20:24 JST
 
 Regenerate readiness artifacts from the current checkout HEAD. Do not copy an
 old commit literal from this handoff into operator commands.
@@ -42,6 +42,22 @@ old commit literal from this handoff into operator commands.
   the generated pack can print the exact SO-101, ECS, review-note, and final
   audit sequence without touching hardware, cloud secrets, or generated
   evidence.
+- `a6a6f0c` / PR #127: the measured-trial and SO-101 motion boundary was
+  hardened before any physical motion. The repo now records that there is no
+  programmatic ALLOW-to-LeRobot interlock yet, generated motion-capable packs
+  require explicit readiness env vars, and measured trial rows fail closed on
+  missing/false `operator_attested` values or copied trace summaries.
+- `da67e53` / PR #128: Alibaba ECS proof collection was hardened before the
+  operator-run #91 session. A public ECS proof now requires `/healthz`,
+  `/qwen-vl-fixture?model=qwen3-vl-flash`, deployed commit matching collector
+  HEAD, ECS metadata identity, and metadata public IPv4/EIP matching the public
+  endpoint.
+- `4950e52` / PR #129: provenance and claim copy were refreshed. The handoff
+  no longer carries stale fixed commit pins, issue #91 now points at the
+  current ECS operator path, SO-101 camera readiness rejects missing, empty,
+  unreadable, or unsupported frame artifacts with bounded header reads, and the
+  generated submission copy keeps physical ACT action planned/pending until
+  measured traces exist.
 
 Snapshot preflight command, pinned to the current checkout HEAD:
 
@@ -126,7 +142,7 @@ Latest full local validation:
 
 ```text
 ./scripts/local_gate.sh
-# Ran 445 tests in 214.645s
+# Ran 466 tests in 212.639s
 # local gate passed
 ```
 
@@ -421,26 +437,28 @@ What is not checked yet:
 
 ## Active GitHub Work
 
-- Issue #95: QwenGuard SO-101 physical edge-cloud manipulation demo. This is
-  the current umbrella for selector, evaluator, outcome gate, ACT training,
-  physical GO gates, trace evidence, and claim boundaries.
-- PR #92 is merged: bounded Qwen mission-choice dashboard flow and Node 24
-  workflow-pin update. It keeps Qwen as a bounded mission proposer only, derives
-  dashboard mission state from verified traces, and validates mission/risk enums
-  locally before rendering.
-- Issue #93 / PR #99: interactive dashboard on `main`, replacing the
-  auto-closed stacked PR #94. Useful for visualization, but not on the
-  QwenGuard critical path.
-- Issue #91: operator-run Alibaba ECS proof from a public endpoint. This remains
-  the submission blocker to move in parallel with SO-101 work.
-- Issues #87 and #90 are resolved by the merged bounded mission-choice/dashboard
-  pack.
-- Issues #3, #75, and #88 are closed; #3 remains historical context only.
-- Issue #2, #6, #11, #13, #15, #17, #19, #21, #23, #25, #27, #29, #33,
-  #35, #37, #39, #41, #43, #45, #48, #50, #52, #54, #59, and #68 are closed
-  as GO or scoped NARROW_CLAIM where documented.
-- PR #5, #7, #8, #9, #10, #12, #14, #16, #18, #20, #22, #24, #34, #36, and
-  #38, #40, #42, #44, #46, #47, #49, #51, #66, #70, and #72 are merged.
+Only two issues are currently open:
+
+- Issue #106: final QwenGuard submission evidence readiness. The issue body was
+  refreshed after PR #129 and now points at current `main@4950e52`, the current
+  readiness operator preflight, and the full SO-101/trial/ECS/video GO gate.
+- Issue #91: operator-run Alibaba ECS proof from a public endpoint. The latest
+  comment pins the ECS operator pack to current `main@4950e52`. This remains
+  operator-run cloud evidence, not repo-side proof.
+
+Recently closed audit issues:
+
+- Issue #122 / PR #127: no ALLOW-to-motion interlock documented and motion-pack
+  readiness env gates added before SO-101 motion.
+- Issue #123 / PR #127: measured trial rows now bind to unique verified
+  `decisiontrace.v2` summaries and explicit operator attestation.
+- Issue #124 / PR #128: ECS proof now requires Alibaba metadata/public endpoint
+  binding and deployed Qwen3-VL fixture proof.
+- Issues #125 and #126 / PR #129: provenance, issue references, camera evidence
+  validation, and present-tense submission copy were hardened.
+
+Older dashboard, swarm, and QwenGuard umbrella issues are historical context.
+Check GitHub before reviving any of them.
 
 Before creating new work, inspect the current PR and issues:
 
