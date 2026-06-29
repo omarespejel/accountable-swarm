@@ -441,11 +441,13 @@ What is not checked yet:
 Only two issues are currently open:
 
 - Issue #106: final QwenGuard submission evidence readiness. The issue body was
-  refreshed after PR #129 and now points at current `main@4950e52`, the current
-  readiness operator preflight, and the full SO-101/trial/ECS/video GO gate.
+  refreshed after the latest no-hardware hardening pass and now points at the
+  readiness operator preflight and the full SO-101/trial/ECS/video GO gate.
+  Regenerate operator artifacts from the current checkout HEAD before use.
 - Issue #91: operator-run Alibaba ECS proof from a public endpoint. The latest
-  comment pins the ECS operator pack to current `main@4950e52`. This remains
-  operator-run cloud evidence, not repo-side proof.
+  comment records the ECS operator-pack workflow. Regenerate it from the
+  current checkout HEAD before use. This remains operator-run cloud evidence,
+  not repo-side proof.
 
 Recently closed audit issues:
 
