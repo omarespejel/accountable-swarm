@@ -58,6 +58,9 @@ class QwenGuardSubmissionReadinessAuditCliTests(TestCase):
         self.assertEqual(report["outcome"], "NARROW_CLAIM")
         self.assertEqual(report["submission_readiness"], "NARROW_CLAIM")
         self.assertFalse(any(report["pass_conditions"].values()))
+        self.assertIn("checks:", result.stdout)
+        self.assertIn("MISS so101_camera_report_go - file is missing", result.stdout)
+        self.assertIn("MISS human_video_review_present - final video review note is missing", result.stdout)
 
     def test_without_allow_narrow_claim_missing_artifacts_exit_nonzero(self) -> None:
         base = ROOT / "runs" / "submission"
@@ -83,6 +86,42 @@ class QwenGuardSubmissionReadinessAuditCliTests(TestCase):
             self.assertEqual(result.returncode, 4)
             report = json.loads(out.read_text(encoding="utf-8"))
             self.assertEqual(report["outcome"], "NARROW_CLAIM")
+
+    def test_stdout_checklist_uses_stable_reason_for_csv_parse_errors(self) -> None:
+        base = ROOT / "runs" / "submission"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            audit_root = Path(tmpdir)
+            out = audit_root / "readiness.json"
+            bad_csv = audit_root / "bad_trials.csv"
+            bad_csv.write_bytes(b"trial_id,trace_summary_sha\n\xff\n")
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.audit_qwenguard_submission_readiness",
+                    "--out",
+                    str(out.relative_to(ROOT)),
+                    "--trial-csv",
+                    str(bad_csv.relative_to(ROOT)),
+                    "--allow-narrow-claim",
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            report = json.loads(out.read_text(encoding="utf-8"))
+
+        csv_check = next(check for check in report["checks"] if check["name"] == "measured_trial_csv_has_rows")
+        self.assertEqual(csv_check["reason"], "trial CSV could not be parsed")
+        self.assertEqual(csv_check["evidence"]["error_type"], "UnicodeDecodeError")
+        self.assertIn("MISS measured_trial_csv_has_rows - trial CSV could not be parsed", result.stdout)
+        self.assertNotIn("UnicodeDecodeError", result.stdout)
+        self.assertNotIn("codec", result.stdout)
 
     def test_complete_synthetic_evidence_set_is_ready(self) -> None:
         base = ROOT / "runs" / "submission"
@@ -234,6 +273,15 @@ class QwenGuardSubmissionReadinessAuditCliTests(TestCase):
         self.assertEqual(report["outcome"], "GO")
         self.assertEqual(report["submission_readiness"], "READY")
         self.assertTrue(all(report["pass_conditions"].values()))
+        self.assertIn("checks:", result.stdout)
+        self.assertIn(
+            "OK submission_pack_manifest_go - submission pack generated and still claim-safe",
+            result.stdout,
+        )
+        self.assertIn(
+            "OK human_video_review_present - human video review records explicit reviewer, artifact, and claim checks",
+            result.stdout,
+        )
         trial_trace_check = next(check for check in report["checks"] if check["name"] == "measured_trial_traces_verify")
         trial_csv_check = next(check for check in report["checks"] if check["name"] == "measured_trial_csv_has_rows")
         trial_summary_check = next(check for check in report["checks"] if check["name"] == "measured_trial_summary_go")
