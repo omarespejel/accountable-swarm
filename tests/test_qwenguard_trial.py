@@ -105,3 +105,15 @@ class QwenGuardTrialTests(TestCase):
                 control_label="SCRIPTED",
                 operator_attested=True,
             )
+
+    def test_validate_trial_semantics_requires_explicit_attestation(self) -> None:
+        with self.assertRaisesRegex(TypeError, "operator_attested"):
+            validate_trial_semantics(
+                outcome="success",
+                cloud_mode="online",
+                gate_decision="ALLOW",
+                motion_executed=True,
+                predicted_success_milli=800,
+                risk_level="low",
+                control_label="TELEOP",
+            )
