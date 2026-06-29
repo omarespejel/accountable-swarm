@@ -16,7 +16,7 @@ PACK_SCHEMA_VERSION = "qwenguard-submission-pack.v1"
 DEFAULT_OUT_DIR = Path("runs/submission/qwenguard-pack")
 DEFAULT_TASK = "pick the red cube left of the green cube and place it in the bin"
 DEVPOST_URL = "https://qwencloud-hackathon.devpost.com/"
-ISSUE_URL = "https://github.com/omarespejel/accountable-swarm/issues/95"
+ISSUE_URL = "https://github.com/omarespejel/accountable-swarm/issues/106"
 ECS_ISSUE_URL = "https://github.com/omarespejel/accountable-swarm/issues/91"
 SECRET_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"Authorization:[ \t]*Bearer[ \t]+(?!<redacted>)\S+", re.IGNORECASE),
@@ -228,7 +228,7 @@ def _render_architecture(*, task: str) -> str:
         [
             "# QwenGuard Architecture",
             "",
-            "Issue: #95",
+            "Issue: #106",
             "",
             "This diagram is for the planned physical Track 5 demo. It is not",
             "physical-success evidence until the operator fills the evidence",

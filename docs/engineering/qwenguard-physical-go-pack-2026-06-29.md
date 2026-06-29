@@ -2,7 +2,7 @@
 
 ## Thesis
 
-Issue #95 needs a physical SO-101 session, but the operator should not have to
+Issue #106 needs a physical SO-101 session, but the operator should not have to
 derive the run order from separate camera, health-check, training, and trial
 tools. The physical GO pack consolidates those steps into one non-secret,
 phase-driven operator bundle.

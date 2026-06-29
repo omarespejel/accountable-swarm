@@ -147,8 +147,8 @@ Latest full local validation:
 ```
 
 QwenGuard update: `GO` for the no-hardware SO-101 software spine on current
-main. Issue #95 is the physical QwenGuard umbrella, with final readiness
-tracked in issue #106 and Alibaba ECS proof tracked in issue #91. The merged
+main. The old QwenGuard umbrella issue #95 is closed; final readiness is now
+tracked in issue #106 and Alibaba ECS proof is tracked in issue #91. The merged
 spine includes Set-of-Mark selector validation, before/after evaluator
 validation, a deterministic local outcome gate, a no-motion health-check CLI,
 a non-secret SO-101 ACT training pack, measured-trial schema, and final
@@ -260,7 +260,8 @@ What is checked locally:
   operator-supplied free-text fields, enforces semantic consistency across
   outcome/cloud/gate/motion fields, and validates relation reference IDs so
   explicit `--reference-mark-id` values do not silently append to a default.
-  The generated report points to issue #103 and retains #95 as the umbrella.
+  The generated report points to issue #103 and records #106 as the readiness
+  gate.
 - QwenGuard physical GO pack now exposes `record-success`, `record-failure`,
   and `record-cloud-hold` operator phases. These phases call
   `record-qwenguard-trial` and keep measured trial rows bound to verified

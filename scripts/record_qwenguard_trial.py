@@ -43,7 +43,7 @@ from accountable_swarm.trace.models import (
 
 REPORT_SCHEMA_VERSION = "qwenguard-trial-record-report.v1"
 ISSUE_URL = "https://github.com/omarespejel/accountable-swarm/issues/103"
-UMBRELLA_ISSUE_URL = "https://github.com/omarespejel/accountable-swarm/issues/95"
+UMBRELLA_ISSUE_URL = "https://github.com/omarespejel/accountable-swarm/issues/106"
 DEFAULT_TRACE_DIR = Path("runs/physical/qwenguard_trials/traces")
 DEFAULT_CSV_OUT = Path("runs/physical/qwenguard_trials/trial_results.csv")
 DEFAULT_TASK = "pick the red cube left of the green cube and place it in the bin"
