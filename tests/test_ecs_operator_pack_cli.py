@@ -46,10 +46,26 @@ class EcsOperatorPackCliTests(TestCase):
         self.assertIn(f"/blob/{COMMIT}/Dockerfile", manifest["code_file_links"]["dockerfile"])
         self.assertIn("runs/ecs/ecs_smoke_report.json", runbook)
         self.assertIn('"proof_mode":"ecs-public"', runbook)
+        self.assertIn("qwen-vl-fixture_model_qwen3-vl-flash", runbook)
+        self.assertIn("ecs_metadata_public_ip_matches", runbook)
         self.assertIn("prepare_ecs_proof_review", runbook)
         self.assertIn("--confirm-alibaba-context", runbook)
         self.assertIn("runs/ecs/ecs_proof_review.md generated with prepare-ecs-proof-review", manifest["operator_proof_required"])
+        self.assertIn(
+            "runs/ecs/ecs_smoke_report.json with qwen3-vl-flash fixture check",
+            manifest["operator_proof_required"],
+        )
+        self.assertIn(
+            "runs/ecs/ecs_smoke_report.json with deployed commit matching collector HEAD",
+            manifest["operator_proof_required"],
+        )
+        self.assertIn(
+            "runs/ecs/ecs_smoke_report.json with ECS metadata identity/public-IP binding",
+            manifest["operator_proof_required"],
+        )
         self.assertIn("collect_ecs_smoke_report", commands)
+        self.assertIn("--qwen-model", commands)
+        self.assertIn('QWEN_VL_MODEL="${QWEN_VL_MODEL:-$(env_value QWEN_VL_MODEL)}"', commands)
         self.assertIn("--proof-mode ecs-public", commands)
         self.assertIn("--ecs-region", commands)
         self.assertIn("--ecs-instance-id", commands)

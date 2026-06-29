@@ -22,7 +22,12 @@ from accountable_swarm.trace.models import canonical_json
 REPORT_SCHEMA_VERSION = "ecs-smoke-report.v1"
 SWARM_BUNDLE_SCHEMA_VERSION = "swarm-demo-bundle-report.v1"
 DEFAULT_OUT = Path("runs/ecs/ecs_smoke_report.json")
-DEFAULT_MODEL = "qwen-plus"
+DEFAULT_MODEL = "qwen3-vl-flash"
+ECS_METADATA_TOKEN_URL = "http://100.100.100.200/latest/api/token"
+ECS_METADATA_IDENTITY_URL = "http://100.100.100.200/latest/dynamic/instance-identity/document"
+ECS_METADATA_PUBLIC_IPV4_URL = "http://100.100.100.200/latest/meta-data/public-ipv4"
+ECS_METADATA_EIPV4_URL = "http://100.100.100.200/latest/meta-data/eipv4"
+ECS_METADATA_TOKEN_TTL_SECONDS = 300
 TEXT_PREVIEW_LIMIT = 128
 PROOF_MODES = ("local-smoke", "ecs-public")
 SECRET_PATTERNS: tuple[re.Pattern[str], ...] = (
@@ -127,6 +132,7 @@ def collect_report(
     ecs_instance_id: str = "",
     ecs_public_ip: str = "",
     fetcher: Callable[..., dict[str, Any]] | None = None,
+    metadata_fetcher: Callable[..., dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     if proof_mode not in PROOF_MODES:
         raise ValueError(f"proof mode must be one of {', '.join(PROOF_MODES)}")
@@ -165,6 +171,13 @@ def collect_report(
             validator=_validate_camera_fixture,
             fetcher=fetch,
         ),
+        _check_json(
+            base_url=normalized_base_url,
+            path=f"/qwen-vl-fixture?model={qwen_model}",
+            timeout_seconds=timeout_seconds,
+            validator=lambda payload: _validate_qwen_vl_fixture(payload, qwen_model=qwen_model),
+            fetcher=fetch,
+        ),
         _check_text(
             base_url=normalized_base_url,
             path="/swarm-demo",
@@ -193,9 +206,12 @@ def collect_report(
         ecs_region=ecs_region,
         ecs_instance_id=ecs_instance_id,
         ecs_public_ip=ecs_public_ip,
+        timeout_seconds=timeout_seconds,
+        metadata_fetcher=metadata_fetcher,
     )
     pass_conditions = {check["name"]: check["ok"] for check in checks}
     pass_conditions["deployed_commit_recorded"] = _is_git_oid(deployed_commit)
+    pass_conditions["deployed_commit_matches_collector_head"] = _is_git_oid(deployed_commit) and deployed_commit == _git_head()
     pass_conditions.update(deployment["pass_conditions"])
     outcome = "GO" if all(pass_conditions.values()) else "NARROW_CLAIM"
     return {
@@ -203,6 +219,7 @@ def collect_report(
         "outcome": outcome,
         "base_url": normalized_base_url,
         "deployed_commit": deployed_commit,
+        "collector_head": _git_head(),
         "proof_mode": proof_mode,
         "deployment": deployment["evidence"],
         "qwen_model": qwen_model,
@@ -293,7 +310,8 @@ def _response_payload(*, status_code: int, content_type: str, body: bytes) -> di
         "body_sha256": hashlib.sha256(body).hexdigest(),
         "byte_count": len(body),
     }
-    if "application/json" in content_type:
+    stripped_body = body.strip()
+    if "application/json" in content_type or stripped_body.startswith((b"{", b"[")):
         try:
             response["json"] = json.loads(body.decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError):
@@ -350,6 +368,33 @@ def _validate_camera_fixture(payload: dict[str, Any]) -> dict[str, Any]:
             "status": payload.get("status"),
             "decision": payload.get("decision"),
             "schema_version": payload.get("schema_version"),
+            "trace_summary_sha": trace_sha,
+        },
+    )
+
+
+def _validate_qwen_vl_fixture(payload: dict[str, Any], *, qwen_model: str) -> dict[str, Any]:
+    trace_sha = str(payload.get("trace_summary_sha", ""))
+    bbox = payload.get("bbox_2d_norm_1000")
+    ok = (
+        payload.get("status") == "ok"
+        and payload.get("model") == qwen_model
+        and payload.get("schema_version") == "decisiontrace.v2"
+        and payload.get("decision") == "VETO"
+        and _is_hex_64(trace_sha)
+        and isinstance(bbox, list)
+        and len(bbox) == 4
+        and all(isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 1000 for value in bbox)
+    )
+    return _validation(
+        ok=ok,
+        reason="Qwen3-VL fixture endpoint returned validated bbox and DecisionTrace summary",
+        evidence={
+            "status": payload.get("status"),
+            "model": payload.get("model"),
+            "label": str(payload.get("label", ""))[:64],
+            "schema_version": payload.get("schema_version"),
+            "decision": payload.get("decision"),
             "trace_summary_sha": trace_sha,
         },
     )
@@ -431,6 +476,8 @@ def _deployment_evidence(
     ecs_region: str,
     ecs_instance_id: str,
     ecs_public_ip: str,
+    timeout_seconds: int,
+    metadata_fetcher: Callable[..., dict[str, Any]] | None,
 ) -> dict[str, Any]:
     region = ecs_region.strip()
     instance_id = ecs_instance_id.strip()
@@ -438,6 +485,33 @@ def _deployment_evidence(
     public_ip = _parse_ip(public_ip_text)
     base_url_public = _base_url_uses_public_host(base_url)
     base_url_matches_ip = _base_url_matches_ip(base_url=base_url, public_ip=public_ip)
+    if proof_mode == "ecs-public":
+        metadata_response = (
+            metadata_fetcher(timeout_seconds=timeout_seconds)
+            if metadata_fetcher is not None
+            else _fetch_ecs_identity_document(timeout_seconds=timeout_seconds)
+        )
+    else:
+        metadata_response = {
+            "status_code": 0,
+            "content_type": "",
+            "body_sha256": "",
+            "byte_count": 0,
+            "error": "not_required_for_local_smoke",
+        }
+    identity_response = _metadata_response_part(metadata_response, "identity")
+    public_ipv4_response = _metadata_response_part(metadata_response, "public_ipv4")
+    eipv4_response = _metadata_response_part(metadata_response, "eipv4")
+    metadata_document = identity_response.get("json") if isinstance(identity_response, dict) else None
+    metadata_present = isinstance(metadata_document, dict)
+    metadata_region = _metadata_string(metadata_document, "region-id", "regionId") if metadata_present else ""
+    metadata_instance_id = _metadata_string(metadata_document, "instance-id", "instanceId") if metadata_present else ""
+    metadata_public_ipv4 = _metadata_text(public_ipv4_response)
+    metadata_eipv4 = _metadata_text(eipv4_response)
+    metadata_public_ip_matches = _metadata_public_ip_matches(
+        expected_public_ip=public_ip_text,
+        metadata_public_ips=(metadata_public_ipv4, metadata_eipv4),
+    )
     pass_conditions = {
         "proof_mode_is_ecs_public": proof_mode == "ecs-public",
         "ecs_region_recorded": _metadata_value_ok(region),
@@ -445,6 +519,10 @@ def _deployment_evidence(
         "ecs_public_ip_is_global": public_ip is not None and public_ip.is_global,
         "base_url_is_public_endpoint": base_url_public,
         "base_url_matches_public_ip_when_ip_literal": base_url_matches_ip,
+        "ecs_metadata_identity_document_present": metadata_present,
+        "ecs_metadata_region_matches": metadata_present and metadata_region == region,
+        "ecs_metadata_instance_id_matches": metadata_present and metadata_instance_id == instance_id,
+        "ecs_metadata_public_ip_matches": metadata_present and metadata_public_ip_matches,
     }
     evidence = {
         "provider_asserted": "Alibaba Cloud ECS" if proof_mode == "ecs-public" else "local smoke",
@@ -454,8 +532,145 @@ def _deployment_evidence(
         "ecs_public_ip": public_ip_text,
         "base_url_is_public_endpoint": base_url_public,
         "base_url_matches_public_ip_when_ip_literal": base_url_matches_ip,
+        "ecs_metadata_identity": _metadata_evidence(identity_response, metadata_document),
+        "ecs_metadata_public_ip": {
+            "public_ipv4": metadata_public_ipv4,
+            "eipv4": metadata_eipv4,
+        },
     }
     return {"evidence": evidence, "pass_conditions": pass_conditions}
+
+
+def _fetch_ecs_identity_document(*, timeout_seconds: int) -> dict[str, Any]:
+    token_response = _fetch_ecs_metadata_token(timeout_seconds=timeout_seconds)
+    token = _metadata_text(token_response)
+    if not token:
+        return {
+            "token": token_response,
+            "identity": token_response,
+            "public_ipv4": token_response,
+            "eipv4": token_response,
+        }
+    headers = {"X-aliyun-ecs-metadata-token": token}
+    return {
+        "token": _metadata_token_evidence(token_response),
+        "identity": _fetch_ecs_metadata_url(ECS_METADATA_IDENTITY_URL, timeout_seconds=timeout_seconds, headers=headers),
+        "public_ipv4": _fetch_ecs_metadata_url(ECS_METADATA_PUBLIC_IPV4_URL, timeout_seconds=timeout_seconds, headers=headers),
+        "eipv4": _fetch_ecs_metadata_url(ECS_METADATA_EIPV4_URL, timeout_seconds=timeout_seconds, headers=headers),
+    }
+
+
+def _fetch_ecs_metadata_token(*, timeout_seconds: int) -> dict[str, Any]:
+    token_request = request.Request(
+        ECS_METADATA_TOKEN_URL,
+        method="PUT",
+        headers={"X-aliyun-ecs-metadata-token-ttl-seconds": str(ECS_METADATA_TOKEN_TTL_SECONDS)},
+    )
+    try:
+        with request.urlopen(token_request, timeout=timeout_seconds) as resp:
+            body = resp.read()
+            return _response_payload(
+                status_code=resp.status,
+                content_type=resp.headers.get("Content-Type", "text/plain"),
+                body=body,
+            )
+    except (HTTPError, TimeoutError, URLError, OSError) as exc:
+        return {
+            "status_code": getattr(exc, "code", 0),
+            "content_type": "",
+            "body_sha256": "",
+            "byte_count": 0,
+            "error": type(exc).__name__,
+        }
+
+
+def _fetch_ecs_metadata_url(
+    url: str,
+    *,
+    timeout_seconds: int,
+    headers: dict[str, str],
+) -> dict[str, Any]:
+    metadata_request = request.Request(url, headers=headers)
+    try:
+        with request.urlopen(metadata_request, timeout=timeout_seconds) as resp:
+            body = resp.read()
+            return _response_payload(
+                status_code=resp.status,
+                content_type=resp.headers.get("Content-Type", "application/json"),
+                body=body,
+            )
+    except (HTTPError, TimeoutError, URLError, OSError) as exc:
+        return {
+            "status_code": getattr(exc, "code", 0),
+            "content_type": "",
+            "body_sha256": "",
+            "byte_count": 0,
+            "error": type(exc).__name__,
+        }
+
+
+def _metadata_response_part(response: object, key: str) -> object:
+    if isinstance(response, dict) and key in response:
+        return response.get(key)
+    return response
+
+
+def _metadata_string(document: object, *keys: str) -> str:
+    if not isinstance(document, dict):
+        return ""
+    for key in keys:
+        value = document.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return ""
+
+
+def _metadata_text(response: object) -> str:
+    if not isinstance(response, dict):
+        return ""
+    value = response.get("text_prefix")
+    return value.strip() if isinstance(value, str) else ""
+
+
+def _metadata_public_ip_matches(*, expected_public_ip: str, metadata_public_ips: tuple[str, ...]) -> bool:
+    expected = _parse_ip(expected_public_ip.strip())
+    if expected is None:
+        return False
+    for metadata_value in metadata_public_ips:
+        candidate = _parse_ip(metadata_value.strip())
+        if candidate is not None and candidate == expected:
+            return True
+    return False
+
+
+def _metadata_token_evidence(response: object) -> dict[str, Any]:
+    if not isinstance(response, dict):
+        return {"status_code": 0, "body_sha256": "", "byte_count": 0}
+    return {
+        "status_code": response.get("status_code", 0),
+        "body_sha256": response.get("body_sha256", ""),
+        "byte_count": response.get("byte_count", 0),
+    }
+
+
+def _metadata_evidence(response: object, document: object) -> dict[str, Any]:
+    status_code = response.get("status_code") if isinstance(response, dict) else 0
+    body_sha = response.get("body_sha256") if isinstance(response, dict) else ""
+    if not isinstance(document, dict):
+        return {
+            "status_code": status_code,
+            "body_sha256": body_sha,
+            "document_present": False,
+        }
+    return {
+        "status_code": status_code,
+        "body_sha256": body_sha,
+        "document_present": True,
+        "region_id": _metadata_string(document, "region-id", "regionId"),
+        "instance_id": _metadata_string(document, "instance-id", "instanceId"),
+        "zone_id": _metadata_string(document, "zone-id", "zoneId"),
+        "image_id": _metadata_string(document, "image-id", "imageId"),
+    }
 
 
 def _input_validation_failure_report(
@@ -474,6 +689,7 @@ def _input_validation_failure_report(
         "outcome": "NARROW_CLAIM",
         "base_url": _sanitize_text(base_url),
         "deployed_commit": _sanitize_text(deployed_commit),
+        "collector_head": _git_head(),
         "proof_mode": proof_mode,
         "deployment": {
             "provider_asserted": "Alibaba Cloud ECS" if proof_mode == "ecs-public" else "local smoke",
@@ -487,6 +703,7 @@ def _input_validation_failure_report(
         "pass_conditions": {
             "input_validation_passed": False,
             "deployed_commit_recorded": _is_git_oid(deployed_commit),
+            "deployed_commit_matches_collector_head": _is_git_oid(deployed_commit) and deployed_commit == _git_head(),
         },
         "error": {
             "type": "ValueError",

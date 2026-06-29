@@ -61,6 +61,39 @@ class ServerTests(TestCase):
             payload = json.loads(ctx.exception.read().decode("utf-8"))
             self.assertEqual(payload["status"], "failed")
 
+    def test_qwen_vl_fixture_calls_detector_and_returns_trace(self) -> None:
+        calls: dict[str, str] = {}
+
+        class FakeClient:
+            def __init__(self, *, model: str) -> None:
+                self.model = model
+
+            def detect_bbox(self, *, image_path: Path, target: str) -> str:
+                calls["target"] = target
+                calls["image_name"] = image_path.name
+                return '[{"bbox_2d":[250,250,750,750],"label":"marked hazard"}]'
+
+        with (
+            patch.dict(os.environ, {"ALIBABA_API_KEY": "test-key"}),
+            patch("accountable_swarm.server.DashScopeQwenClient", FakeClient),
+            _test_server() as base_url,
+        ):
+            payload = _get_json(f"{base_url}/qwen-vl-fixture?model=qwen3-vl-flash")
+
+        self.assertEqual(payload["status"], "ok")
+        self.assertEqual(calls, {"target": "marked hazard", "image_name": "hazard_marker.ppm"})
+        self.assertEqual(payload["model"], "qwen3-vl-flash")
+        self.assertEqual(payload["decision"], "VETO")
+        self.assertEqual(payload["schema_version"], "decisiontrace.v2")
+        self.assertEqual(payload["bbox_2d_norm_1000"], [250, 250, 750, 750])
+        self.assertEqual(len(payload["trace_summary_sha"]), 64)
+
+    def test_qwen_vl_fixture_without_key_returns_503(self) -> None:
+        with patch.dict(os.environ, {"ALIBABA_API_KEY": ""}), _test_server() as base_url:
+            with self.assertRaises(HTTPError) as ctx:
+                _get_json(f"{base_url}/qwen-vl-fixture?model=qwen3-vl-flash")
+            self.assertEqual(ctx.exception.code, 503)
+
     def test_swarm_demo_bundle_files_are_served_from_configured_root(self) -> None:
         with TemporaryDirectory() as tmpdir:
             bundle_dir = Path(tmpdir) / "bundle"

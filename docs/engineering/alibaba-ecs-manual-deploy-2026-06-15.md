@@ -12,6 +12,8 @@ and runs the commands.
   https://www.alibabacloud.com/help/en/ecs/user-guide/install-and-use-docker
 - Alibaba Cloud ECS security group docs, last updated 2026-03-26:
   https://www.alibabacloud.com/help/en/ecs/user-guide/start-using-security-groups
+- Alibaba Cloud ECS instance identity / metadata docs:
+  https://www.alibabacloud.com/help/en/ecs/user-guide/use-instance-identities
 - Alibaba Cloud Model Studio OpenAI-compatible chat docs, last updated
   2026-03-18:
   https://www.alibabacloud.com/help/en/model-studio/compatibility-of-openai-with-dashscope
@@ -82,15 +84,20 @@ builds the bundle to that same path.
 curl -fsS http://127.0.0.1:8000/healthz
 curl -fsS http://127.0.0.1:8000/readyz
 curl -fsS http://127.0.0.1:8000/camera-fixture
+curl -fsS 'http://127.0.0.1:8000/qwen-vl-fixture?model=qwen3-vl-flash'
 curl -fsS http://127.0.0.1:8000/swarm-demo
 curl -fsS http://127.0.0.1:8000/swarm-demo/summary.json
-curl -fsS 'http://127.0.0.1:8000/qwen-ping?model=qwen-plus'
+curl -fsS 'http://127.0.0.1:8000/qwen-ping?model=qwen3-vl-flash'
 ```
 
 Then collect the sanitized machine-readable proof report against the public
 endpoint. A localhost report is only diagnostic and must not be promoted as an
 Alibaba ECS deployment proof. Use the ECS public IP literal in `BASE_URL`, not
-a hostname. For IPv6 literals, bracket the host in `BASE_URL`.
+a hostname. The collector must run on the ECS host because it reads the
+tokenized Alibaba ECS metadata endpoint at `100.100.100.200` and binds
+`region-id`, `instance-id`, and public IPv4/EIP metadata to the report. For
+IPv6 literals, bracket the host in `BASE_URL`, but the current proof gate is
+public-IPv4/EIP-bound.
 
 ```bash
 BASE_URL="http://${ECS_PUBLIC_IP}:8000"  # IPv4
@@ -124,10 +131,15 @@ The deployment proof is complete only when the operator records:
 - Docker image build command;
 - `curl /healthz` output;
 - `curl /camera-fixture` output with a 64-character `trace_summary_sha`;
+- `curl /qwen-vl-fixture?model=qwen3-vl-flash` output with `status: ok`, a
+  validated bbox, and a 64-character `trace_summary_sha`;
 - `curl /swarm-demo/summary.json` output with `outcome: GO`;
-- `curl /qwen-ping?model=qwen-plus` output with `status: ok`;
+- `curl /qwen-ping?model=qwen3-vl-flash` output with `status: ok`;
 - `runs/ecs/ecs_smoke_report.json` with top-level `outcome: GO` and
   `proof_mode: ecs-public`;
+- `runs/ecs/ecs_smoke_report.json` showing `deployed_commit_matches_collector_head`,
+  `ecs_metadata_identity_document_present`, `ecs_metadata_region_matches`,
+  `ecs_metadata_instance_id_matches`, and `ecs_metadata_public_ip_matches`;
 - screenshot or terminal log showing this ran against the Alibaba ECS public
   endpoint.
 
@@ -154,8 +166,11 @@ GET /readyz
 GET /camera-fixture
 {"decision":"VETO","schema_version":"decisiontrace.v2","status":"ok","trace_summary_sha":"35152f4411566df7d2f886b17793a5339d197ea5c33e75b6c4b9a8ea19bfd81d"}
 
-GET /qwen-ping?model=qwen-plus
-{"content_prefix":"OK.","model":"qwen-plus","status":"ok"}
+GET /qwen-vl-fixture?model=qwen3-vl-flash
+{"bbox_2d_norm_1000":[...],"decision":"VETO","model":"qwen3-vl-flash","schema_version":"decisiontrace.v2","status":"ok","trace_summary_sha":"..."}
+
+GET /qwen-ping?model=qwen3-vl-flash
+{"content_prefix":"OK.","model":"qwen3-vl-flash","status":"ok"}
 ```
 
 The ECS proof is still pending until the same checks run in `ecs-public` mode

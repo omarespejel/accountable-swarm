@@ -63,6 +63,11 @@ class AccountableSwarmHandler(BaseHTTPRequestHandler):
         if parsed.path == "/camera-fixture":
             self._handle_camera_fixture()
             return
+        if parsed.path == "/qwen-vl-fixture":
+            query = parse_qs(parsed.query)
+            model = query.get("model", [os.getenv("QWEN_VL_MODEL", "qwen3-vl-flash")])[0]
+            self._handle_qwen_vl_fixture(model=model)
+            return
         if parsed.path == "/swarm-demo":
             self._handle_swarm_demo_file("index.html")
             return
@@ -130,6 +135,52 @@ class AccountableSwarmHandler(BaseHTTPRequestHandler):
         self._send_json(
             {
                 "status": "ok",
+                "trace_summary_sha": summary_sha,
+                "schema_version": trace.schema_version,
+                "decision": trace.events[0].decision,
+            }
+        )
+
+    def _handle_qwen_vl_fixture(self, *, model: str) -> None:
+        image_path = Path("fixtures/hazard_marker.ppm")
+        width, height = image_size(image_path)
+        try:
+            response_text = DashScopeQwenClient(model=model).detect_bbox(image_path=image_path, target="marked hazard")
+            grounding = parse_qwen_bbox_response(response_text, image_width=width, image_height=height)
+        except MissingAlibabaApiKey:
+            self._send_json({"status": "missing_key", "model": model}, status=503)
+            return
+        except (DashScopeResponseError, ValueError) as exc:
+            self._send_json({"status": "failed", "model": model, "error": str(exc)}, status=502)
+            return
+        perception = PerceptionEvent(
+            event_id="ecs-qwen-vl-perception-0000",
+            source=f"qwen-vl-fixture://{image_path.name}",
+            image_width=width,
+            image_height=height,
+            label=grounding.label,
+            bbox_2d_norm_1000=grounding.bbox_2d_norm_1000,
+            bbox_2d_px=grounding.bbox_2d_px,
+            model=model,
+            score_milli=grounding.score_milli,
+        )
+        trace = build_single_event_trace(
+            run_id="ecs-qwen-vl-fixture-0000",
+            actor_id="ecs-edge-node-0",
+            mode="cloud",
+            perception=perception,
+            intent="hold if Qwen3-VL sees marked hazard in deployed fixture",
+            decision="VETO",
+            reason="Qwen3-VL bbox detection returned a marked hazard",
+            command={"type": "hold", "duration_ticks": 1},
+        )
+        summary_sha = verify_trace(trace)
+        self._send_json(
+            {
+                "status": "ok",
+                "model": model,
+                "label": grounding.label,
+                "bbox_2d_norm_1000": list(grounding.bbox_2d_norm_1000),
                 "trace_summary_sha": summary_sha,
                 "schema_version": trace.schema_version,
                 "decision": trace.events[0].decision,

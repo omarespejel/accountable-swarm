@@ -26,12 +26,18 @@ The collector reports `GO` only when all of these pass:
 - `/healthz` returns `status: ok` and `service: accountable-swarm`;
 - `/readyz` returns `status: ok` and confirms an Alibaba API key is present;
 - `/camera-fixture` returns a verified `VETO` DecisionTrace summary SHA;
+- `/qwen-vl-fixture?model=qwen3-vl-flash` performs a live Qwen3-VL bbox
+  round-trip from the deployed host and returns a verified `DecisionTrace`
+  summary SHA;
 - `/swarm-demo` serves HTML;
 - `/swarm-demo/summary.json` reports `outcome: GO`;
-- `/qwen-ping?model=qwen-plus` returns `status: ok`;
-- the deployed commit SHA is recorded;
+- `/qwen-ping?model=qwen3-vl-flash` returns `status: ok`;
+- the deployed commit SHA is recorded and matches the collector checkout HEAD;
 - `--proof-mode ecs-public` is used;
 - ECS region, instance ID, and global public IP are recorded;
+- the collector reads the Alibaba ECS instance metadata service from the ECS
+  host and matches `region-id`, `instance-id`, and public IPv4/EIP evidence to
+  the operator-supplied metadata;
 - the checked `--base-url` is a public IP-literal endpoint, not localhost, a
   private IP, or a hostname;
 - the IP-literal `--base-url` matches `--ecs-public-ip`.
@@ -41,7 +47,10 @@ operator explicitly passes `--allow-narrow-claim`.
 
 ## Operator Command
 
-Run this against the ECS public endpoint after the Docker container is running.
+Run this on the Alibaba ECS host against the ECS public endpoint after the
+Docker container is running. The collector queries the ECS instance metadata
+service at `100.100.100.200`; running the same command from a laptop must not be
+promoted as ECS proof because the metadata binding will fail.
 `local-smoke` mode and localhost are useful diagnostics, but they intentionally
 produce `NARROW_CLAIM` rather than deployment proof. Use the ECS public IP
 literal in `BASE_URL`, not a hostname. For IPv6 literals, bracket the host, for
@@ -88,9 +97,12 @@ python3 -m unittest tests.test_ecs_smoke_report_cli
 
 Covered cases:
 
-- full endpoint set plus public ECS metadata returns `GO`;
+- full endpoint set plus tokenized ECS identity/public-IP metadata returns
+  `GO`;
 - localhost/default `local-smoke` mode returns `NARROW_CLAIM`;
 - missing Qwen/API-key proof returns `NARROW_CLAIM` and exit code `4`;
+- mismatched deployed commit returns `NARROW_CLAIM`;
+- absent or mismatched ECS metadata returns `NARROW_CLAIM`;
 - `--allow-narrow-claim` writes the report with exit code `0` for diagnostic
   capture.
 
