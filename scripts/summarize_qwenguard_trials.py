@@ -299,7 +299,7 @@ def _verify_trial_binding(
     return binding
 
 
-def _trial_trace_metadata(trace: Any) -> dict[str, str]:
+def _trial_trace_metadata(trace: Any) -> dict[str, Any]:
     commands = [event.command for event in trace.events if isinstance(event.command, dict)]
     perception_event_ids = sorted({event.perception.event_id for event in trace.events})
     if len(perception_event_ids) != 1:
@@ -321,8 +321,8 @@ def _trial_trace_metadata(trace: Any) -> dict[str, str]:
         "motion_executed_reason": _string_reason(reason_values, "motion_executed"),
         "control_label_reason": _string_reason(reason_values, "control_label"),
         "gate_decision": _string_command(gate_command, "gate_decision"),
-        "predicted_success_milli": _int_command(gate_command, "predicted_success_milli"),
-        "risk_level": _string_command(gate_command, "risk_level"),
+        "predicted_success_milli": _optional_int_command(gate_command, "predicted_success_milli"),
+        "risk_level": _optional_string_command(gate_command, "risk_level"),
         "action_policy": _string_command(action_command, "policy"),
         "motion_executed": _bool_command(action_command, "motion_executed"),
         "control_label": _string_command(action_command, "control_label"),
@@ -366,6 +366,15 @@ def _string_command(command: dict[str, Any], key: str) -> str:
     return value
 
 
+def _optional_string_command(command: dict[str, Any], key: str) -> str | None:
+    value = command.get(key)
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value:
+        raise ValueError(f"trial trace command missing string field: {key}")
+    return value
+
+
 def _bool_command(command: dict[str, Any], key: str) -> bool:
     value = command.get(key)
     if not isinstance(value, bool):
@@ -375,6 +384,15 @@ def _bool_command(command: dict[str, Any], key: str) -> bool:
 
 def _int_command(command: dict[str, Any], key: str) -> int:
     value = command.get(key)
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"trial trace command missing int field: {key}")
+    return value
+
+
+def _optional_int_command(command: dict[str, Any], key: str) -> int | None:
+    value = command.get(key)
+    if value is None:
+        return None
     if isinstance(value, bool) or not isinstance(value, int):
         raise ValueError(f"trial trace command missing int field: {key}")
     return value

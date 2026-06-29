@@ -112,6 +112,16 @@ Before running any LeRobot command that can move the SO-101:
 4. For autonomous policy rollout, the leader is detached or clearly
    non-authoritative.
 
+The generated command script hard-fails unless the relevant acknowledgements
+are exported before motion-capable LeRobot commands:
+
+```bash
+export QWENGUARD_EMERGENCY_STOP_READY=yes
+export QWENGUARD_LOW_SPEED_MODE=yes
+export QWENGUARD_WORKSPACE_BOUNDS_SET=yes
+export QWENGUARD_LEADER_DETACHED_OR_NONAUTHORITATIVE=yes  # autonomous rollout only
+```
+
 The camera probe command remains trace-only and does not require these motion
 acknowledgements.
 

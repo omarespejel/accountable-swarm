@@ -8,7 +8,7 @@ import sys
 from tempfile import TemporaryDirectory
 from unittest import TestCase
 
-from accountable_swarm.qwenguard.trial import trial_csv_header
+from accountable_swarm.qwenguard.trial import expected_trial_run_id, trial_csv_header
 from accountable_swarm.trace.models import DecisionEvent, DecisionTrace, GENESIS_SHA, trace_from_dict, verify_trace
 from scripts.summarize_qwenguard_trials import _contains_secret_like_material
 
@@ -415,6 +415,64 @@ class SummarizeQwenGuardTrialsCliTests(TestCase):
         self.assertFalse(report["checks"]["trial_bindings_verify"])
         self.assertIn("trace run_id does not match trial_id", " ".join(report["invalid_reasons"]))
 
+    def test_trace_perception_event_id_must_match_trial_id(self) -> None:
+        base = ROOT / "runs" / "physical"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            root = Path(tmpdir)
+            trace_dir = root / "traces"
+            csv_out = root / "trial_results.csv"
+            summary_out = root / "trial_summary.json"
+            _record_trial(
+                trial_id="other-event",
+                outcome="success",
+                trace_dir=trace_dir,
+                csv_out=csv_out,
+                extra=["--motion-executed", "true", "--control-label", "AUTONOMOUS"],
+            )
+            source_trace = trace_dir / "other-event.json"
+            forged_trace = trace_dir / "trial-event-forged.json"
+            forged_trace.write_text(source_trace.read_text(encoding="utf-8"), encoding="utf-8")
+            _rewrite_trace_run_id(forged_trace, expected_trial_run_id("trial-event-forged"))
+            row = _base_trial_row()
+            row["trial_id"] = "trial-event-forged"
+            row["trace_summary_sha"] = _trace_summary_sha(forged_trace)
+            _write_csv(csv_out, [row])
+            result = _run_summary(csv_out=csv_out, trace_dir=trace_dir, out=summary_out, allow_narrow=True)
+            report = json.loads(summary_out.read_text(encoding="utf-8"))
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(report["outcome"], "NARROW_CLAIM")
+        self.assertFalse(report["checks"]["trial_bindings_verify"])
+        self.assertIn("trace perception event_id does not match trial_id", " ".join(report["invalid_reasons"]))
+
+    def test_optional_gate_fields_can_be_absent_from_verified_trace(self) -> None:
+        base = ROOT / "runs" / "physical"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            root = Path(tmpdir)
+            trace_dir = root / "traces"
+            csv_out = root / "trial_results.csv"
+            summary_out = root / "trial_summary.json"
+            _record_trial(
+                trial_id="trial-optional",
+                outcome="success",
+                trace_dir=trace_dir,
+                csv_out=csv_out,
+                extra=["--motion-executed", "true", "--control-label", "AUTONOMOUS"],
+            )
+            trace_path = trace_dir / "trial-optional.json"
+            _remove_gate_fields(trace_path, {"predicted_success_milli", "risk_level"})
+            rows = _read_csv(csv_out)
+            rows[0]["trace_summary_sha"] = _trace_summary_sha(trace_path)
+            _write_csv(csv_out, rows)
+            result = _run_summary(csv_out=csv_out, trace_dir=trace_dir, out=summary_out)
+            report = json.loads(summary_out.read_text(encoding="utf-8"))
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(report["outcome"], "GO")
+        self.assertTrue(report["checks"]["trial_bindings_verify"])
+
     def test_duplicate_trace_summary_sha_is_narrow_claim(self) -> None:
         base = ROOT / "runs" / "physical"
         base.mkdir(parents=True, exist_ok=True)
@@ -574,6 +632,38 @@ def _rewrite_action_metadata(path: Path, *, motion_executed: bool, control_label
                 else:
                     reasons.append(reason)
             command["reasons"] = reasons
+        rewritten = DecisionEvent(
+            tick=event.tick,
+            actor_id=event.actor_id,
+            mode=event.mode,
+            intent=event.intent,
+            decision=event.decision,
+            reason=event.reason,
+            command=command,
+            perception=event.perception,
+            prev_sha=prev_sha,
+        ).with_computed_sha()
+        events.append(rewritten)
+        prev_sha = rewritten.sha256
+    rewritten_trace = DecisionTrace(run_id=trace.run_id, events=tuple(events)).with_computed_summary()
+    path.write_text(rewritten_trace.to_canonical_json(), encoding="utf-8")
+
+
+def _rewrite_trace_run_id(path: Path, run_id: str) -> None:
+    trace = trace_from_dict(json.loads(path.read_text(encoding="utf-8")))
+    rewritten_trace = DecisionTrace(run_id=run_id, events=trace.events).with_computed_summary()
+    path.write_text(rewritten_trace.to_canonical_json(), encoding="utf-8")
+
+
+def _remove_gate_fields(path: Path, fields: set[str]) -> None:
+    trace = trace_from_dict(json.loads(path.read_text(encoding="utf-8")))
+    events = []
+    prev_sha = GENESIS_SHA
+    for event in trace.events:
+        command = dict(event.command)
+        if command.get("type") == "qwenguard_outcome_gate":
+            for field_name in fields:
+                command.pop(field_name, None)
         rewritten = DecisionEvent(
             tick=event.tick,
             actor_id=event.actor_id,
