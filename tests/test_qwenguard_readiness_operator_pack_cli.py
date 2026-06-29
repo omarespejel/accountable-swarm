@@ -51,12 +51,14 @@ class QwenGuardReadinessOperatorPackCliTests(TestCase):
         self.assertTrue(all(manifest["pass_conditions"].values()))
         self.assertIn("all-preflight", manifest["operator_phases"])
         self.assertIn("so101-camera", manifest["operator_phases"])
+        self.assertIn("summarize-trials", manifest["operator_phases"])
         self.assertIn("ecs-pack", manifest["operator_phases"])
         self.assertIn("video-review", manifest["operator_phases"])
         self.assertIn("audit-final", manifest["operator_phases"])
         self.assertIn("prepare_qwenguard_physical_go_pack", commands)
         self.assertIn("prepare_ecs_operator_pack", commands)
         self.assertIn("prepare_qwenguard_submission_pack", commands)
+        self.assertIn("summarize_qwenguard_trials", commands)
         self.assertIn("prepare_qwenguard_final_video_review", commands)
         self.assertIn("audit_qwenguard_submission_readiness", commands)
         self.assertIn("No phase in this script enters raw secrets", commands)
@@ -67,6 +69,7 @@ class QwenGuardReadinessOperatorPackCliTests(TestCase):
         self.assertNotIn("safe to run before hardware", runbook)
         self.assertNotIn("no-hardware fixture/degraded traces", runbook)
         self.assertIn("SO-101 camera report", runbook)
+        self.assertIn("trial_summary.json", runbook)
         self.assertNotIn("ALIBABA_API_KEY=", "\n".join([commands, runbook, json.dumps(manifest)]))
         self.assertNotIn("ghp_", "\n".join([commands, runbook, json.dumps(manifest)]))
         self.assertTrue(
@@ -215,6 +218,45 @@ class QwenGuardReadinessOperatorPackCliTests(TestCase):
 
             self.assertEqual(result.returncode, 2)
             self.assertIn("QWENGUARD_VIDEO_ARTIFACT", result.stderr)
+
+    def test_generated_runner_rejects_escaping_trial_summary_override(self) -> None:
+        self._assert_summarize_trials_rejects_path_escape(
+            env_name="QWENGUARD_TRIAL_SUMMARY",
+            env_value="../escape.json",
+        )
+
+    def test_generated_runner_rejects_escaping_trial_csv_override(self) -> None:
+        self._assert_summarize_trials_rejects_path_escape(
+            env_name="QWENGUARD_TRIAL_CSV",
+            env_value="../escape.csv",
+        )
+
+    def test_generated_runner_rejects_escaping_trial_trace_dir_override(self) -> None:
+        self._assert_summarize_trials_rejects_path_escape(
+            env_name="QWENGUARD_TRIAL_TRACE_DIR",
+            env_value="../escape-traces",
+        )
+
+    def _assert_summarize_trials_rejects_path_escape(self, *, env_name: str, env_value: str) -> None:
+        base = ROOT / "runs" / "submission"
+        base.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=base) as tmpdir:
+            out_dir = Path(tmpdir) / "readiness-pack"
+            prep = _run_pack_cli("--out-dir", str(out_dir.relative_to(ROOT)))
+            self.assertEqual(prep.returncode, 0, prep.stderr)
+            env = {**os.environ, env_name: env_value}
+
+            result = subprocess.run(
+                ["bash", str(out_dir / "operator_commands.sh"), "summarize-trials"],
+                cwd=ROOT,
+                env=env,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 2)
+            self.assertIn(env_name, result.stderr)
 
 
 def _run_pack_cli(*args: str) -> subprocess.CompletedProcess[str]:

@@ -27,6 +27,7 @@ audit-qwenguard-submission-readiness = "scripts.audit_qwenguard_submission_readi
 prepare-qwenguard-final-video-review = "scripts.prepare_qwenguard_final_video_review:main"
 prepare-qwenguard-readiness-operator-pack = "scripts.prepare_qwenguard_readiness_operator_pack:main"
 record-qwenguard-trial = "scripts.record_qwenguard_trial:main"
+summarize-qwenguard-trials = "scripts.summarize_qwenguard_trials:main"
 prepare-demo-recording-pack = "scripts.prepare_demo_recording_pack:main"
 prepare-world-model-dashboard-pack = "scripts.prepare_world_model_dashboard_pack:main"
 render-world-model-dashboard-html = "scripts.render_world_model_dashboard_html:main"
