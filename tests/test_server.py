@@ -94,6 +94,22 @@ class ServerTests(TestCase):
                 _get_json(f"{base_url}/qwen-vl-fixture?model=qwen3-vl-flash")
             self.assertEqual(ctx.exception.code, 503)
 
+    def test_qwen_vl_fixture_read_failure_returns_json_error(self) -> None:
+        with (
+            patch.dict(os.environ, {"ALIBABA_API_KEY": "test-key"}),
+            patch("accountable_swarm.server.image_size", side_effect=OSError("missing fixture")),
+            _test_server() as base_url,
+        ):
+            with self.assertRaises(HTTPError) as ctx:
+                _get_json(f"{base_url}/qwen-vl-fixture?model=qwen3-vl-flash")
+            self.assertEqual(ctx.exception.code, 502)
+            payload = json.loads(ctx.exception.read().decode("utf-8"))
+
+        self.assertEqual(payload["status"], "failed")
+        self.assertEqual(payload["model"], "qwen3-vl-flash")
+        self.assertEqual(payload["error"], "fixture_read_failed")
+        self.assertEqual(payload["image"], "hazard_marker.ppm")
+
     def test_swarm_demo_bundle_files_are_served_from_configured_root(self) -> None:
         with TemporaryDirectory() as tmpdir:
             bundle_dir = Path(tmpdir) / "bundle"

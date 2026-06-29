@@ -143,12 +143,18 @@ class AccountableSwarmHandler(BaseHTTPRequestHandler):
 
     def _handle_qwen_vl_fixture(self, *, model: str) -> None:
         image_path = Path("fixtures/hazard_marker.ppm")
-        width, height = image_size(image_path)
         try:
+            width, height = image_size(image_path)
             response_text = DashScopeQwenClient(model=model).detect_bbox(image_path=image_path, target="marked hazard")
             grounding = parse_qwen_bbox_response(response_text, image_width=width, image_height=height)
         except MissingAlibabaApiKey:
             self._send_json({"status": "missing_key", "model": model}, status=503)
+            return
+        except OSError:
+            self._send_json(
+                {"status": "failed", "model": model, "error": "fixture_read_failed", "image": image_path.name},
+                status=502,
+            )
             return
         except (DashScopeResponseError, ValueError) as exc:
             self._send_json({"status": "failed", "model": model, "error": str(exc)}, status=502)

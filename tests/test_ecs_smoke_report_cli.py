@@ -6,6 +6,7 @@ import sys
 from tempfile import TemporaryDirectory
 from threading import Thread
 from unittest import TestCase
+from unittest.mock import patch
 
 from scripts import collect_ecs_smoke_report as collector
 
@@ -40,6 +41,26 @@ class EcsSmokeReportCliTests(TestCase):
         self.assertTrue(all(report["pass_conditions"].values()))
         self.assertEqual(report["collector_head"], COMMIT)
         self.assertEqual(len(report["checks"]), 7)
+
+    def test_collect_report_uses_one_cached_git_head(self) -> None:
+        collector_head = "a" * 40
+        with patch("scripts.collect_ecs_smoke_report._git_head", return_value=collector_head) as git_head:
+            report = collector.collect_report(
+                base_url=f"http://{ECS_IP}:8000",
+                qwen_model="qwen3-vl-flash",
+                deployed_commit=collector_head,
+                timeout_seconds=10,
+                proof_mode="ecs-public",
+                ecs_region="us-west-1",
+                ecs_instance_id="i-accountable-swarm",
+                ecs_public_ip=ECS_IP,
+                fetcher=_fake_fetcher(qwen_status="ok"),
+                metadata_fetcher=_fake_metadata_fetcher(region="us-west-1", instance_id="i-accountable-swarm"),
+            )
+
+        self.assertEqual(git_head.call_count, 1)
+        self.assertEqual(report["collector_head"], collector_head)
+        self.assertTrue(report["pass_conditions"]["deployed_commit_matches_collector_head"])
 
         for field_name, updates in [
             ("ecs_region", {"ecs_region": ""}),
@@ -242,6 +263,17 @@ class EcsSmokeReportCliTests(TestCase):
 
         self.assertEqual(report["outcome"], "GO")
         self.assertTrue(report["pass_conditions"]["ecs_metadata_identity_document_present"])
+
+    def test_plain_text_metadata_survives_json_content_type_mismatch(self) -> None:
+        response = collector._response_payload(
+            status_code=200,
+            content_type="application/json",
+            body=f"{ECS_IP}\n".encode("utf-8"),
+        )
+
+        self.assertEqual(response["text_prefix"], f"{ECS_IP}\n")
+        self.assertEqual(collector._metadata_text(response), ECS_IP)
+        self.assertTrue(response["json_parse_error"])
 
     def test_fails_closed_when_swarm_summary_schema_is_wrong(self) -> None:
         with _fake_ecs_server(qwen_status="ok", summary_schema="wrong.v1") as base_url, TemporaryDirectory() as tmpdir:
