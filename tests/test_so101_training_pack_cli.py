@@ -1,4 +1,5 @@
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -43,6 +44,10 @@ class SO101TrainingPackCliTests(TestCase):
             self.assertIn("QWENGUARD_LOW_SPEED_MODE", joined)
             self.assertIn("QWENGUARD_WORKSPACE_BOUNDS_SET", joined)
             self.assertIn("QWENGUARD_LEADER_DETACHED_OR_NONAUTHORITATIVE", joined)
+            self.assertIn("export QWENGUARD_EMERGENCY_STOP_READY=yes", joined)
+            self.assertIn("export QWENGUARD_LOW_SPEED_MODE=yes", joined)
+            self.assertIn("export QWENGUARD_WORKSPACE_BOUNDS_SET=yes", joined)
+            self.assertIn("export QWENGUARD_LEADER_DETACHED_OR_NONAUTHORITATIVE=yes", joined)
 
     def test_training_pack_quotes_shell_unsafe_task(self) -> None:
         with TemporaryDirectory() as tmp:
@@ -76,3 +81,87 @@ class SO101TrainingPackCliTests(TestCase):
             self.assertEqual(syntax.returncode, 0, syntax.stderr)
             self.assertEqual(json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))["task"], task)
             self.assertIn("Bob", script.read_text(encoding="utf-8"))
+
+    def test_generated_commands_stop_before_motion_without_readiness_acknowledgements(self) -> None:
+        with TemporaryDirectory() as tmp:
+            out_dir = Path(tmp) / "pack"
+            _prepare_pack(out_dir)
+            log = Path(tmp) / "commands.log"
+            fake_bin = _fake_command_bin(Path(tmp), log)
+            result = subprocess.run(
+                ["bash", str(out_dir / "operator_commands.sh")],
+                text=True,
+                capture_output=True,
+                cwd=ROOT,
+                check=False,
+                env={**os.environ, "PATH": f"{fake_bin}:{os.environ['PATH']}", "QWENGUARD_TEST_LOG": str(log)},
+            )
+
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("QWENGUARD_EMERGENCY_STOP_READY=yes required", result.stderr)
+            log_text = log.read_text(encoding="utf-8")
+            self.assertIn("python -m pip install", log_text)
+            self.assertIn("capture-so101-camera-frame", log_text)
+            self.assertNotIn("python -m lerobot.record", log_text)
+
+    def test_generated_commands_stop_before_autonomous_rollout_without_leader_acknowledgement(self) -> None:
+        with TemporaryDirectory() as tmp:
+            out_dir = Path(tmp) / "pack"
+            _prepare_pack(out_dir)
+            log = Path(tmp) / "commands.log"
+            fake_bin = _fake_command_bin(Path(tmp), log)
+            result = subprocess.run(
+                ["bash", str(out_dir / "operator_commands.sh")],
+                text=True,
+                capture_output=True,
+                cwd=ROOT,
+                check=False,
+                env={
+                    **os.environ,
+                    "PATH": f"{fake_bin}:{os.environ['PATH']}",
+                    "QWENGUARD_TEST_LOG": str(log),
+                    "QWENGUARD_EMERGENCY_STOP_READY": "yes",
+                    "QWENGUARD_LOW_SPEED_MODE": "yes",
+                    "QWENGUARD_WORKSPACE_BOUNDS_SET": "yes",
+                },
+            )
+
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("QWENGUARD_LEADER_DETACHED_OR_NONAUTHORITATIVE=yes required", result.stderr)
+            log_text = log.read_text(encoding="utf-8")
+            self.assertEqual(log_text.count("python -m lerobot.record"), 1)
+            self.assertIn("python -m lerobot.train", log_text)
+
+
+def _prepare_pack(out_dir: Path) -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "scripts.prepare_so101_training_pack",
+            "--out-dir",
+            str(out_dir),
+        ],
+        text=True,
+        capture_output=True,
+        cwd=ROOT,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise AssertionError(result.stderr)
+
+
+def _fake_command_bin(tmp_root: Path, log: Path) -> Path:
+    fake_bin = tmp_root / "fake-bin"
+    fake_bin.mkdir()
+    for name in ("python", "capture-so101-camera-frame"):
+        command = fake_bin / name
+        command.write_text(
+            "#!/usr/bin/env bash\n"
+            f"echo '{name}' \"$@\" >> \"${{QWENGUARD_TEST_LOG}}\"\n"
+            "exit 0\n",
+            encoding="utf-8",
+        )
+        command.chmod(0o755)
+    log.write_text("", encoding="utf-8")
+    return fake_bin

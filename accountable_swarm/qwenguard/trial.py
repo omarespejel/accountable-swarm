@@ -153,6 +153,8 @@ def validate_trial_semantics(
         raise ValueError("attempted physical outcomes require control_label TELEOP or AUTONOMOUS")
     if not motion_executed and outcome not in NO_MOTION_OUTCOMES:
         raise ValueError(f"outcome={outcome} requires motion_executed=true")
+    if motion_executed and outcome in NO_MOTION_OUTCOMES:
+        raise ValueError(f"outcome={outcome} requires motion_executed=false")
     if outcome == "unsafe_hold":
         if gate_decision != "HOLD":
             raise ValueError("outcome=unsafe_hold requires gate_decision=HOLD")

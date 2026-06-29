@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from accountable_swarm.qwenguard.trial import TrialRecord, trial_csv_header
+from accountable_swarm.qwenguard.trial import TrialRecord, trial_csv_header, validate_trial_semantics
 
 
 class QwenGuardTrialTests(TestCase):
@@ -91,4 +91,17 @@ class QwenGuardTrialTests(TestCase):
                 qwen_eval_label="success",
                 operator_attested="true",
                 trace_summary_sha="a" * 64,
+            )
+
+    def test_validate_trial_semantics_rejects_motion_on_no_motion_outcome(self) -> None:
+        with self.assertRaisesRegex(ValueError, "outcome=cloud_hold requires motion_executed=false"):
+            validate_trial_semantics(
+                outcome="cloud_hold",
+                cloud_mode="degraded",
+                gate_decision="HOLD",
+                motion_executed=True,
+                predicted_success_milli=0,
+                risk_level="high",
+                control_label="SCRIPTED",
+                operator_attested=True,
             )

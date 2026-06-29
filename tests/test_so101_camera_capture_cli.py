@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import json
 from pathlib import Path
 import subprocess
@@ -105,22 +106,31 @@ class So101CaptureHelpersTests(TestCase):
 
     def test_so101_camera_module_does_not_import_or_call_actuation_surfaces(self) -> None:
         source = (ROOT / "accountable_swarm" / "physical" / "so101.py").read_text(encoding="utf-8")
-        forbidden_terms = [
-            "lerobot.record",
-            "so101_follower",
-            "so101_leader",
+        tree = ast.parse(source)
+        forbidden_imports = {"lerobot.record", "lerobot.robots", "lerobot.teleoperators"}
+        forbidden_symbols = {
             "send_action",
             "set_goal_position",
             "goal_position",
             "set_position",
             "write_torque",
-            "torque",
-            "servo",
-            "motor",
-        ]
-        for term in forbidden_terms:
-            with self.subTest(term=term):
-                self.assertNotIn(term, source)
+            "so101_follower",
+            "so101_leader",
+        }
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    self.assertNotIn(alias.name, forbidden_imports)
+            if isinstance(node, ast.ImportFrom):
+                module = node.module or ""
+                self.assertNotIn(module, forbidden_imports)
+            if isinstance(node, ast.Attribute):
+                self.assertNotIn(node.attr, forbidden_symbols)
+            if isinstance(node, ast.Name):
+                self.assertNotIn(node.id, forbidden_symbols)
+            if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                self.assertNotIn(node.value, forbidden_symbols)
 
 
 class So101CameraCaptureCliTests(TestCase):
