@@ -113,6 +113,16 @@ run-camera-go-gate \
   --report-out runs/go_gate/camera_qwen_report.json
 ```
 
+If the key belongs to a regional Model Studio workspace, also set its official
+OpenAI-compatible endpoint, for example:
+
+```bash
+export DASHSCOPE_BASE_URL="https://<workspace-id>.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1"
+```
+
+The client accepts only HTTPS endpoints without embedded credentials, query
+parameters, or fragments, so the API key cannot be sent to a plain-HTTP URL.
+
 The report records five binary pass conditions: model response, JSON
 validation, bbox rescaling, deterministic trace replay, and DecisionTrace schema
 emission from the frame.

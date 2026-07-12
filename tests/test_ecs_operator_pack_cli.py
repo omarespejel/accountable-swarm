@@ -86,6 +86,7 @@ class EcsOperatorPackCliTests(TestCase):
         self.assertEqual(
             env_template,
             "ALIBABA_API_KEY=\n"
+            "DASHSCOPE_BASE_URL=\n"
             "QWEN_VL_MODEL=qwen3-vl-flash\n"
             "ECS_REGION=\n"
             "ECS_INSTANCE_ID=\n"

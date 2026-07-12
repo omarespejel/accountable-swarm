@@ -6,12 +6,13 @@ import json
 import os
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 from urllib import request
 from urllib.error import HTTPError, URLError
 
 from accountable_swarm.images import image_data_url
 
-DASHSCOPE_BASE_URL = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
+DEFAULT_DASHSCOPE_BASE_URL = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
 
 
 class MissingAlibabaApiKey(RuntimeError):
@@ -23,19 +24,32 @@ class DashScopeResponseError(RuntimeError):
 
 
 class DashScopeQwenClient:
-    def __init__(self, *, model: str = "qwen3-vl-flash", api_key: str | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        model: str = "qwen3-vl-flash",
+        api_key: str | None = None,
+        base_url: str | None = None,
+    ) -> None:
         self.model = model
         self.api_key = api_key or os.getenv("ALIBABA_API_KEY")
         if not self.api_key:
             raise MissingAlibabaApiKey(
                 "ALIBABA_API_KEY is not set. Add it to the environment or run fixture mode."
             )
+        self.base_url = _validated_base_url(
+            base_url or os.getenv("DASHSCOPE_BASE_URL") or DEFAULT_DASHSCOPE_BASE_URL
+        )
 
     def detect_bbox(self, *, image_path: Path, target: str) -> str:
         prompt = (
-            f"Find the {target}. Return ONLY a JSON array with one object using this exact "
-            "shape: [{\"bbox_2d\":[x1,y1,x2,y2],\"label\":\"label\"}]. "
-            "Use Qwen3-VL normalized 0-1000 coordinates. Do not include prose."
+            f"Find the {target}. Return STRICT JSON only, with no markdown or prose, as one "
+            "array containing one object with exactly this shape: "
+            "[{\"bbox_2d\":[x0,y0,x1,y1],\"label\":\"label\"}]. "
+            "bbox_2d must be one axis-aligned 2D rectangle with exactly four integer "
+            "coordinates in Qwen3-VL normalized 0-1000 space, where x0<x1 and y0<y1. "
+            "Never return a rotated box, polygon, 3D box, confidence values, or more than "
+            "four bbox numbers."
         )
         payload = {
             "model": self.model,
@@ -88,7 +102,7 @@ class DashScopeQwenClient:
 
     def _post_chat_completion(self, payload: dict[str, Any]) -> dict[str, Any]:
         req = request.Request(
-            f"{DASHSCOPE_BASE_URL}/chat/completions",
+            f"{self.base_url}/chat/completions",
             data=json.dumps(payload).encode("utf-8"),
             headers={
                 "Authorization": f"Bearer {self.api_key}",
@@ -108,6 +122,23 @@ class DashScopeQwenClient:
         if not isinstance(data, dict):
             raise DashScopeResponseError("DashScope response must be a JSON object")
         return data
+
+
+def _validated_base_url(value: str) -> str:
+    base_url = value.strip().rstrip("/")
+    parsed = urlsplit(base_url)
+    if (
+        parsed.scheme != "https"
+        or not parsed.hostname
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.query
+        or parsed.fragment
+    ):
+        raise ValueError(
+            "DashScope base URL must be an HTTPS endpoint without credentials, query, or fragment"
+        )
+    return base_url
 
 
 def _extract_text_content(data: dict[str, Any]) -> str:

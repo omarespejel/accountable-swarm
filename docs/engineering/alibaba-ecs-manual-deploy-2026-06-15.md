@@ -57,6 +57,7 @@ cd accountable-swarm
 umask 077
 cat > .env <<'EOF'
 ALIBABA_API_KEY=replace-with-operator-secret
+DASHSCOPE_BASE_URL=https://replace-with-workspace-id.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1
 QWEN_VL_MODEL=qwen3-vl-flash
 ECS_REGION=replace-with-region
 ECS_INSTANCE_ID=replace-with-instance-id
@@ -64,6 +65,11 @@ ECS_PUBLIC_IP=replace-with-public-ip
 BASE_URL=
 EOF
 ```
+
+Use the regional Model Studio workspace endpoint associated with the API key.
+Keys and endpoints are region-scoped. If the key uses the shared international
+endpoint, leave `DASHSCOPE_BASE_URL` blank and the client uses its documented
+default.
 
 1. Build and run:
 

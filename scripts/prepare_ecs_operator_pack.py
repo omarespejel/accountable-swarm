@@ -86,6 +86,7 @@ def main() -> int:
     env_template = "\n".join(
         [
             "ALIBABA_API_KEY=",
+            "DASHSCOPE_BASE_URL=",
             "QWEN_VL_MODEL=qwen3-vl-flash",
             "ECS_REGION=",
             "ECS_INSTANCE_ID=",
@@ -203,7 +204,9 @@ def _render_runbook(
             "3. Clone the repository and check out the pinned commit.",
             "4. Copy `.env.template` to `.env` on the ECS host and fill",
             "   `ALIBABA_API_KEY`, `ECS_REGION`, `ECS_INSTANCE_ID`, and",
-            "   `ECS_PUBLIC_IP`. Leave `BASE_URL` blank to derive it from",
+            "   `ECS_PUBLIC_IP`. Set `DASHSCOPE_BASE_URL` when the API key is",
+            "   scoped to a regional Model Studio workspace; otherwise leave it blank",
+            "   for the international endpoint. Leave `BASE_URL` blank to derive it from",
             "   `ECS_PUBLIC_IP`, or set it to the ECS public IP-literal URL.",
             "5. Run `operator_commands.sh` from the repository root. The collector",
             "   must run in `ecs-public` mode against `BASE_URL`, not localhost.",
