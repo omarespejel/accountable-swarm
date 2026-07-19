@@ -10,7 +10,7 @@ from unittest.mock import patch
 from urllib import request
 from urllib.error import HTTPError
 
-from accountable_swarm.qwen.client import DashScopeQwenClient
+from accountable_swarm.qwen.client import DEFAULT_DASHSCOPE_BASE_URL, DashScopeQwenClient
 from accountable_swarm.qwenguard.memory import verify_qwenguard_memory_replay
 from accountable_swarm.server import AccountableSwarmHandler, _is_loopback_host
 from accountable_swarm.trace.models import trace_from_dict
@@ -159,7 +159,13 @@ class ServerTests(TestCase):
         }
 
         with (
-            patch.dict(os.environ, {"ALIBABA_API_KEY": "test-key"}),
+            patch.dict(
+                os.environ,
+                {
+                    "ALIBABA_API_KEY": "test-key",
+                    "DASHSCOPE_BASE_URL": DEFAULT_DASHSCOPE_BASE_URL,
+                },
+            ),
             patch.object(DashScopeQwenClient, "_post_chat_completion", return_value=response),
             _test_server() as base_url,
         ):
@@ -180,18 +186,24 @@ class ServerTests(TestCase):
         }
 
         old_cwd = Path.cwd()
-        try:
-            with TemporaryDirectory() as tmpdir:
-                os.chdir(tmpdir)
+        with TemporaryDirectory() as tmpdir:
+            os.chdir(tmpdir)
+            try:
                 with (
-                    patch.dict(os.environ, {"ALIBABA_API_KEY": "test-key"}),
+                    patch.dict(
+                        os.environ,
+                        {
+                            "ALIBABA_API_KEY": "test-key",
+                            "DASHSCOPE_BASE_URL": DEFAULT_DASHSCOPE_BASE_URL,
+                        },
+                    ),
                     patch.object(DashScopeQwenClient, "_post_chat_completion", return_value=response),
                     _test_server() as base_url,
                 ):
                     camera = _get_json(f"{base_url}/camera-fixture")
                     qwen_vl = _get_json(f"{base_url}/qwen-vl-fixture?model=qwen3-vl-flash")
-        finally:
-            os.chdir(old_cwd)
+            finally:
+                os.chdir(old_cwd)
 
         self.assertEqual(camera["status"], "ok")
         self.assertEqual(qwen_vl["status"], "ok")
