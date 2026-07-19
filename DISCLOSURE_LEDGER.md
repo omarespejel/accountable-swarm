@@ -51,11 +51,12 @@ data sources, and external assets from day one.
 | 2026-07-18 | Go2 QwenGuard memory replay implementation | OpenAI GPT-5 / Codex | Project license applies | Privacy-safe observation fixture, deterministic memory-policy trace, semantic verifier, tests, and ECS smoke endpoint | Raw hotel imagery and databases excluded; no autonomous Go2 control, calibrated displacement, 3D grounding, independent Qwen accuracy, or ECS deployment claim. |
 | 2026-07-18 | Recorded Qwen and Go2 evidence receipts | Alibaba Cloud Model Studio `qwen3-vl-flash`; Unitree Go2 Air and Gemini 2 capture tools | Provider and device terms apply; public fixture metadata under Apache-2.0 | Hash receipts and redacted metadata for a teleoperated two-pass scene-change replay | Qwen processing was post-run; source images and databases remain private; internal `verified` metadata does not establish independent ground truth. |
 | 2026-07-19 | Deterministic DashScope PNG hazard fixture and endpoint repair | OpenAI GPT-5 / Codex; repo-authored `scripts/make_hazard_fixture.py` | Apache-2.0 | PNG asset, server wiring, and regression coverage for the live `qwen3-vl-flash` ECS smoke endpoint | Generated 64x64 red-square fixture contains no external data; it exercises the bounded API path but is not deployment proof or evidence of model accuracy, physical behavior, safety, latency, or reliability. |
+| 2026-07-19 | Track 5 judge documentation refresh | OpenAI GPT-5 / Codex; official Devpost Qwen Cloud hackathon page and deployment-proof update | Apache-2.0; Devpost documentation terms | Public quickstart, architecture, submission checklist, post-May-26 update summary, and physical/demo claim boundaries | No raw hotel media, cloud identifiers, secrets, or unreviewed proof artifacts included; Workbench and human-review gates remain pending. |
 
-## Pending Before Demo
+## Pending Before Final Submission
 
-- Qwen / DashScope model IDs and API use.
-- Alibaba Cloud ECS proof backend.
-- SO-101 / LeRobot integration, if used.
-- DimOS code or patterns, if copied or adapted.
-- Any additional generated media, fixture images, traces, or demo assets.
+- Redacted Alibaba Workbench screenshot and explicit human proof review.
+- Final privacy and claim review of the complete video encode.
+- Public YouTube, Vimeo, or Youku URL and logged-out playback test.
+- Disclosure of any additional public media or external assets added to the
+  final submission.
