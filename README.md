@@ -4,6 +4,8 @@ Accountable Swarm is a Qwen Cloud EdgeAgent hackathon project for accountable
 edge-cloud robotics. The first goal is not a large swarm. The first goal is a
 reproducible decision trace:
 
+> **Memory with receipts: teleoperated capture, post-run replay, and fail-closed cloud checks.**
+
 ```text
 edge sensor frame -> Qwen keyframe check -> local decision -> hash-chained trace -> replay
 ```
@@ -52,25 +54,34 @@ verify-trace runs/go_gate/trace.json
 `./scripts/local_gate.sh` also creates a temporary virtual environment and
 checks those installed entry points directly.
 
-## Submission Manifest
+## Judge Quickstart
 
-The current judge-facing swarm path is collected in
-`docs/submission/README.md`, with the architecture diagram in
-`docs/submission/architecture.md`. The manifest links the one-command swarm demo
-bundle, live-Qwen evidence, Alibaba ECS proof checklist, demo-video shot list,
-and final non-claims.
+The Track 5 hero path is QwenGuard: Qwen Cloud supplies a low-rate semantic
+result, while local code validates it, applies a no-motion policy, and writes a
+hash-chained trace that a judge can rebuild. The recorded Go2 evidence was
+teleoperated; Qwen never had motor authority.
 
-Prepare the current local recording artifacts without provider credentials:
+From a clean clone:
 
 ```bash
-python3 scripts/prepare_demo_recording_pack.py
+python3 -m venv .venv
+. .venv/bin/activate
+python3 -m pip install -e .
+run-qwenguard-memory-replay
+verify-qwenguard-memory-replay
 ```
 
-This writes `runs/demo/recording-pack/manifest.json` and
-`runs/demo/recording-pack/shotlist.md`, then points to the generated animated
-swarm replay and hazard-to-X-formation report. It is a recording convenience
-over checked deterministic paths, not DimOS, SO-101, 3D physics, ECS proof, or
-Qwen real-time control evidence.
+The full submission guide, live-Qwen check, proof status, significant updates,
+and exact claim boundary are in [`docs/submission/README.md`](docs/submission/README.md).
+The architecture diagram is in
+[`docs/submission/architecture.md`](docs/submission/architecture.md).
+
+The Qwen Cloud API proof is visible in
+[`accountable_swarm/qwen/client.py`](accountable_swarm/qwen/client.py): the
+client uses the public DashScope compatible-mode base URL, validates any
+regional override, and keeps credentials in the environment. Alibaba Workbench
+visual evidence and final human proof review remain submission gates; this
+README does not claim they are complete.
 
 ## Current Build Gate
 
@@ -139,7 +150,7 @@ Live Qwen mode requires a local `ALIBABA_API_KEY`:
 
 ```bash
 run-camera-go-gate \
-  --image runs/go_gate/hazard_marker.png \
+  --image fixtures/hazard_marker.png \
   --mode dashscope \
   --trace-out runs/go_gate/camera_qwen_trace.json \
   --report-out runs/go_gate/camera_qwen_report.json
@@ -490,7 +501,7 @@ The checked 2026-06-15 evidence shows `GO` across `corridor`,
 `center-block`, `vertical-slalom`, `horizontal-slalom`, and `double-chicane`,
 with bundle index SHA
 `b929f77827e69b9100e9883f78e7b882e7b161d67350a31a129d452f99c63368`.
-This command is the current swarm-first judge path. It does not require live
+This command is a supporting local judge path. It does not require live
 Qwen, SO-101, webcam access, DimOS, Docker, or cloud credentials.
 Use `--out-dir` only when you want to override the default `runs/demo/swarm`
 output location.
@@ -535,9 +546,8 @@ Live DashScope keyframe hazard perception can be recorded when
 `ALIBABA_API_KEY` is available in the local environment:
 
 ```bash
-python3 scripts/make_hazard_fixture.py runs/go_gate/hazard_marker.png
 python3 -m scripts.run_hazard_formation_gate \
-  --image runs/go_gate/hazard_marker.png \
+  --image fixtures/hazard_marker.png \
   --mode dashscope \
   --model qwen3-vl-flash \
   --formation x \
@@ -643,4 +653,5 @@ NARROW_CLAIM matrix. The short version:
 - Privacy-safe Go2 QwenGuard memory replay: GO for the deterministic post-run
   policy simulation `VERIFIED -> PROVISIONAL -> HOLD -> REVERIFY`; these were
   not robot-runtime transitions. Physical capture was teleoperated.
-- SO-101, physics/DimOS swarm, and Alibaba ECS deployment: not yet proven.
+- SO-101 and physics/DimOS swarm operation: not proven. Public Alibaba ECS
+  proof remains gated on the Workbench screenshot and explicit human review.

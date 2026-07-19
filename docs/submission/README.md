@@ -1,45 +1,150 @@
 # Accountable Swarm Submission Manifest
 
-Issue: #55
+## Track 5 Position
 
-## Submission Position
+QwenGuard is an EdgeAgent evidence loop for ambiguous physical-world changes:
 
-Accountable Swarm is a Qwen Cloud EdgeAgent hackathon project. The repo has two
-judge-facing paths: a deterministic simulated swarm and a privacy-safe memory
-replay from teleoperated Go2 capture receipts. Neither is a claim that Qwen
-controlled the physical robot. Qwen is used for low-rate mission intent or
-keyframe semantic checks. Local deterministic code owns policy, planning,
-replay, and trace verification.
-
-The checked demo claim is:
+> **Memory with receipts: teleoperated capture, post-run replay, and fail-closed cloud checks.**
 
 ```text
-Qwen-assisted mission intent -> bounded local scenario binding ->
-deterministic integer-grid swarm -> hash-chained DecisionTrace per agent ->
-explicit world-model timeline -> replay-verifiable report and dashboard
+edge evidence -> Qwen Cloud semantic result -> strict local validation ->
+local HOLD / REVERIFY policy -> hash-chained DecisionTrace -> replay
 ```
 
-## Current Judge Path
+Qwen is deliberately outside the motor loop. The physical capture was
+teleoperated, and the checked public replay is a post-run policy simulation.
+The deterministic swarm remains a secondary, no-hardware illustration of the
+same trace architecture.
 
-Run and verify the Go2 QwenGuard post-run policy simulation first:
+## Submission Checklist
+
+The official [rules](https://qwencloud-hackathon.devpost.com/rules),
+[deployment-proof update](https://qwencloud-hackathon.devpost.com/updates/45055-proof-of-deployment-101-what-judges-need-to-see),
+and [final checklist](https://qwencloud-hackathon.devpost.com/updates/45369-this-is-it-your-last-weekend-to-build)
+require a public licensed repository, visible Qwen Cloud API code, an
+architecture diagram, Alibaba Cloud visual proof, a public demo under three
+minutes, a project description, and a track selection.
+
+The current submission deadline is July 20, 2026 at 2:00 PM Pacific.
+
+| Requirement | Repository state |
+| --- | --- |
+| Public source and Apache-2.0 license | Present |
+| Qwen Cloud base URL and API call | Present; links below |
+| Architecture diagram | Present in `docs/submission/architecture.md` |
+| Reproducible local judge path | Present; commands below |
+| Alibaba Cloud deployment proof | Final sanitized report, Workbench screenshot, and human review not yet claimed complete |
+| Public demo video | Must be under 3:00 on YouTube, Vimeo, or Youku; publication and final privacy/claim review remain pending |
+| Judge access | Public links must remain free and playable without login through judging; logged-out test remains pending |
+| Devpost metadata | Name Qwen Cloud in the description and Built With section before submission |
+| Track | Track 5: EdgeAgent |
+
+## Qwen Cloud Code Proof
+
+The exact reviewed source at commit
+`a62c78ff8c1c82e73686afb18fcb52cf64c77a1b` is:
+
+- [Qwen client, public DashScope base URL, and Qwen3-VL payload](https://github.com/omarespejel/accountable-swarm/blob/a62c78ff8c1c82e73686afb18fcb52cf64c77a1b/accountable_swarm/qwen/client.py#L15-L68)
+- [authenticated OpenAI-compatible API request](https://github.com/omarespejel/accountable-swarm/blob/a62c78ff8c1c82e73686afb18fcb52cf64c77a1b/accountable_swarm/qwen/client.py#L103-L124)
+- [same file in this checkout](../../accountable_swarm/qwen/client.py)
+
+The default is
+`https://dashscope-intl.aliyuncs.com/compatible-mode/v1`. A regional
+`DASHSCOPE_BASE_URL` override must still be HTTPS and cannot contain embedded
+credentials, a query, or a fragment. `ALIBABA_API_KEY` is read from the
+environment and must never be committed.
+
+## Judge Reproduction
+
+From a clean clone, run the privacy-safe replay without provider credentials:
 
 ```bash
+python3 -m venv .venv
+. .venv/bin/activate
 python3 -m pip install -e .
 run-qwenguard-memory-replay
 verify-qwenguard-memory-replay
 ```
 
-This produces the exact `VERIFIED -> PROVISIONAL -> HOLD -> REVERIFY`
-simulation from privacy-safe recorded receipts. These were not robot-runtime
-transitions. The changed belief remains provisional, the hold has no motor
-authority, and re-verification is requested rather than claimed complete. The
-reported `500`/`750` values are internal Memory2 belief confidence, not Qwen
-detection confidence. Raw private frames are not included. See
-`docs/engineering/qwenguard-go2-memory-replay-2026-07-18.md`.
-The semantic frames came from the fixed Gemini 2 reference; the Go2 hashes are
-separate teleoperated context receipts.
+The verifier independently rebuilds the public fixture and enforces this exact
+post-run sequence:
 
-Run the swarm-first local demo bundle:
+```text
+VERIFIED -> PROVISIONAL -> HOLD -> REVERIFY
+```
+
+It also rejects skipped phases, added motor authority, changed receipts, and a
+trace whose hash chain or report no longer matches.
+
+To inspect the same replay through the local backend, start the server in one
+terminal:
+
+```bash
+python3 scripts/serve_demo.py --host 127.0.0.1 --port 8000
+```
+
+Then query it from a second terminal:
+
+```bash
+curl -fsS http://127.0.0.1:8000/healthz
+curl -fsS http://127.0.0.1:8000/qwenguard-memory-fixture
+```
+
+To make a live Qwen Cloud call, use a private key in the environment and the
+same checked-in, non-private PNG fixture used by the ECS proof endpoint:
+
+```bash
+# Load ALIBABA_API_KEY from a secret manager; do not paste it into this file.
+run-camera-go-gate \
+  --image fixtures/hazard_marker.png \
+  --mode dashscope \
+  --trace-out runs/go_gate/qwen_trace.json \
+  --report-out runs/go_gate/qwen_report.json
+verify-trace runs/go_gate/qwen_trace.json
+```
+
+The live result proves only the bounded API/parser/trace path for the named
+model and fixture. It does not prove perception accuracy, robot autonomy,
+latency, or reliability.
+
+## Physical Evidence Boundary
+
+- The Go2 Air was driven by a human operator. Qwen did not steer it.
+- The replay phases are post-run policy states, not robot-runtime transitions.
+- Public receipts contain hashes and redacted metadata, not hotel imagery or
+  raw capture databases.
+- The semantic frames came from a fixed independent Gemini 2 RGB-D camera. Its
+  displayed depth preview is qualitative and independently normalized, not a
+  metric depth comparison. It was not mounted on the Go2, and the devices were
+  not frame-synchronized.
+- Go2 receipts cover the recorded onboard-SLAM point cloud and odometry
+  context; they are not a claim of raw L1 LiDAR capture.
+- Memory2 values `500` and `750` are internal belief confidence, not Qwen
+  detection confidence.
+- Stored model box integers are model-coordinate receipts, not calibrated
+  pixels, metric displacement, or validated 3D grounding.
+- `HOLD` has no motor authority. `REVERIFY` asks for another observation; it
+  does not certify that the object moved.
+
+## Significant Updates Since May 26, 2026
+
+The repository history begins on June 14, so all substantive implementation is
+post-May 26:
+
+- **June 14-17:** added the Qwen Cloud client, strict bbox/mission validation,
+  hash-chained `DecisionTrace`, deterministic replay, degraded HOLD paths,
+  bounded local swarm scenarios, a world-model dashboard, and Alibaba ECS proof
+  tooling.
+- **June 28-29:** added the QwenGuard selector/evaluator/gate contracts,
+  fail-closed evidence manifests, trial attestation, and final readiness audits.
+- **July 18-19:** added the privacy-safe Go2 memory replay, semantic replay
+  verification, network-path leak rejection, a deterministic PNG live-Qwen
+  fixture, and hardened ECS smoke endpoints.
+
+## Secondary Local Demo
+
+The deterministic four-agent integer-grid bundle is useful for inspecting the
+same replay discipline without hardware or a provider key:
 
 ```bash
 python3 scripts/build_swarm_demo_bundle.py
@@ -54,74 +159,9 @@ wrote runs/demo/swarm/index.html
 wrote runs/demo/swarm/summary.json
 ```
 
-Open the generated replay artifact:
-
-```text
-runs/demo/swarm/index.html
-```
-
-Or serve it locally:
-
-```bash
-python3 scripts/serve_demo.py --host 127.0.0.1 --port 8000
-```
-
-Then inspect:
-
-```text
-GET /healthz
-GET /readyz
-GET /qwenguard-memory-fixture
-GET /swarm-demo
-GET /swarm-demo/summary.json
-```
-
-The `/swarm-demo` routes serve existing bundle artifacts read-only and do not
-generate traces or mutate bundle state on request. Auxiliary smoke endpoints
-also exist: `/camera-fixture` builds and verifies an in-memory fixture
-`DecisionTrace`, and `/qwen-ping` may call DashScope when `ALIBABA_API_KEY` is
-configured.
-
-Prepare the world-model dashboard artifact:
-
-DashScope mode requires `ALIBABA_API_KEY` in the environment and records Qwen
-keyframe perception plus bounded mission choice. For an offline/no-key run, use
-`--mode fixture --mission-source fixture` with the same commands and keep the
-resulting artifact labeled as fixture evidence.
-
-```bash
-python3 -m scripts.run_hazard_formation_gate \
-  --image fixtures/hazard_marker.ppm \
-  --mode dashscope \
-  --mission-source dashscope \
-  --model qwen3-vl-flash \
-  --mission-model qwen3-vl-flash \
-  --formation x \
-  --trace-dir runs/hazard_formation/world_model_x \
-  --report-out runs/hazard_formation/world_model_x_report.json
-
-python3 -m scripts.prepare_world_model_dashboard_pack \
-  --trace-dir runs/hazard_formation/world_model_x \
-  --hazard-report runs/hazard_formation/world_model_x_report.json \
-  --out-dir runs/dashboard/world_model_x
-
-python3 -m scripts.render_world_model_dashboard_html \
-  --data runs/dashboard/world_model_x/data.json \
-  --html-out runs/dashboard/world_model_x/index.html \
-  --summary-out runs/dashboard/world_model_x/summary.json
-```
-
-Open the generated dashboard:
-
-```text
-runs/dashboard/world_model_x/index.html
-```
-
-This dashboard is the recommended recording surface for the accountable
-world-model path because it shows Qwen evidence, deterministic local planning,
-the bounded mission choice, world-model hashes, and per-agent trace hashes in
-one page. If `ALIBABA_API_KEY` is unavailable, switch `--mode fixture
---mission-source fixture` and keep the same local validation surface.
+Open `runs/demo/swarm/index.html`, or run the local server above and inspect
+`/swarm-demo` and `/swarm-demo/summary.json`. This is a deterministic
+integer-grid simulation, not physics-backed swarm or physical-robot evidence.
 
 ## Checked Local Evidence
 
@@ -245,108 +285,96 @@ See `docs/submission/architecture.md`.
 Short architecture statement:
 
 ```text
-Qwen proposes low-rate semantic intent. Local deterministic code binds that
-intent to a reviewed scenario, runs the integer-grid swarm, emits one
-DecisionTrace per agent, and verifies replay from persisted traces.
+Qwen Cloud supplies bounded, low-rate semantic evidence. Local code validates
+it, owns the HOLD / REVERIFY policy, emits a hash-chained DecisionTrace, and
+verifies replay. The teleoperated Go2 capture and the deterministic swarm demo
+are evidence sources, not Qwen-controlled robots.
 ```
 
 ## Alibaba ECS Proof Status
 
-Status: pending operator action.
+Status: public proof is not yet claimed complete.
 
 Manual deployment checklist:
 
 - `docs/engineering/alibaba-ecs-manual-deploy-2026-06-15.md`
 - `docs/engineering/ecs-operator-proof-pack-2026-06-16.md`
 
-Prepare the non-secret operator pack before provisioning or while preparing the
-ECS session:
+Prepare the non-secret operator pack from the exact commit deployed to ECS.
+Do not replace this value with the documentation branch HEAD:
 
 ```bash
-python3 scripts/prepare_ecs_operator_pack.py --commit "$(git rev-parse HEAD)"
+DEPLOYED_COMMIT=a62c78ff8c1c82e73686afb18fcb52cf64c77a1b
+python3 scripts/prepare_ecs_operator_pack.py --commit "$DEPLOYED_COMMIT"
 ```
 
-The repo already contains the minimal stdlib backend and Dockerfile. The
-submission must not claim completed Alibaba ECS deployment until the operator
-runs the checklist, captures the public endpoint, and records the proof.
-
-Proof checklist for the operator:
-
-1. Provision ECS manually.
-2. Deploy the repo or image.
-3. Set `ALIBABA_API_KEY` as an environment secret on the host.
-4. Run `python3 scripts/build_swarm_demo_bundle.py`.
-5. Run `python3 scripts/serve_demo.py --host 0.0.0.0 --port 8000`.
-6. Capture public responses for `/healthz`, `/readyz`, `/swarm-demo`, and
-   `/swarm-demo/summary.json`.
-7. Record endpoint, date, command transcript, and non-claims in a new evidence
-   doc before using it in the hackathon submission.
+The repo contains the minimal backend, Dockerfile, live
+`/qwen-vl-fixture?model=qwen3-vl-flash` endpoint, and a collector that binds the
+public endpoint to the deployed commit and ECS metadata. Promotion still
+requires a sanitized collector report with `outcome: GO`, a Workbench screenshot
+of the running resource, and a separate human proof review. Do not infer those
+artifacts from the existence of deployment code.
 
 ## Demo Video Shot List
 
-Use a short screen-recorded video. Keep it factual. The detailed recording
-guide is `docs/submission/demo-video-shotlist-2026-06-16.md`.
+The final planned cut is 88 seconds and follows the QwenGuard hero path:
 
-Prepare the local recording pack:
+1. **0-5s — claim-safe title:** QwenGuard Sentry, human-teleoperated Go2, and
+   post-run Qwen analysis.
+2. **5-21s — two physical passes:** clock-aligned operator and Go2 views before
+   and after the suitcase change. Label both passes `HUMAN TELEOP`.
+3. **21-29s — Qwen Cloud evidence:** show the fixed-reference before/after
+   comparison and the model-coordinate change receipt. Report `271` only as
+   model-coordinate units, never pixels or metric distance.
+4. **29-34s — Gemini 2 context:** show qualitative, independently normalized
+   depth as supporting evidence, not a frame-paired or metric comparison.
+5. **34-42s — spatial replay:** show the recorded Go2 onboard-SLAM point cloud
+   and odometry in post-run DimOS replay. Do not label it raw L1 LiDAR.
+6. **42-51s — trust boundary:** Qwen Cloud proposes semantics; strict local code
+   validates output and retains all motor authority.
+7. **51-64s — memory policy:** show `VERIFIED -> PROVISIONAL -> HOLD ->
+   REVERIFY`, explicitly labeled post-run policy simulation with no robot
+   actuation.
+8. **64-74s — receipts:** show the DecisionTrace hash chain and replay
+   verification.
+9. **74-81s — Alibaba proof:** show only a redacted Workbench screenshot and
+   sanitized `GO / ecs-public` evidence after human review.
+10. **81-88s — close:** show the public repository, judge quickstart, Track 5,
+    and the Qwen Cloud code link.
 
-```bash
-python3 scripts/prepare_demo_recording_pack.py
-```
-
-By default the recording pack now prefers live DashScope for the hazard and
-bounded mission path when `ALIBABA_API_KEY` is present, and otherwise falls
-back to fixture mode without changing the local deterministic replay surface.
-
-Expected high-level output:
-
-```text
-outcome GO
-manifest runs/demo/recording-pack/manifest.json
-shotlist runs/demo/recording-pack/shotlist.md
-```
-
-1. Show the repository root, `LICENSE`, and this manifest.
-2. Run `python3 scripts/build_swarm_demo_bundle.py`.
-3. Show `outcome GO`, `scenario_count 5`, and the generated `runs/demo/swarm`
-   paths.
-4. Open `runs/demo/swarm/index.html` and click through the five reviewed
-   scenarios.
-5. Show `runs/demo/swarm/summary.json` with scenario outcomes and replay
-   counters.
-6. Open `runs/hazard_formation/recording_x_replay/index.html` and show the
-   hazard cell obstacle plus the four-agent X formation replay.
-7. Open `runs/dashboard/recording_x/index.html` and show the Qwen bbox, bounded
-   mission choice, local planner, world-model hash, and per-agent
-   `DecisionTrace` hashes.
-8. Show `runs/hazard_formation/recording_x_report.json` with bbox, hazard cell,
-   bounded mission choice, formation, assigned goals, and trace hashes.
-9. Show `docs/submission/architecture.md` and point out that Qwen is not in the
-   real-time loop.
-10. Optional, if the DimOS bridge pack exists: show its manifest and state that
-   it is a verified replay export, not DimOS execution.
-11. Optional, if ECS proof exists: show the public `/swarm-demo`,
-    `/hazard-formation`, `/world-model-dashboard`, and `/readyz` responses.
+The upload must remain under three minutes, contain no unlicensed music or
+third-party marks, and be public on YouTube, Vimeo, or Youku. Before submission,
+inspect the complete encode for privacy and claim accuracy, then test playback
+in a logged-out browser. The swarm replay is optional supporting material, not
+the hero video.
 
 ## Submission Text Draft
 
-Accountable Swarm demonstrates accountable edge-cloud robotics with Qwen in a
-bounded, auditable role. Qwen provides low-rate mission intent, while local
-deterministic code binds the mission to reviewed scenarios, runs a four-agent
-integer-grid swarm, enforces collision and obstacle guards, and emits
-hash-chained DecisionTrace artifacts. The demo bundle is reproducible from one
-local command and includes static replay pages plus machine-readable summaries
-for the reviewed scenario registry.
+QwenGuard demonstrates accountable edge-cloud robotics with Qwen in a bounded,
+auditable role. Qwen Cloud provides low-rate semantic evidence; strict local
+code validates the response and turns an ambiguous change into PROVISIONAL,
+HOLD, and REVERIFY instead of granting motion authority. A privacy-safe replay
+binds each decision to recorded receipts in a hash-chained DecisionTrace. The
+physical Go2 capture was teleoperated, and the same repository also includes a
+deterministic four-agent simulator as a secondary replay example.
 
 ## Final Non-Claims
 
-- No physical robot behavior.
-- No SO-101 operation.
+- Physical Go2 capture was teleoperated; there was no Qwen-directed or
+  autonomous robot motion.
+- The post-run policy phases were not robot-runtime transitions.
+- The Gemini 2 was a fixed independent reference, not a Go2-mounted or
+  frame-synchronized sensor.
+- The Go2 visualization is recorded onboard-SLAM point cloud plus odometry,
+  not a raw L1 LiDAR claim.
+- No SO-101 operation or ACT success claim.
 - No 3D physics simulation.
 - No latency claim.
 - No reliability claim.
-- DimOS is not executed or integrated; bridge-export artifacts are optional and
-  do not prove DimOS consumed the trace.
-- No Alibaba ECS deployment proof until the operator checklist is completed.
+- DimOS was used to record and replay the Go2 streams. It was not in the motor
+  loop, and this repository does not claim a runtime DecisionTrace integration.
+- No Alibaba ECS deployment-proof claim until the final public collector,
+  Workbench screenshot, and human review gates are complete.
 - No Qwen real-time control.
 - No Qwen onboard execution.
 - No arbitrary-map planner claim.
