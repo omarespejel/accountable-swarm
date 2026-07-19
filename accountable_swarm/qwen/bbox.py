@@ -31,7 +31,9 @@ def parse_qwen_bbox_response(response_text: str, *, image_width: int, image_heig
     parsed = _extract_first_json(response_text)
     if isinstance(parsed, dict):
         item = parsed
-    elif isinstance(parsed, list) and parsed:
+    elif isinstance(parsed, list):
+        if len(parsed) != 1:
+            raise ValueError("Qwen response array must contain exactly one bbox item")
         item = parsed[0]
     else:
         raise ValueError("Qwen response must be a JSON object or non-empty array")

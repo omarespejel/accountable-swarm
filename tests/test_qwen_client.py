@@ -26,6 +26,48 @@ class _FakeResponse:
 
 
 class DashScopeQwenClientTests(TestCase):
+    def test_workspace_base_url_env_override(self) -> None:
+        captured: dict[str, object] = {}
+
+        def fake_urlopen(req: object, timeout: int) -> _FakeResponse:
+            captured["url"] = req.full_url  # type: ignore[attr-defined]
+            return _FakeResponse()
+
+        workspace_url = "https://ws-example.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1/"
+        with patch.dict("os.environ", {"DASHSCOPE_BASE_URL": workspace_url}), patch(
+            "accountable_swarm.qwen.client.request.urlopen", side_effect=fake_urlopen
+        ):
+            DashScopeQwenClient(model="fake-qwen", api_key="test-key").chat_text(prompt="hello")
+
+        self.assertEqual(
+            captured["url"],
+            "https://ws-example.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1/chat/completions",
+        )
+
+    def test_base_url_rejects_plain_http_before_sending_key(self) -> None:
+        with self.assertRaisesRegex(ValueError, "must be an HTTPS endpoint"):
+            DashScopeQwenClient(
+                model="fake-qwen",
+                api_key="test-key",
+                base_url="http://example.test/compatible-mode/v1",
+            )
+
+    def test_base_url_rejects_credentials_query_and_fragment(self) -> None:
+        invalid_urls = (
+            "https://user:password@example.test/compatible-mode/v1",
+            "https://example.test/compatible-mode/v1?workspace=other",
+            "https://example.test/compatible-mode/v1#other",
+        )
+
+        for base_url in invalid_urls:
+            with self.subTest(base_url=base_url):
+                with self.assertRaisesRegex(ValueError, "without credentials, query, or fragment"):
+                    DashScopeQwenClient(
+                        model="fake-qwen",
+                        api_key="test-key",
+                        base_url=base_url,
+                    )
+
     def test_detect_bbox_pins_temperature_zero(self) -> None:
         captured: dict[str, object] = {}
 
@@ -48,6 +90,9 @@ class DashScopeQwenClientTests(TestCase):
         self.assertIsInstance(payload, dict)
         self.assertEqual(payload["model"], "fake-qwen")
         self.assertEqual(payload["temperature"], 0)
+        prompt = payload["messages"][0]["content"][1]["text"]
+        self.assertIn("exactly four integer coordinates", prompt)
+        self.assertIn("Never return a rotated box", prompt)
 
     def test_chat_json_object_uses_dashscope_json_mode(self) -> None:
         captured: dict[str, object] = {}

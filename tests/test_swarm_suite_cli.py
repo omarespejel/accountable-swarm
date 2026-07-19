@@ -38,7 +38,8 @@ class SwarmSuiteCliTests(TestCase):
             )
 
             self.assertEqual(result.returncode, 2)
-            self.assertIn("invalid choice: 5", result.stderr)
+            # argparse quoting differs across supported Python releases.
+            self.assertRegex(result.stderr, r"invalid choice: ['\"]?5['\"]?")
             self.assertFalse(report_path.exists())
             self.assertFalse(trace_dir.exists())
 

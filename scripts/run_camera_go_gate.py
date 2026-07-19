@@ -25,6 +25,7 @@ from accountable_swarm.trace.models import (
 
 FIXTURE_RESPONSE = '[{"bbox_2d":[250,250,750,750],"label":"marked hazard"}]'
 REPORT_SCHEMA_VERSION = "camera-go-gate-report.v1"
+MAX_DASHSCOPE_PARSE_ATTEMPTS = 2
 
 
 def main() -> int:
@@ -153,10 +154,24 @@ def _build_trace(
             reason="degraded mode requested",
         )
     width, height = image_size(image_path)
-    response_text = FIXTURE_RESPONSE if mode == "fixture" else DashScopeQwenClient(model=model).detect_bbox(
-        image_path=image_path, target=target
-    )
-    grounding = parse_qwen_bbox_response(response_text, image_width=width, image_height=height)
+    if mode == "fixture":
+        grounding = parse_qwen_bbox_response(
+            FIXTURE_RESPONSE, image_width=width, image_height=height
+        )
+    else:
+        client = DashScopeQwenClient(model=model)
+        last_error: DashScopeResponseError | ValueError | None = None
+        for _attempt in range(MAX_DASHSCOPE_PARSE_ATTEMPTS):
+            try:
+                response_text = client.detect_bbox(image_path=image_path, target=target)
+                grounding = parse_qwen_bbox_response(
+                    response_text, image_width=width, image_height=height
+                )
+                break
+            except (DashScopeResponseError, ValueError) as exc:
+                last_error = exc
+        else:
+            raise ValueError(f"Qwen bbox response stayed invalid after retry: {last_error}")
     perception = PerceptionEvent(
         event_id="camera-perception-0000",
         source=f"{source_kind}://{image_path.name}",
