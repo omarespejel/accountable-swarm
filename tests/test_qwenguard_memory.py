@@ -84,6 +84,15 @@ class QwenGuardMemoryTests(TestCase):
         with self.assertRaisesRegex(ValueError, "to_state"):
             verify_qwenguard_memory_replay(rehashed)
 
+    def test_broken_hash_chain_fails_without_rehashing(self) -> None:
+        _fixture, _manifest, trace = _fixture_manifest_and_trace()
+        events = list(trace.events)
+        events[1] = replace(events[1], prev_sha="0" * 64)
+        tampered = replace(trace, events=tuple(events))
+
+        with self.assertRaisesRegex(ValueError, "trace hash chain is broken"):
+            verify_qwenguard_memory_replay(tampered)
+
     def test_extra_command_key_fails_after_valid_rehash(self) -> None:
         _fixture, _manifest, trace = _fixture_manifest_and_trace()
         commands = [dict(event.command) for event in trace.events]
@@ -182,6 +191,9 @@ class QwenGuardMemoryTests(TestCase):
         for field, private_value, message in (
             ("fixture_id", "ALIBABA_API_KEY=private", "secret-like material"),
             ("measurement_caveat", "/Users/operator/private/frame.png", "absolute or host-specific path"),
+            ("measurement_caveat", "/tmp/capture/frame.png", "absolute or host-specific path"),
+            ("measurement_caveat", "/var/lib/receipt.json", "absolute or host-specific path"),
+            ("measurement_caveat", "~/capture/frame.png", "absolute or host-specific path"),
             ("measurement_caveat", r"C:\Users\operator\private\frame.png", "absolute or host-specific path"),
             ("measurement_caveat", r"\\workstation\capture\frame.png", "absolute or host-specific path"),
         ):

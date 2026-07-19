@@ -160,6 +160,7 @@ def _write_pair_transactionally(
     backups: dict[Path, Path] = {}
     published: set[Path] = set()
     preserved_backups: set[Path] = set()
+    created: set[Path] = set()
     try:
         for destination, text in ((first_path, first_text), (second_path, second_text)):
             with tempfile.NamedTemporaryFile(
@@ -170,10 +171,12 @@ def _write_pair_transactionally(
                 suffix=".tmp",
                 delete=False,
             ) as handle:
+                temporary_path = Path(handle.name)
+                created.add(temporary_path)
                 handle.write(text)
                 handle.flush()
                 os.fsync(handle.fileno())
-                temporary.append((Path(handle.name), destination))
+                temporary.append((temporary_path, destination))
             if destination.exists():
                 with tempfile.NamedTemporaryFile(
                     mode="wb",
@@ -182,10 +185,12 @@ def _write_pair_transactionally(
                     suffix=".backup",
                     delete=False,
                 ) as handle:
+                    backup_path = Path(handle.name)
+                    created.add(backup_path)
                     handle.write(destination.read_bytes())
                     handle.flush()
                     os.fsync(handle.fileno())
-                    backups[destination] = Path(handle.name)
+                    backups[destination] = backup_path
         for source, destination in temporary:
             os.replace(source, destination)
             published.add(destination)
@@ -210,11 +215,9 @@ def _write_pair_transactionally(
             ) from exc
         raise
     finally:
-        for source, _destination in temporary:
-            source.unlink(missing_ok=True)
-        for backup in backups.values():
-            if backup not in preserved_backups:
-                backup.unlink(missing_ok=True)
+        for path in created:
+            if path not in preserved_backups:
+                path.unlink(missing_ok=True)
 
 
 if __name__ == "__main__":

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass
 import json
 from math import isqrt
@@ -71,6 +72,8 @@ _SECRET_PATTERN = re.compile(
 )
 _WINDOWS_ABSOLUTE_PATH_PATTERN = re.compile(r"(?<![A-Za-z0-9])[A-Za-z]:[\\/]")
 _WINDOWS_UNC_PATH_PATTERN = re.compile(r"(?<![\\])\\\\[^\\/\s]+[\\/][^\\/\s]+")
+_POSIX_ABSOLUTE_PATH_PATTERN = re.compile(r"(?<![A-Za-z0-9:/])/(?!/)[^\s\"'<>]+")
+_TILDE_HOME_PATH_PATTERN = re.compile(r"(?:^|[\s'\"(])~[\\/][^\s\"'<>]+")
 
 
 @dataclass(frozen=True)
@@ -748,7 +751,7 @@ def _validate_checked_observation(observation: MemoryObservation) -> None:
         raise ValueError("unexpected recorded image size")
 
 
-def _reject_private_content(value: Any, *, label: str) -> None:
+def _reject_private_content(value: object, *, label: str) -> None:
     for text in _iter_text(value):
         if _SECRET_PATTERN.search(text):
             raise ValueError(f"{label} contains secret-like material")
@@ -756,12 +759,14 @@ def _reject_private_content(value: Any, *, label: str) -> None:
             any(marker in text for marker in ("/Users/", "/home/", "file://"))
             or _WINDOWS_ABSOLUTE_PATH_PATTERN.search(text)
             or _WINDOWS_UNC_PATH_PATTERN.search(text)
+            or _POSIX_ABSOLUTE_PATH_PATTERN.search(text)
+            or _TILDE_HOME_PATH_PATTERN.search(text)
             or re.search(r"[\\/]Users[\\/]", text, re.IGNORECASE)
         ):
             raise ValueError(f"{label} contains an absolute or host-specific path")
 
 
-def _iter_text(value: Any):
+def _iter_text(value: object) -> Iterator[str]:
     if isinstance(value, str):
         yield value
     elif isinstance(value, dict):
