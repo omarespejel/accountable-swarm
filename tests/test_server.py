@@ -10,6 +10,7 @@ from unittest.mock import patch
 from urllib import request
 from urllib.error import HTTPError
 
+from accountable_swarm.qwen.client import DashScopeQwenClient
 from accountable_swarm.qwenguard.memory import verify_qwenguard_memory_replay
 from accountable_swarm.server import AccountableSwarmHandler, _is_loopback_host
 from accountable_swarm.trace.models import trace_from_dict
@@ -139,12 +140,33 @@ class ServerTests(TestCase):
             payload = _get_json(f"{base_url}/qwen-vl-fixture?model=qwen3-vl-flash")
 
         self.assertEqual(payload["status"], "ok")
-        self.assertEqual(calls, {"target": "marked hazard", "image_name": "hazard_marker.ppm"})
+        self.assertEqual(calls, {"target": "marked hazard", "image_name": "hazard_marker.png"})
         self.assertEqual(payload["model"], "qwen3-vl-flash")
         self.assertEqual(payload["decision"], "VETO")
         self.assertEqual(payload["schema_version"], "decisiontrace.v2")
         self.assertEqual(payload["bbox_2d_norm_1000"], [250, 250, 750, 750])
         self.assertEqual(len(payload["trace_summary_sha"]), 64)
+
+    def test_qwen_vl_fixture_uses_dashscope_supported_image(self) -> None:
+        response = {
+            "choices": [
+                {
+                    "message": {
+                        "content": '[{"bbox_2d":[250,250,750,750],"label":"marked hazard"}]'
+                    }
+                }
+            ]
+        }
+
+        with (
+            patch.dict(os.environ, {"ALIBABA_API_KEY": "test-key"}),
+            patch.object(DashScopeQwenClient, "_post_chat_completion", return_value=response),
+            _test_server() as base_url,
+        ):
+            payload = _get_json(f"{base_url}/qwen-vl-fixture?model=qwen3-vl-flash")
+
+        self.assertEqual(payload["status"], "ok")
+        self.assertEqual(payload["model"], "qwen3-vl-flash")
 
     def test_qwen_vl_fixture_without_key_returns_503(self) -> None:
         with patch.dict(os.environ, {"ALIBABA_API_KEY": ""}), _test_server() as base_url:
@@ -166,7 +188,7 @@ class ServerTests(TestCase):
         self.assertEqual(payload["status"], "failed")
         self.assertEqual(payload["model"], "qwen3-vl-flash")
         self.assertEqual(payload["error"], "fixture_read_failed")
-        self.assertEqual(payload["image"], "hazard_marker.ppm")
+        self.assertEqual(payload["image"], "hazard_marker.png")
 
     def test_swarm_demo_bundle_files_are_served_from_configured_root(self) -> None:
         with TemporaryDirectory() as tmpdir:
