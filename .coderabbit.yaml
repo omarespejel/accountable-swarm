@@ -60,6 +60,7 @@ reviews:
     - scripts/**
     - tests/**
     - examples/**
+    - fixtures/**/*.json
     - docs/**/*.md
     - pyproject.toml
     - '!runs/**'

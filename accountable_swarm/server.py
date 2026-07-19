@@ -15,6 +15,10 @@ from accountable_swarm.images import image_size
 from accountable_swarm.qwen.bbox import parse_qwen_bbox_response
 from accountable_swarm.qwen.client import DashScopeQwenClient, DashScopeResponseError, MissingAlibabaApiKey
 from accountable_swarm.qwenguard.memory import (
+    MEMORY_FIXTURE_RELATIVE_PATH,
+    MEMORY_MANIFEST_RELATIVE_PATH,
+    MEMORY_REPLAY_MEMORY_ID,
+    MEMORY_REPLAY_RUN_ID,
     build_memory_replay_response,
     build_qwenguard_memory_replay,
     parse_memory_evidence_manifest_json,
@@ -38,8 +42,8 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SWARM_DEMO_BUNDLE_DIR = REPO_ROOT / "runs/demo/swarm"
 DEFAULT_HAZARD_FORMATION_REPLAY_DIR = REPO_ROOT / "runs/hazard_formation/recording_x_replay"
 DEFAULT_WORLD_MODEL_DASHBOARD_DIR = REPO_ROOT / "runs/dashboard/recording_x"
-DEFAULT_QWENGUARD_MEMORY_FIXTURE = REPO_ROOT / "fixtures/qwenguard_memory/observations.json"
-DEFAULT_QWENGUARD_MEMORY_MANIFEST = REPO_ROOT / "fixtures/qwenguard_memory/manifest.json"
+DEFAULT_QWENGUARD_MEMORY_FIXTURE = REPO_ROOT / MEMORY_FIXTURE_RELATIVE_PATH
+DEFAULT_QWENGUARD_MEMORY_MANIFEST = REPO_ROOT / MEMORY_MANIFEST_RELATIVE_PATH
 SWARM_DEMO_BUILD_COMMAND = "python3 scripts/build_swarm_demo_bundle.py"
 HAZARD_FORMATION_BUILD_COMMAND = "python3 scripts/prepare_demo_recording_pack.py"
 WORLD_MODEL_DASHBOARD_BUILD_COMMAND = "python3 scripts/prepare_demo_recording_pack.py"
@@ -402,8 +406,8 @@ def _qwenguard_memory_fixture_response() -> dict[str, Any]:
         fixture=fixture,
     )
     trace = build_qwenguard_memory_replay(
-        run_id="qwenguard-memory-replay-0001",
-        memory_id="target-001",
+        run_id=MEMORY_REPLAY_RUN_ID,
+        memory_id=MEMORY_REPLAY_MEMORY_ID,
         baseline=fixture.baseline,
         conflict=fixture.conflict,
     )

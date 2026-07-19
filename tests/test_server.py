@@ -82,6 +82,24 @@ class ServerTests(TestCase):
         self.assertNotIn(str(private_path), body)
         self.assertNotIn("/Users/", body)
 
+    def test_qwenguard_memory_fixture_malformed_input_returns_sanitized_failure(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            malformed_fixture = Path(tmpdir) / "observations.json"
+            malformed_fixture.write_text('{"schema":"qwenguard.observation-fixture.v1"}', encoding="utf-8")
+            with (
+                patch("accountable_swarm.server.DEFAULT_QWENGUARD_MEMORY_FIXTURE", malformed_fixture),
+                _test_server() as base_url,
+            ):
+                with self.assertRaises(HTTPError) as ctx:
+                    _get_json(f"{base_url}/qwenguard-memory-fixture")
+                self.assertEqual(ctx.exception.code, 500)
+                body = ctx.exception.read().decode("utf-8")
+                payload = json.loads(body)
+
+        self.assertEqual(payload, {"status": "failed", "error": "memory_fixture_unavailable"})
+        self.assertNotIn(str(malformed_fixture), body)
+        self.assertNotIn(tmpdir, body)
+
     def test_qwen_ping_rejects_unexpected_content(self) -> None:
         class FakeClient:
             def __init__(self, *, model: str) -> None:

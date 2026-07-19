@@ -180,8 +180,10 @@ class QwenGuardMemoryTests(TestCase):
 
     def test_fixture_rejects_private_or_unreviewed_public_text(self) -> None:
         for field, private_value, message in (
-            ("fixture_id", "ALIBABA_API_KEY=private", "fixture_id"),
-            ("measurement_caveat", "/Users/operator/private/frame.png", "measurement caveat"),
+            ("fixture_id", "ALIBABA_API_KEY=private", "secret-like material"),
+            ("measurement_caveat", "/Users/operator/private/frame.png", "absolute or host-specific path"),
+            ("measurement_caveat", r"C:\Users\operator\private\frame.png", "absolute or host-specific path"),
+            ("measurement_caveat", r"\\workstation\capture\frame.png", "absolute or host-specific path"),
         ):
             with self.subTest(field=field):
                 value = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
@@ -265,11 +267,11 @@ class QwenGuardMemoryTests(TestCase):
             ),
             (
                 lambda value: value.__setitem__("fixture", "/Users/operator/private.json"),
-                "repository-relative fixture",
+                "absolute or host-specific path",
             ),
             (
                 lambda value: value["non_claims"].__setitem__(0, "ALIBABA_API_KEY=secret-value"),
-                "non-claims",
+                "secret-like material",
             ),
         )
         for mutate, message in mutations:

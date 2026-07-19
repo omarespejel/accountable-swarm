@@ -2,7 +2,11 @@
 
 from accountable_swarm.qwenguard.evaluator import EvaluationResult, parse_evaluator_response
 from accountable_swarm.qwenguard.memory import (
+    MEMORY_FIXTURE_RELATIVE_PATH,
+    MEMORY_MANIFEST_RELATIVE_PATH,
     MEMORY_POLICY_SEQUENCE,
+    MEMORY_REPLAY_MEMORY_ID,
+    MEMORY_REPLAY_RUN_ID,
     MEMORY_STATE_SEQUENCE,
     MemoryEvidenceManifest,
     MemoryFixture,
@@ -17,7 +21,11 @@ __all__ = [
     "CandidateMark",
     "EvaluationResult",
     "GateDecision",
+    "MEMORY_FIXTURE_RELATIVE_PATH",
+    "MEMORY_MANIFEST_RELATIVE_PATH",
     "MEMORY_POLICY_SEQUENCE",
+    "MEMORY_REPLAY_MEMORY_ID",
+    "MEMORY_REPLAY_RUN_ID",
     "MEMORY_STATE_SEQUENCE",
     "MemoryEvidenceManifest",
     "MemoryFixture",

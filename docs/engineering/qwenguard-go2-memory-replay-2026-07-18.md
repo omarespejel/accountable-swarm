@@ -72,6 +72,23 @@ The ECS smoke collector reconstructs and semantically verifies the returned
 trace. The endpoint is deterministic and does not call a paid model. Live Qwen
 Cloud proof remains a separate `/qwen-vl-fixture` check.
 
+From the deployed commit on the ECS host, collect the sanitized public proof:
+
+```bash
+python3 -m scripts.collect_ecs_smoke_report \
+  --base-url "http://<ecs-public-ip>:8000" \
+  --proof-mode ecs-public \
+  --commit "$(git rev-parse HEAD)" \
+  --qwen-model qwen3-vl-flash \
+  --ecs-region ap-southeast-1 \
+  --ecs-instance-id "<ecs-instance-id>" \
+  --ecs-public-ip "<ecs-public-ip>" \
+  --out runs/ecs/ecs_smoke_report.json
+```
+
+The expected artifact is `runs/ecs/ecs_smoke_report.json`. A submission claim
+requires `outcome: GO`; `local-smoke` output is not deployment proof.
+
 ## Checked invariants
 
 - exactly four events at ticks 0 through 3;
