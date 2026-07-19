@@ -4,11 +4,12 @@
 from __future__ import annotations
 
 import argparse
-import json
 from pathlib import Path
 import sys
 
 from accountable_swarm.qwenguard.memory import (
+    MEMORY_REPLAY_MEMORY_ID,
+    MEMORY_REPLAY_RUN_ID,
     build_memory_replay_report,
     build_qwenguard_memory_replay,
     parse_memory_evidence_manifest_json,
@@ -21,6 +22,7 @@ from scripts.run_qwenguard_memory_replay import (
     DEFAULT_MANIFEST,
     DEFAULT_REPORT_OUT,
     DEFAULT_TRACE_OUT,
+    _load_json_object,
     resolve_repo_path,
 )
 
@@ -50,8 +52,8 @@ def main() -> int:
         trace = trace_from_dict(trace_value)
         summary_sha = verify_qwenguard_memory_replay(trace)
         expected_trace = build_qwenguard_memory_replay(
-            run_id="qwenguard-memory-replay-0001",
-            memory_id="target-001",
+            run_id=MEMORY_REPLAY_RUN_ID,
+            memory_id=MEMORY_REPLAY_MEMORY_ID,
             baseline=fixture.baseline,
             conflict=fixture.conflict,
         )
@@ -73,23 +75,6 @@ def main() -> int:
     print(f"verified {trace_path.name} and {report_path.name}")
     print(f"trace_summary_sha {summary_sha}")
     return 0
-
-
-def _load_json_object(path: Path) -> dict[str, object]:
-    value = json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=_reject_duplicate_json_keys)
-    if not isinstance(value, dict):
-        raise TypeError(f"{path.name} must contain a JSON object")
-    return value
-
-
-def _reject_duplicate_json_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
-    value: dict[str, object] = {}
-    for key, item in pairs:
-        if key in value:
-            raise ValueError(f"duplicate JSON key: {key}")
-        value[key] = item
-    return value
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

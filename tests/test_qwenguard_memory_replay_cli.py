@@ -1,15 +1,18 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
 import sys
 import tempfile
 from unittest import TestCase
+from unittest.mock import patch
 
 from accountable_swarm.qwenguard.memory import verify_qwenguard_memory_replay
 from accountable_swarm.trace.models import trace_from_dict
+from scripts.run_qwenguard_memory_replay import _write_pair_transactionally
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -162,6 +165,65 @@ class QwenGuardMemoryReplayCliTests(TestCase):
         )
         self.assertEqual(verify.returncode, 2)
         self.assertIn("duplicate JSON key: outcome", verify.stderr)
+
+    def test_pair_publish_restores_previous_artifacts_when_second_replace_fails(self) -> None:
+        self.trace_path.write_text("old trace\n", encoding="utf-8")
+        self.report_path.write_text("old report\n", encoding="utf-8")
+        real_replace = os.replace
+        calls = 0
+
+        def fail_second_replace(source: Path, destination: Path) -> None:
+            nonlocal calls
+            calls += 1
+            if calls == 2:
+                raise OSError("simulated second publish failure")
+            real_replace(source, destination)
+
+        with patch("scripts.run_qwenguard_memory_replay.os.replace", side_effect=fail_second_replace):
+            with self.assertRaisesRegex(OSError, "simulated second publish failure"):
+                _write_pair_transactionally(
+                    first_path=self.trace_path,
+                    first_text="new trace\n",
+                    second_path=self.report_path,
+                    second_text="new report\n",
+                )
+
+        self.assertEqual(self.trace_path.read_text(encoding="utf-8"), "old trace\n")
+        self.assertEqual(self.report_path.read_text(encoding="utf-8"), "old report\n")
+        self.assertEqual(list(self.out_dir.glob(".*.tmp")), [])
+        self.assertEqual(list(self.out_dir.glob(".*.backup")), [])
+
+    def test_pair_publish_preserves_backup_when_rollback_fails(self) -> None:
+        self.trace_path.write_text("old trace\n", encoding="utf-8")
+        self.report_path.write_text("old report\n", encoding="utf-8")
+        real_replace = os.replace
+        calls = 0
+
+        def fail_publish_and_trace_restore(source: Path, destination: Path) -> None:
+            nonlocal calls
+            calls += 1
+            if calls in (2, 4):
+                raise OSError("simulated replace failure")
+            real_replace(source, destination)
+
+        with patch(
+            "scripts.run_qwenguard_memory_replay.os.replace",
+            side_effect=fail_publish_and_trace_restore,
+        ):
+            with self.assertRaisesRegex(RuntimeError, "recovery backup preserved for: trace.json"):
+                _write_pair_transactionally(
+                    first_path=self.trace_path,
+                    first_text="new trace\n",
+                    second_path=self.report_path,
+                    second_text="new report\n",
+                )
+
+        backups = list(self.out_dir.glob(".trace.json.*.backup"))
+        self.assertEqual(len(backups), 1)
+        self.assertEqual(backups[0].read_text(encoding="utf-8"), "old trace\n")
+        self.assertEqual(self.trace_path.read_text(encoding="utf-8"), "new trace\n")
+        self.assertEqual(self.report_path.read_text(encoding="utf-8"), "old report\n")
+        self.assertEqual(list(self.out_dir.glob(".*.tmp")), [])
 
 
 def _run_cli(module: str, *args: str) -> subprocess.CompletedProcess[str]:

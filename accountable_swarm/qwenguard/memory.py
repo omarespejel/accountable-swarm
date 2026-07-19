@@ -29,11 +29,14 @@ MEMORY_EVIDENCE_MANIFEST_SCHEMA_VERSION = "qwenguard-memory-evidence-manifest.v1
 MEMORY_COORDINATE_SPACE = "model_reported_integer_bbox_unscaled"
 MEMORY_FIXTURE_ID = "fixed-camera-two-pass-change-001"
 MEMORY_TARGET_OBJECT_ID = "target-001"
+MEMORY_REPLAY_RUN_ID = "qwenguard-memory-replay-0001"
+MEMORY_REPLAY_MEMORY_ID = MEMORY_TARGET_OBJECT_ID
 MEMORY_TARGET_LABEL = "suitcase"
 MEMORY_RECORDED_MODEL = "recorded:memory2-belief"
 MEMORY_RECORDED_CONFIDENCE_BY_PASS = {"pass_before": 500, "pass_after": 750}
 MEMORY_RECORDED_IMAGE_SIZE = (1920, 1080)
 MEMORY_FIXTURE_RELATIVE_PATH = "fixtures/qwenguard_memory/observations.json"
+MEMORY_MANIFEST_RELATIVE_PATH = "fixtures/qwenguard_memory/manifest.json"
 MEMORY_CONFIDENCE_SEMANTICS = (
     "Internal Memory2 belief confidence from the recorded events; not Qwen detection confidence."
 )
@@ -66,6 +69,8 @@ _SECRET_PATTERN = re.compile(
     r"(?:ALIBABA_API_KEY\s*=|github_pat_|gh[pousr]_|(?<![A-Za-z0-9_-])sk-[A-Za-z0-9._-]{20,})",
     re.IGNORECASE,
 )
+_WINDOWS_ABSOLUTE_PATH_PATTERN = re.compile(r"(?<![A-Za-z0-9])[A-Za-z]:[\\/]")
+_WINDOWS_UNC_PATH_PATTERN = re.compile(r"(?<![\\])\\\\[^\\/\s]+[\\/][^\\/\s]+")
 
 
 @dataclass(frozen=True)
@@ -167,6 +172,7 @@ def parse_memory_evidence_manifest_json(
     except json.JSONDecodeError as exc:
         raise ValueError("memory evidence manifest must be valid JSON") from exc
     manifest = _require_dict(value, "memory evidence manifest")
+    _reject_private_content(manifest, label="evidence manifest")
     _require_exact_keys(
         manifest,
         {
@@ -233,7 +239,6 @@ def parse_memory_evidence_manifest_json(
     }
     if set(non_claims) != required_non_claims or len(non_claims) != len(required_non_claims):
         raise ValueError("evidence manifest non-claims do not match the reviewed boundary")
-    _reject_private_text(canonical_json(manifest), label="evidence manifest")
     return MemoryEvidenceManifest(
         manifest_sha256=sha256_canonical(manifest),
         fixture_sha256=fixture_sha,
@@ -243,6 +248,7 @@ def parse_memory_evidence_manifest_json(
 def memory_fixture_from_dict(value: dict[str, Any]) -> MemoryFixture:
     """Parse the checked fixture without accepting extra or host-specific data."""
 
+    _reject_private_content(value, label="memory fixture")
     _require_exact_keys(
         value,
         {
@@ -376,8 +382,6 @@ def memory_fixture_from_dict(value: dict[str, Any]) -> MemoryFixture:
     computed_displacement = _reported_displacement(baseline.reported_bbox, conflict.reported_bbox)
     if reported_displacement != computed_displacement:
         raise ValueError("reported displacement does not match the two model-coordinate boxes")
-    _reject_private_text(canonical_json(value), label="memory fixture")
-
     return MemoryFixture(
         fixture_id=fixture_id,
         fixture_sha256=sha256_canonical(value),
@@ -744,11 +748,29 @@ def _validate_checked_observation(observation: MemoryObservation) -> None:
         raise ValueError("unexpected recorded image size")
 
 
-def _reject_private_text(serialized: str, *, label: str) -> None:
-    if _SECRET_PATTERN.search(serialized):
-        raise ValueError(f"{label} contains secret-like material")
-    if any(marker in serialized for marker in ("/Users/", "/home/", "C:\\Users\\", "file://")):
-        raise ValueError(f"{label} contains an absolute or host-specific path")
+def _reject_private_content(value: Any, *, label: str) -> None:
+    for text in _iter_text(value):
+        if _SECRET_PATTERN.search(text):
+            raise ValueError(f"{label} contains secret-like material")
+        if (
+            any(marker in text for marker in ("/Users/", "/home/", "file://"))
+            or _WINDOWS_ABSOLUTE_PATH_PATTERN.search(text)
+            or _WINDOWS_UNC_PATH_PATTERN.search(text)
+            or re.search(r"[\\/]Users[\\/]", text, re.IGNORECASE)
+        ):
+            raise ValueError(f"{label} contains an absolute or host-specific path")
+
+
+def _iter_text(value: Any):
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, dict):
+        for key, item in value.items():
+            yield from _iter_text(key)
+            yield from _iter_text(item)
+    elif isinstance(value, (list, tuple)):
+        for item in value:
+            yield from _iter_text(item)
 
 
 def _validate_capture_receipt(value: Any, *, name: str) -> dict[str, Any]:

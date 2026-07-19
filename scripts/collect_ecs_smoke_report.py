@@ -17,6 +17,10 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin, urlparse
 
 from accountable_swarm.qwenguard.memory import (
+    MEMORY_FIXTURE_RELATIVE_PATH,
+    MEMORY_MANIFEST_RELATIVE_PATH,
+    MEMORY_REPLAY_MEMORY_ID,
+    MEMORY_REPLAY_RUN_ID,
     build_memory_replay_response,
     build_qwenguard_memory_replay,
     parse_memory_evidence_manifest_json,
@@ -45,8 +49,8 @@ SECRET_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"(?<![A-Za-z0-9_-])sk-[A-Za-z0-9._-]{20,}"),
 )
 REPO_ROOT = Path(__file__).resolve().parents[1]
-QWENGUARD_MEMORY_FIXTURE = REPO_ROOT / "fixtures/qwenguard_memory/observations.json"
-QWENGUARD_MEMORY_MANIFEST = REPO_ROOT / "fixtures/qwenguard_memory/manifest.json"
+QWENGUARD_MEMORY_FIXTURE = REPO_ROOT / MEMORY_FIXTURE_RELATIVE_PATH
+QWENGUARD_MEMORY_MANIFEST = REPO_ROOT / MEMORY_MANIFEST_RELATIVE_PATH
 
 
 def main() -> int:
@@ -428,8 +432,8 @@ def _validate_qwenguard_memory_fixture(payload: dict[str, Any]) -> dict[str, Any
             fixture=fixture,
         )
         expected_trace = build_qwenguard_memory_replay(
-            run_id="qwenguard-memory-replay-0001",
-            memory_id="target-001",
+            run_id=MEMORY_REPLAY_RUN_ID,
+            memory_id=MEMORY_REPLAY_MEMORY_ID,
             baseline=fixture.baseline,
             conflict=fixture.conflict,
         )

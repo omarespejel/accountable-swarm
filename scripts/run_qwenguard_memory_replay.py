@@ -10,6 +10,10 @@ import sys
 import tempfile
 
 from accountable_swarm.qwenguard.memory import (
+    MEMORY_FIXTURE_RELATIVE_PATH,
+    MEMORY_MANIFEST_RELATIVE_PATH,
+    MEMORY_REPLAY_MEMORY_ID,
+    MEMORY_REPLAY_RUN_ID,
     build_memory_replay_report,
     build_qwenguard_memory_replay,
     parse_memory_evidence_manifest_json,
@@ -20,8 +24,8 @@ from accountable_swarm.trace.models import canonical_json, trace_from_dict
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_FIXTURE = Path("fixtures/qwenguard_memory/observations.json")
-DEFAULT_MANIFEST = Path("fixtures/qwenguard_memory/manifest.json")
+DEFAULT_FIXTURE = Path(MEMORY_FIXTURE_RELATIVE_PATH)
+DEFAULT_MANIFEST = Path(MEMORY_MANIFEST_RELATIVE_PATH)
 DEFAULT_TRACE_OUT = Path("runs/submission/qwenguard-memory/trace.json")
 DEFAULT_REPORT_OUT = Path("runs/submission/qwenguard-memory/report.json")
 
@@ -47,8 +51,8 @@ def main() -> int:
             fixture=fixture,
         )
         trace = build_qwenguard_memory_replay(
-            run_id="qwenguard-memory-replay-0001",
-            memory_id="target-001",
+            run_id=MEMORY_REPLAY_RUN_ID,
+            memory_id=MEMORY_REPLAY_MEMORY_ID,
             baseline=fixture.baseline,
             conflict=fixture.conflict,
         )
@@ -59,7 +63,7 @@ def main() -> int:
         )
         trace_text = trace.to_canonical_json() + "\n"
         report_text = canonical_json(report) + "\n"
-        _write_pair_atomic(
+        _write_pair_transactionally(
             first_path=trace_path,
             first_text=trace_text,
             second_path=report_path,
@@ -70,7 +74,7 @@ def main() -> int:
             raise ValueError("persisted trace does not match its report")
         if canonical_json(_load_json_object(report_path)) + "\n" != report_text:
             raise ValueError("persisted report is not canonical")
-    except (OSError, TypeError, ValueError) as exc:
+    except (OSError, RuntimeError, TypeError, ValueError) as exc:
         print(f"qwenguard memory replay failed: {exc}", file=sys.stderr)
         return 2
 
@@ -143,7 +147,7 @@ def _reject_duplicate_json_keys(pairs: list[tuple[str, object]]) -> dict[str, ob
     return value
 
 
-def _write_pair_atomic(
+def _write_pair_transactionally(
     *,
     first_path: Path,
     first_text: str,
@@ -153,6 +157,9 @@ def _write_pair_atomic(
     first_path.parent.mkdir(parents=True, exist_ok=True)
     second_path.parent.mkdir(parents=True, exist_ok=True)
     temporary: list[tuple[Path, Path]] = []
+    backups: dict[Path, Path] = {}
+    published: set[Path] = set()
+    preserved_backups: set[Path] = set()
     try:
         for destination, text in ((first_path, first_text), (second_path, second_text)):
             with tempfile.NamedTemporaryFile(
@@ -167,11 +174,47 @@ def _write_pair_atomic(
                 handle.flush()
                 os.fsync(handle.fileno())
                 temporary.append((Path(handle.name), destination))
+            if destination.exists():
+                with tempfile.NamedTemporaryFile(
+                    mode="wb",
+                    dir=destination.parent,
+                    prefix=f".{destination.name}.",
+                    suffix=".backup",
+                    delete=False,
+                ) as handle:
+                    handle.write(destination.read_bytes())
+                    handle.flush()
+                    os.fsync(handle.fileno())
+                    backups[destination] = Path(handle.name)
         for source, destination in temporary:
-            source.replace(destination)
+            os.replace(source, destination)
+            published.add(destination)
+    except BaseException as exc:
+        rollback_failures: list[str] = []
+        for destination in (second_path, first_path):
+            try:
+                backup = backups.get(destination)
+                if backup is not None and backup.exists():
+                    os.replace(backup, destination)
+                elif destination in published:
+                    destination.unlink(missing_ok=True)
+            except OSError:
+                backup = backups.get(destination)
+                if backup is not None and backup.exists():
+                    preserved_backups.add(backup)
+                rollback_failures.append(destination.name)
+        if rollback_failures:
+            raise RuntimeError(
+                "failed to restore the previous trace/report pair; recovery backup preserved for: "
+                + ", ".join(rollback_failures)
+            ) from exc
+        raise
     finally:
         for source, _destination in temporary:
             source.unlink(missing_ok=True)
+        for backup in backups.values():
+            if backup not in preserved_backups:
+                backup.unlink(missing_ok=True)
 
 
 if __name__ == "__main__":
