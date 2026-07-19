@@ -168,6 +168,82 @@ class ServerTests(TestCase):
         self.assertEqual(payload["status"], "ok")
         self.assertEqual(payload["model"], "qwen3-vl-flash")
 
+    def test_fixture_endpoints_do_not_depend_on_process_cwd(self) -> None:
+        response = {
+            "choices": [
+                {
+                    "message": {
+                        "content": '[{"bbox_2d":[250,250,750,750],"label":"marked hazard"}]'
+                    }
+                }
+            ]
+        }
+
+        old_cwd = Path.cwd()
+        try:
+            with TemporaryDirectory() as tmpdir:
+                os.chdir(tmpdir)
+                with (
+                    patch.dict(os.environ, {"ALIBABA_API_KEY": "test-key"}),
+                    patch.object(DashScopeQwenClient, "_post_chat_completion", return_value=response),
+                    _test_server() as base_url,
+                ):
+                    camera = _get_json(f"{base_url}/camera-fixture")
+                    qwen_vl = _get_json(f"{base_url}/qwen-vl-fixture?model=qwen3-vl-flash")
+        finally:
+            os.chdir(old_cwd)
+
+        self.assertEqual(camera["status"], "ok")
+        self.assertEqual(qwen_vl["status"], "ok")
+
+    def test_qwen_vl_fixture_rejects_malformed_bbox_payloads(self) -> None:
+        malformed_responses = (
+            "not json",
+            '[["wrong shape"]]',
+            '[{"label":"marked hazard"}]',
+            '[{"bbox_2d":[0,0,1001,1000],"label":"marked hazard"}]',
+        )
+
+        for response_text in malformed_responses:
+            with self.subTest(response_text=response_text):
+                class FakeClient:
+                    def __init__(self, *, model: str) -> None:
+                        self.model = model
+
+                    def detect_bbox(self, *, image_path: Path, target: str) -> str:
+                        return response_text
+
+                with (
+                    patch.dict(os.environ, {"ALIBABA_API_KEY": "test-key"}),
+                    patch("accountable_swarm.server.DashScopeQwenClient", FakeClient),
+                    _test_server() as base_url,
+                ):
+                    with self.assertRaises(HTTPError) as ctx:
+                        _get_json(f"{base_url}/qwen-vl-fixture?model=qwen3-vl-flash")
+
+                self.assertEqual(ctx.exception.code, 502)
+                payload = json.loads(ctx.exception.read().decode("utf-8"))
+                self.assertEqual(payload["status"], "failed")
+                self.assertEqual(payload["model"], "qwen3-vl-flash")
+
+    def test_qwen_vl_fixture_accepts_full_normalized_bbox(self) -> None:
+        class FakeClient:
+            def __init__(self, *, model: str) -> None:
+                self.model = model
+
+            def detect_bbox(self, *, image_path: Path, target: str) -> str:
+                return '[{"bbox_2d":[0,0,1000,1000],"label":"marked hazard"}]'
+
+        with (
+            patch.dict(os.environ, {"ALIBABA_API_KEY": "test-key"}),
+            patch("accountable_swarm.server.DashScopeQwenClient", FakeClient),
+            _test_server() as base_url,
+        ):
+            payload = _get_json(f"{base_url}/qwen-vl-fixture?model=qwen3-vl-flash")
+
+        self.assertEqual(payload["status"], "ok")
+        self.assertEqual(payload["bbox_2d_norm_1000"], [0, 0, 1000, 1000])
+
     def test_qwen_vl_fixture_without_key_returns_503(self) -> None:
         with patch.dict(os.environ, {"ALIBABA_API_KEY": ""}), _test_server() as base_url:
             with self.assertRaises(HTTPError) as ctx:

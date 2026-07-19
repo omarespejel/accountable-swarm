@@ -44,7 +44,8 @@ DEFAULT_HAZARD_FORMATION_REPLAY_DIR = REPO_ROOT / "runs/hazard_formation/recordi
 DEFAULT_WORLD_MODEL_DASHBOARD_DIR = REPO_ROOT / "runs/dashboard/recording_x"
 DEFAULT_QWENGUARD_MEMORY_FIXTURE = REPO_ROOT / MEMORY_FIXTURE_RELATIVE_PATH
 DEFAULT_QWENGUARD_MEMORY_MANIFEST = REPO_ROOT / MEMORY_MANIFEST_RELATIVE_PATH
-QWEN_VL_FIXTURE_IMAGE = Path("fixtures/hazard_marker.png")
+CAMERA_FIXTURE_IMAGE = REPO_ROOT / "fixtures" / "hazard_marker.ppm"
+QWEN_VL_FIXTURE_IMAGE = REPO_ROOT / "fixtures" / "hazard_marker.png"
 SWARM_DEMO_BUILD_COMMAND = "python3 scripts/build_swarm_demo_bundle.py"
 HAZARD_FORMATION_BUILD_COMMAND = "python3 scripts/prepare_demo_recording_pack.py"
 WORLD_MODEL_DASHBOARD_BUILD_COMMAND = "python3 scripts/prepare_demo_recording_pack.py"
@@ -123,7 +124,7 @@ class AccountableSwarmHandler(BaseHTTPRequestHandler):
         return
 
     def _handle_camera_fixture(self) -> None:
-        image_path = Path("fixtures/hazard_marker.ppm")
+        image_path = CAMERA_FIXTURE_IMAGE
         width, height = image_size(image_path)
         grounding = parse_qwen_bbox_response(FIXTURE_RESPONSE, image_width=width, image_height=height)
         perception = PerceptionEvent(
