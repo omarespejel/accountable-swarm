@@ -37,6 +37,8 @@ class PackagingTests(TestCase):
         self.assertIn('collect-dimos-runtime-smoke-report = "scripts.collect_dimos_runtime_smoke_report:main"', text)
         self.assertIn('prepare-dimos-runtime-smoke-pack = "scripts.prepare_dimos_runtime_smoke_pack:main"', text)
         self.assertIn('collect-ecs-smoke-report = "scripts.collect_ecs_smoke_report:main"', text)
+        self.assertIn('run-qwenguard-memory-replay = "scripts.run_qwenguard_memory_replay:main"', text)
+        self.assertIn('verify-qwenguard-memory-replay = "scripts.verify_qwenguard_memory_replay:main"', text)
         self.assertIn('verify-trace = "scripts.verify_trace:main"', text)
 
         scripts = _project_scripts(text)
@@ -103,6 +105,14 @@ class PackagingTests(TestCase):
         self.assertEqual(
             scripts["collect-ecs-smoke-report"],
             "scripts.collect_ecs_smoke_report:main",
+        )
+        self.assertEqual(
+            scripts["run-qwenguard-memory-replay"],
+            "scripts.run_qwenguard_memory_replay:main",
+        )
+        self.assertEqual(
+            scripts["verify-qwenguard-memory-replay"],
+            "scripts.verify_qwenguard_memory_replay:main",
         )
         self.assertEqual(
             scripts["verify-trace"],

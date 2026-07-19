@@ -39,6 +39,8 @@ collect-dimos-runtime-smoke-report = "scripts.collect_dimos_runtime_smoke_report
 prepare-dimos-runtime-smoke-pack = "scripts.prepare_dimos_runtime_smoke_pack:main"
 collect-ecs-smoke-report = "scripts.collect_ecs_smoke_report:main"
 run-qwenguard-no-motion-health-check = "scripts.run_qwenguard_no_motion_health_check:main"
+run-qwenguard-memory-replay = "scripts.run_qwenguard_memory_replay:main"
+verify-qwenguard-memory-replay = "scripts.verify_qwenguard_memory_replay:main"
 prepare-so101-training-pack = "scripts.prepare_so101_training_pack:main"
 verify-trace = "scripts.verify_trace:main"
 

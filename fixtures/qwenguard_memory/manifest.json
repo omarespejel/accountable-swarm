@@ -1,0 +1,47 @@
+{
+  "schema_version": "qwenguard-memory-evidence-manifest.v1",
+  "fixture": "fixtures/qwenguard_memory/observations.json",
+  "fixture_sha256": "651eed708bf698690f5f6b376aeb1a6fc04c58c002be7feea926f197d5df8c7a",
+  "capture_control": "TELEOP",
+  "fixed_reference_camera": "Gemini 2 independent reference, not mounted on Go2",
+  "go2_capture_receipts": {
+    "pass_before": {
+      "raw_database_sha256": "17278250c003278e60b3180528b564860ce5b0800dfbc019e6d3363cd9edd3df",
+      "replay_database_sha256": "9a8b5150d223ab22c9cae9a768cd2604baa5765305118e0a976cf59c69f1a865",
+      "highlight_database_sha256": "659489a58d4f0474f3fe8d4c7204bd0824126998e8a2a6e3449fb43b043d490d",
+      "recorded_rows": {
+        "color_image": 13540,
+        "lidar": 1465,
+        "odom": 17555,
+        "tf": 53361
+      }
+    },
+    "pass_after": {
+      "raw_database_sha256": "f445a364766aa1962f342156da6abc45e1a1c88b6654ee8f5a9c04cef2150459",
+      "replay_database_sha256": "6e235e3e478ee87eb17a3329da0e7085c6f60a88b14b978e0d2dbf9305f094e6",
+      "highlight_database_sha256": "0e756926878dbf734adf71974442d04dfa62d6988e975bdcc20988626c65ff29",
+      "recorded_rows": {
+        "color_image": 4140,
+        "lidar": 447,
+        "odom": 5365,
+        "tf": 16266
+      }
+    }
+  },
+  "privacy": {
+    "raw_images_included": false,
+    "raw_databases_included": false,
+    "absolute_paths_included": false
+  },
+  "public_labels": [
+    "POST-RUN POLICY SIMULATION — built from recorded receipts; these were not robot-runtime transitions",
+    "RECORDED GO2 ONBOARD-SLAM POINT CLOUD, shown in post-run replay — not raw L1 LiDAR",
+    "SEMANTIC FRAMES — Gemini 2 fixed independent reference, separate from Go2 capture receipts"
+  ],
+  "non_claims": [
+    "database hashes are receipts, not public raw-data verification",
+    "no sensor calibration or hardware synchronization proof",
+    "no autonomous Go2 control",
+    "no independently verified Qwen accuracy"
+  ]
+}

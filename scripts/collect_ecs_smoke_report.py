@@ -16,7 +16,14 @@ from urllib import request
 from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin, urlparse
 
-from accountable_swarm.trace.models import canonical_json
+from accountable_swarm.qwenguard.memory import (
+    build_memory_replay_response,
+    build_qwenguard_memory_replay,
+    parse_memory_evidence_manifest_json,
+    parse_memory_fixture_json,
+    verify_qwenguard_memory_replay,
+)
+from accountable_swarm.trace.models import canonical_json, trace_from_dict
 
 
 REPORT_SCHEMA_VERSION = "ecs-smoke-report.v1"
@@ -37,6 +44,9 @@ SECRET_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"gh(?:p|o|u|s|r)_[A-Za-z0-9_]{12,}"),
     re.compile(r"(?<![A-Za-z0-9_-])sk-[A-Za-z0-9._-]{20,}"),
 )
+REPO_ROOT = Path(__file__).resolve().parents[1]
+QWENGUARD_MEMORY_FIXTURE = REPO_ROOT / "fixtures/qwenguard_memory/observations.json"
+QWENGUARD_MEMORY_MANIFEST = REPO_ROOT / "fixtures/qwenguard_memory/manifest.json"
 
 
 def main() -> int:
@@ -174,6 +184,13 @@ def collect_report(
         ),
         _check_json(
             base_url=normalized_base_url,
+            path="/qwenguard-memory-fixture",
+            timeout_seconds=timeout_seconds,
+            validator=_validate_qwenguard_memory_fixture,
+            fetcher=fetch,
+        ),
+        _check_json(
+            base_url=normalized_base_url,
             path=f"/qwen-vl-fixture?model={qwen_model}",
             timeout_seconds=timeout_seconds,
             validator=lambda payload: _validate_qwen_vl_fixture(payload, qwen_model=qwen_model),
@@ -248,6 +265,14 @@ def _check_json(
 ) -> dict[str, Any]:
     response = fetcher(base_url=base_url, path=path, timeout_seconds=timeout_seconds)
     check = _base_check(name=_check_name(path), path=path, response=response)
+    if response.get("status_code") != 200:
+        check["ok"] = False
+        check["reason"] = "response status was not HTTP 200"
+        return check
+    if not _is_json_media_type(str(response.get("content_type", ""))):
+        check["ok"] = False
+        check["reason"] = "response Content-Type was not JSON"
+        return check
     payload = response.get("json")
     if not isinstance(payload, dict):
         check["ok"] = False
@@ -315,10 +340,27 @@ def _response_payload(*, status_code: int, content_type: str, body: bytes) -> di
     stripped_body = body.strip()
     if "application/json" in content_type or stripped_body.startswith((b"{", b"[")):
         try:
-            response["json"] = json.loads(body.decode("utf-8"))
-        except (UnicodeDecodeError, json.JSONDecodeError):
+            response["json"] = json.loads(
+                body.decode("utf-8"),
+                object_pairs_hook=_reject_duplicate_json_keys,
+            )
+        except (UnicodeDecodeError, json.JSONDecodeError, ValueError):
             response["json_parse_error"] = True
     return response
+
+
+def _is_json_media_type(content_type: str) -> bool:
+    media_type = content_type.split(";", 1)[0].strip().lower()
+    return media_type == "application/json" or media_type.endswith("+json")
+
+
+def _reject_duplicate_json_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    value: dict[str, Any] = {}
+    for key, item in pairs:
+        if key in value:
+            raise ValueError(f"duplicate JSON key: {key}")
+        value[key] = item
+    return value
 
 
 def _base_check(*, name: str, path: str, response: dict[str, Any]) -> dict[str, Any]:
@@ -369,6 +411,83 @@ def _validate_camera_fixture(payload: dict[str, Any]) -> dict[str, Any]:
             "decision": payload.get("decision"),
             "schema_version": payload.get("schema_version"),
             "trace_summary_sha": trace_sha,
+        },
+    )
+
+
+def _validate_qwenguard_memory_fixture(payload: dict[str, Any]) -> dict[str, Any]:
+    trace_sha = str(payload.get("trace_summary_sha", ""))
+    event_receipts = payload.get("event_receipts")
+    trace_value = payload.get("trace")
+    semantic_ok = False
+    exact_fixture_ok = False
+    try:
+        fixture = parse_memory_fixture_json(QWENGUARD_MEMORY_FIXTURE.read_text(encoding="utf-8"))
+        evidence_manifest = parse_memory_evidence_manifest_json(
+            QWENGUARD_MEMORY_MANIFEST.read_text(encoding="utf-8"),
+            fixture=fixture,
+        )
+        expected_trace = build_qwenguard_memory_replay(
+            run_id="qwenguard-memory-replay-0001",
+            memory_id="target-001",
+            baseline=fixture.baseline,
+            conflict=fixture.conflict,
+        )
+        expected_response = build_memory_replay_response(
+            fixture=fixture,
+            evidence_manifest=evidence_manifest,
+            trace=expected_trace,
+        )
+        exact_fixture_ok = (
+            set(payload) == set(expected_response)
+            and canonical_json(payload) == canonical_json(expected_response)
+        )
+        if isinstance(trace_value, dict):
+            trace = trace_from_dict(trace_value)
+            semantic_ok = (
+                verify_qwenguard_memory_replay(trace) == trace_sha
+                and event_receipts == [event.sha256 for event in trace.events]
+            )
+    except (AttributeError, KeyError, OSError, TypeError, ValueError):
+        semantic_ok = False
+        exact_fixture_ok = False
+    ok = (
+        payload.get("status") == "ok"
+        and payload.get("schema_version") == "qwenguard-memory-replay-response.v1"
+        and payload.get("source_mode") == "fixture"
+        and payload.get("execution_context") == "post_run_policy_simulation"
+        and payload.get("robot_runtime_transitions") is False
+        and payload.get("semantic_frame_source") == "Gemini 2 fixed independent reference, not mounted on Go2"
+        and payload.get("go2_capture_receipts_role")
+        == "separate teleoperated context receipts, not the semantic frame source"
+        and payload.get("policy_sequence") == ["VERIFIED", "PROVISIONAL", "HOLD", "REVERIFY"]
+        and payload.get("memory_state_sequence") == ["VERIFIED", "PROVISIONAL", "PROVISIONAL", "PROVISIONAL"]
+        and payload.get("retained_memory_state") == "PROVISIONAL"
+        and payload.get("policy_action") == "HOLD"
+        and payload.get("reverify_status") == "REQUESTED"
+        and payload.get("motion_executed") is False
+        and _is_hex_64(trace_sha)
+        and semantic_ok
+        and exact_fixture_ok
+    )
+    return _validation(
+        ok=ok,
+        reason="memory fixture returned a semantically verified no-motion replay",
+        evidence={
+            "status": payload.get("status"),
+            "execution_context": payload.get("execution_context"),
+            "robot_runtime_transitions": payload.get("robot_runtime_transitions"),
+            "semantic_frame_source": payload.get("semantic_frame_source"),
+            "go2_capture_receipts_role": payload.get("go2_capture_receipts_role"),
+            "policy_sequence": payload.get("policy_sequence"),
+            "memory_state_sequence": payload.get("memory_state_sequence"),
+            "retained_memory_state": payload.get("retained_memory_state"),
+            "policy_action": payload.get("policy_action"),
+            "reverify_status": payload.get("reverify_status"),
+            "motion_executed": payload.get("motion_executed"),
+            "trace_summary_sha": trace_sha,
+            "fixture_sha256": payload.get("fixture_sha256"),
+            "evidence_manifest_sha256": payload.get("evidence_manifest_sha256"),
         },
     )
 

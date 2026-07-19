@@ -4,11 +4,12 @@ Issue: #55
 
 ## Submission Position
 
-Accountable Swarm is a Qwen Cloud EdgeAgent hackathon project. The current
-judge-facing demo is a deterministic simulated swarm, not a physical robot
-claim. Qwen is used for low-rate mission intent or keyframe semantic checks.
-Local deterministic code owns scenario selection, safety constraints, planning,
-motion decisions, replay, and trace verification.
+Accountable Swarm is a Qwen Cloud EdgeAgent hackathon project. The repo has two
+judge-facing paths: a deterministic simulated swarm and a privacy-safe memory
+replay from teleoperated Go2 capture receipts. Neither is a claim that Qwen
+controlled the physical robot. Qwen is used for low-rate mission intent or
+keyframe semantic checks. Local deterministic code owns policy, planning,
+replay, and trace verification.
 
 The checked demo claim is:
 
@@ -19,6 +20,24 @@ explicit world-model timeline -> replay-verifiable report and dashboard
 ```
 
 ## Current Judge Path
+
+Run and verify the Go2 QwenGuard post-run policy simulation first:
+
+```bash
+python3 -m pip install -e .
+run-qwenguard-memory-replay
+verify-qwenguard-memory-replay
+```
+
+This produces the exact `VERIFIED -> PROVISIONAL -> HOLD -> REVERIFY`
+simulation from privacy-safe recorded receipts. These were not robot-runtime
+transitions. The changed belief remains provisional, the hold has no motor
+authority, and re-verification is requested rather than claimed complete. The
+reported `500`/`750` values are internal Memory2 belief confidence, not Qwen
+detection confidence. Raw private frames are not included. See
+`docs/engineering/qwenguard-go2-memory-replay-2026-07-18.md`.
+The semantic frames came from the fixed Gemini 2 reference; the Go2 hashes are
+separate teleoperated context receipts.
 
 Run the swarm-first local demo bundle:
 
@@ -52,6 +71,7 @@ Then inspect:
 ```text
 GET /healthz
 GET /readyz
+GET /qwenguard-memory-fixture
 GET /swarm-demo
 GET /swarm-demo/summary.json
 ```

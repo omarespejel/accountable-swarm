@@ -86,6 +86,38 @@ Fixture-mode local gate now runs this spine for two deterministic frames:
 `MOVE`. No swarm, SO-101, Qwen latency, reliability, or production-readiness
 claim follows from that fixture evidence.
 
+## Go2 QwenGuard Memory Replay
+
+The judge-facing physical-data lane runs a deterministic post-run policy
+simulation over a recorded two-pass observation without committing private
+imagery or granting motor authority:
+
+```text
+VERIFIED baseline -> PROVISIONAL change -> HOLD -> REVERIFY request
+```
+
+Run and independently rebuild the artifacts:
+
+```bash
+python3 -m pip install -e .
+run-qwenguard-memory-replay
+verify-qwenguard-memory-replay
+```
+
+These four phases were not robot-runtime transitions. The checked fixture stores
+only frame and observation hashes, dimensions, model-reported integer boxes,
+Memory2 belief confidence, and provenance receipts. That confidence is internal
+memory state (`500` before, `750` after), not Qwen detection confidence. The
+model boxes are not treated as calibrated pixel or 3D geometry. Raw hotel
+imagery and source databases remain private. The Go2 evidence was recorded
+under teleoperation, and Qwen processing is post-run and outside the real-time
+motor loop. The semantic source frames came from the fixed Gemini 2 reference;
+the Go2 database hashes are separate teleoperated context receipts.
+
+See `docs/engineering/qwenguard-go2-memory-replay-2026-07-18.md` and
+`fixtures/qwenguard_memory/manifest.json` for the evidence and non-claim
+boundary.
+
 ## Camera / Static-Frame Gate
 
 The next gate uses the same accountable trace spine with an edge-frame source:
@@ -550,6 +582,7 @@ Smoke endpoints:
 GET /healthz
 GET /readyz
 GET /camera-fixture
+GET /qwenguard-memory-fixture
 GET /qwen-vl-fixture?model=qwen3-vl-flash
 GET /qwen-ping?model=qwen3-vl-flash
 GET /swarm-demo
@@ -561,7 +594,8 @@ Run `python3 scripts/build_swarm_demo_bundle.py` before opening
 read-only and do not generate or mutate bundle state on request. Auxiliary
 smoke endpoints also exist: `/camera-fixture` builds and verifies an in-memory
 fixture `DecisionTrace`, `/qwen-vl-fixture` performs the deployed Qwen3-VL
-fixture bbox round-trip, and `/qwen-ping` may call DashScope when
+fixture bbox round-trip, `/qwenguard-memory-fixture` returns and verifies the
+deterministic no-motion memory replay, and `/qwen-ping` may call DashScope when
 `ALIBABA_API_KEY` is configured. Submission ECS proof must be collected on the
 Alibaba ECS host with `proof_mode: ecs-public`, commit-to-HEAD matching, and
 ECS metadata identity/public-IP binding.
@@ -606,4 +640,7 @@ NARROW_CLAIM matrix. The short version:
   GO.
 - Hazard bbox to formation planner gate: GO in fixture mode, with degraded
   local hold fallback.
+- Privacy-safe Go2 QwenGuard memory replay: GO for the deterministic post-run
+  policy simulation `VERIFIED -> PROVISIONAL -> HOLD -> REVERIFY`; these were
+  not robot-runtime transitions. Physical capture was teleoperated.
 - SO-101, physics/DimOS swarm, and Alibaba ECS deployment: not yet proven.
