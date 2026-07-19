@@ -12,6 +12,32 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class CameraGoGateCliTests(TestCase):
+    def test_dashscope_retries_client_error_once(self) -> None:
+        class FakeClient:
+            calls = 0
+
+            def __init__(self, *, model: str) -> None:
+                self.model = model
+
+            def detect_bbox(self, *, image_path: Path, target: str) -> str:
+                FakeClient.calls += 1
+                if FakeClient.calls == 1:
+                    raise run_camera_go_gate.DashScopeResponseError("temporary response error")
+                return '[{"bbox_2d":[250,250,750,750],"label":"marked hazard"}]'
+
+        with patch.object(run_camera_go_gate, "DashScopeQwenClient", FakeClient):
+            _trace, conditions, model_error = run_camera_go_gate._build_trace(
+                image_path=ROOT / "fixtures" / "hazard_marker.ppm",
+                source_kind="static_image",
+                mode="dashscope",
+                target="marked hazard",
+                model="fake-qwen",
+            )
+
+        self.assertEqual(FakeClient.calls, 2)
+        self.assertTrue(conditions["json_validated"])
+        self.assertEqual(model_error, "")
+
     def test_dashscope_retries_malformed_bbox_once(self) -> None:
         class FakeClient:
             calls = 0
@@ -37,6 +63,29 @@ class CameraGoGateCliTests(TestCase):
         self.assertEqual(FakeClient.calls, 2)
         self.assertTrue(conditions["json_validated"])
         self.assertEqual(model_error, "")
+
+    def test_dashscope_fails_after_two_malformed_responses(self) -> None:
+        class FakeClient:
+            calls = 0
+
+            def __init__(self, *, model: str) -> None:
+                self.model = model
+
+            def detect_bbox(self, *, image_path: Path, target: str) -> str:
+                FakeClient.calls += 1
+                return "not json"
+
+        with patch.object(run_camera_go_gate, "DashScopeQwenClient", FakeClient):
+            with self.assertRaisesRegex(ValueError, "stayed invalid after retry"):
+                run_camera_go_gate._build_trace(
+                    image_path=ROOT / "fixtures" / "hazard_marker.ppm",
+                    source_kind="static_image",
+                    mode="dashscope",
+                    target="marked hazard",
+                    model="fake-qwen",
+                )
+
+        self.assertEqual(FakeClient.calls, 2)
 
     def test_fixture_static_frame_writes_trace_and_report(self) -> None:
         trace_path = ROOT / "runs/go_gate/test_camera_trace.json"

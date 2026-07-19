@@ -52,6 +52,22 @@ class DashScopeQwenClientTests(TestCase):
                 base_url="http://example.test/compatible-mode/v1",
             )
 
+    def test_base_url_rejects_credentials_query_and_fragment(self) -> None:
+        invalid_urls = (
+            "https://user:password@example.test/compatible-mode/v1",
+            "https://example.test/compatible-mode/v1?workspace=other",
+            "https://example.test/compatible-mode/v1#other",
+        )
+
+        for base_url in invalid_urls:
+            with self.subTest(base_url=base_url):
+                with self.assertRaisesRegex(ValueError, "without credentials, query, or fragment"):
+                    DashScopeQwenClient(
+                        model="fake-qwen",
+                        api_key="test-key",
+                        base_url=base_url,
+                    )
+
     def test_detect_bbox_pins_temperature_zero(self) -> None:
         captured: dict[str, object] = {}
 

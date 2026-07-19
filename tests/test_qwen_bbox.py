@@ -102,6 +102,15 @@ class QwenBBoxTests(TestCase):
         with self.assertRaises(ValueError):
             parse_qwen_bbox_response("[]", image_width=100, image_height=50)
 
+    def test_rejects_multiple_detection_items(self) -> None:
+        response = (
+            '[{"bbox_2d":[0,0,400,400],"label":"first"},'
+            '{"bbox_2d":[500,500,1000,1000],"label":"second"}]'
+        )
+
+        with self.assertRaisesRegex(ValueError, "exactly one bbox item"):
+            parse_qwen_bbox_response(response, image_width=100, image_height=50)
+
     def test_optional_response_accepts_empty_detection_array_with_whitespace(self) -> None:
         self.assertIsNone(parse_qwen_bbox_optional_response("[ ]", image_width=100, image_height=50))
 

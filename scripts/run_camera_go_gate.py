@@ -160,15 +160,15 @@ def _build_trace(
         )
     else:
         client = DashScopeQwenClient(model=model)
-        last_error: ValueError | None = None
+        last_error: DashScopeResponseError | ValueError | None = None
         for _attempt in range(MAX_DASHSCOPE_PARSE_ATTEMPTS):
-            response_text = client.detect_bbox(image_path=image_path, target=target)
             try:
+                response_text = client.detect_bbox(image_path=image_path, target=target)
                 grounding = parse_qwen_bbox_response(
                     response_text, image_width=width, image_height=height
                 )
                 break
-            except ValueError as exc:
+            except (DashScopeResponseError, ValueError) as exc:
                 last_error = exc
         else:
             raise ValueError(f"Qwen bbox response stayed invalid after retry: {last_error}")
