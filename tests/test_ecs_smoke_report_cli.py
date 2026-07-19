@@ -1,3 +1,4 @@
+from copy import deepcopy
 import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -8,6 +9,7 @@ from threading import Thread
 from unittest import TestCase
 from unittest.mock import patch
 
+from accountable_swarm.server import _qwenguard_memory_fixture_response
 from scripts import collect_ecs_smoke_report as collector
 
 
@@ -15,9 +17,85 @@ ROOT = Path(__file__).resolve().parents[1]
 COMMIT = collector._git_head()
 ECS_IP = "47.88.8.8"
 ECS_IPV6 = "2001:4860:4860::8888"
+MEMORY_FIXTURE_RESPONSE = _qwenguard_memory_fixture_response()
 
 
 class EcsSmokeReportCliTests(TestCase):
+    def test_memory_fixture_validator_requires_exact_checked_response(self) -> None:
+        self.assertTrue(collector._validate_qwenguard_memory_fixture(MEMORY_FIXTURE_RESPONSE)["ok"])
+
+        cases = []
+        missing_fixture_sha = deepcopy(MEMORY_FIXTURE_RESPONSE)
+        missing_fixture_sha.pop("fixture_sha256")
+        cases.append(("missing fixture sha", missing_fixture_sha))
+
+        forged_fixture_sha = deepcopy(MEMORY_FIXTURE_RESPONSE)
+        forged_fixture_sha["fixture_sha256"] = "0" * 64
+        cases.append(("forged fixture sha", forged_fixture_sha))
+
+        altered_reason = deepcopy(MEMORY_FIXTURE_RESPONSE)
+        altered_reason["trace"]["events"][1]["reason"] = "trust me"
+        cases.append(("altered trace reason", altered_reason))
+
+        extra_key = deepcopy(MEMORY_FIXTURE_RESPONSE)
+        extra_key["unreviewed"] = True
+        cases.append(("extra response key", extra_key))
+
+        wrong_context = deepcopy(MEMORY_FIXTURE_RESPONSE)
+        wrong_context["execution_context"] = "robot_runtime"
+        cases.append(("wrong execution context", wrong_context))
+
+        runtime_claim = deepcopy(MEMORY_FIXTURE_RESPONSE)
+        runtime_claim["robot_runtime_transitions"] = True
+        cases.append(("robot runtime claim", runtime_claim))
+
+        conflated_sources = deepcopy(MEMORY_FIXTURE_RESPONSE)
+        conflated_sources["go2_capture_receipts_role"] = "semantic source frames"
+        cases.append(("conflated semantic and Go2 sources", conflated_sources))
+
+        malformed_actor = deepcopy(MEMORY_FIXTURE_RESPONSE)
+        malformed_actor["trace"]["events"][0]["actor_id"] = 7
+        cases.append(("malformed trace scalar", malformed_actor))
+
+        for label, payload in cases:
+            with self.subTest(label=label):
+                self.assertFalse(collector._validate_qwenguard_memory_fixture(payload)["ok"])
+
+    def test_json_checks_require_success_status_and_json_content_type(self) -> None:
+        cases = (
+            (
+                "wrong status",
+                _json_response(MEMORY_FIXTURE_RESPONSE, status=500),
+                "HTTP 200",
+            ),
+            (
+                "wrong content type",
+                _json_response(MEMORY_FIXTURE_RESPONSE, content_type="text/html"),
+                "Content-Type",
+            ),
+        )
+        for label, response, message in cases:
+            with self.subTest(label=label):
+                check = collector._check_json(
+                    base_url="http://example.invalid",
+                    path="/qwenguard-memory-fixture",
+                    timeout_seconds=1,
+                    validator=collector._validate_qwenguard_memory_fixture,
+                    fetcher=lambda **_kwargs: response,
+                )
+                self.assertFalse(check["ok"])
+                self.assertIn(message, check["reason"])
+
+    def test_response_payload_rejects_duplicate_json_keys(self) -> None:
+        response = collector._response_payload(
+            status_code=200,
+            content_type="application/json; charset=utf-8",
+            body=b'{"status":"failed","status":"ok"}\n',
+        )
+
+        self.assertTrue(response["json_parse_error"])
+        self.assertNotIn("json", response)
+
     def test_collects_go_report_from_public_ecs_metadata(self) -> None:
         report = collector.collect_report(
             base_url=f"http://{ECS_IP}:8000",
@@ -40,7 +118,7 @@ class EcsSmokeReportCliTests(TestCase):
         self.assertTrue(report["deployment"]["deployment_context_verified"])
         self.assertTrue(all(report["pass_conditions"].values()))
         self.assertEqual(report["collector_head"], COMMIT)
-        self.assertEqual(len(report["checks"]), 7)
+        self.assertEqual(len(report["checks"]), 8)
 
     def test_collect_report_uses_one_cached_git_head(self) -> None:
         collector_head = "a" * 40
@@ -131,7 +209,7 @@ class EcsSmokeReportCliTests(TestCase):
             self.assertEqual(report["proof_mode"], "local-smoke")
             self.assertFalse(report["pass_conditions"]["proof_mode_is_ecs_public"])
             self.assertFalse(report["pass_conditions"]["base_url_is_public_endpoint"])
-            self.assertEqual(len(report["checks"]), 7)
+            self.assertEqual(len(report["checks"]), 8)
 
     def test_fails_closed_when_qwen_ping_is_not_ok(self) -> None:
         with _fake_ecs_server(qwen_status="missing_key") as base_url, TemporaryDirectory() as tmpdir:
@@ -513,6 +591,9 @@ class _fake_ecs_server:
                         },
                     )
                     return
+                if self.path == "/qwenguard-memory-fixture":
+                    _send_json(self, MEMORY_FIXTURE_RESPONSE)
+                    return
                 if self.path == "/swarm-demo":
                     _send_text(self, "<!doctype html><title>demo</title>", content_type="text/html; charset=utf-8")
                     return
@@ -617,6 +698,8 @@ def _fake_fetcher(*, qwen_status: str, summary_schema: str = "swarm-demo-bundle-
                     "trace_summary_sha": "b" * 64,
                 }
             )
+        if path == "/qwenguard-memory-fixture":
+            return _json_response(MEMORY_FIXTURE_RESPONSE)
         if path == "/swarm-demo":
             return _text_response("<!doctype html><title>demo</title>", content_type="text/html; charset=utf-8")
         if path == "/swarm-demo/summary.json":

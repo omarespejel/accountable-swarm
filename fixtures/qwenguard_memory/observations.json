@@ -1,0 +1,61 @@
+{
+  "schema": "qwenguard.observation-fixture.v1",
+  "fixture_id": "fixed-camera-two-pass-change-001",
+  "privacy": {
+    "raw_images_included": false,
+    "absolute_paths_included": false,
+    "people_or_room_identifiers_included": false
+  },
+  "coordinate_space": "model_reported_integer_bbox_unscaled",
+  "observations": [
+    {
+      "pass_id": "pass_before",
+      "frame": {
+        "sha256": "69c0deaa3b0ba427306f05915978bfc9f2fb3d7ad98b2da0ae842906a4bf90b3",
+        "width": 1920,
+        "height": 1080
+      },
+      "detection": {
+        "object_id": "target-001",
+        "label": "suitcase",
+        "bbox": [396, 237, 466, 457],
+        "memory_confidence_milli": 500
+      }
+    },
+    {
+      "pass_id": "pass_after",
+      "frame": {
+        "sha256": "13f63f56ff7609193a84ac0a4f7840ed6347e9bc0260bbcb1d9b297eb9125400",
+        "width": 1920,
+        "height": 1080
+      },
+      "detection": {
+        "object_id": "target-001",
+        "label": "suitcase",
+        "bbox": [271, 349, 439, 867],
+        "memory_confidence_milli": 750
+      }
+    }
+  ],
+  "observed_result": {
+    "change": "moved",
+    "reported_displacement_model_units": 271,
+    "ambiguous": true,
+    "confidence_semantics": "Internal Memory2 belief confidence from the recorded events; not Qwen detection confidence.",
+    "measurement_caveat": "Model coordinates were stored without rescaling; displacement is reported in those model-coordinate units, not calibrated image pixels."
+  },
+  "expected_policy": {
+    "memory_state": "PROVISIONAL",
+    "action": "HOLD",
+    "reverify_required": true,
+    "motion_executed": false
+  },
+  "provenance": {
+    "proposer_recorded": "cloud:qwen3-vl-flash",
+    "tier_recorded": "cloud",
+    "trust_label_recorded": "verified",
+    "memory_events_sha256": "a6ad4f7f80a78a4a42d6c1dbe2b3b9392c2fb7824b0571d1b70e834d6e046819",
+    "memory_snapshot_sha256": "564e6277c2945f1b860fb87d2a2a52e071ea165cc10631e0414791bae7599c2c",
+    "event_chain_head": "d46c0a134853b1d51560e5d99b8bb6151c825cbeee02afc87663a3db1613a0cb"
+  }
+}

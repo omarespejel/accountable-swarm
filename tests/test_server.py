@@ -10,7 +10,9 @@ from unittest.mock import patch
 from urllib import request
 from urllib.error import HTTPError
 
+from accountable_swarm.qwenguard.memory import verify_qwenguard_memory_replay
 from accountable_swarm.server import AccountableSwarmHandler, _is_loopback_host
+from accountable_swarm.trace.models import trace_from_dict
 from http.server import ThreadingHTTPServer
 
 
@@ -41,6 +43,44 @@ class ServerTests(TestCase):
             with self.assertRaises(HTTPError) as ctx:
                 _get_json(f"{base_url}/qwen-ping?model=qwen-plus")
             self.assertEqual(ctx.exception.code, 503)
+
+    def test_qwenguard_memory_fixture_returns_semantically_verified_trace(self) -> None:
+        with _test_server() as base_url:
+            payload = _get_json(f"{base_url}/qwenguard-memory-fixture")
+
+        trace = trace_from_dict(payload["trace"])
+        self.assertEqual(payload["status"], "ok")
+        self.assertEqual(payload["execution_context"], "post_run_policy_simulation")
+        self.assertFalse(payload["robot_runtime_transitions"])
+        self.assertIn("Gemini 2 fixed independent reference", payload["semantic_frame_source"])
+        self.assertIn("separate teleoperated context receipts", payload["go2_capture_receipts_role"])
+        self.assertEqual(payload["policy_sequence"], ["VERIFIED", "PROVISIONAL", "HOLD", "REVERIFY"])
+        self.assertEqual(
+            payload["memory_state_sequence"],
+            ["VERIFIED", "PROVISIONAL", "PROVISIONAL", "PROVISIONAL"],
+        )
+        self.assertEqual(payload["retained_memory_state"], "PROVISIONAL")
+        self.assertEqual(payload["policy_action"], "HOLD")
+        self.assertEqual(payload["reverify_status"], "REQUESTED")
+        self.assertFalse(payload["motion_executed"])
+        self.assertEqual(verify_qwenguard_memory_replay(trace), payload["trace_summary_sha"])
+        self.assertEqual(payload["event_receipts"], [event.sha256 for event in trace.events])
+
+    def test_qwenguard_memory_fixture_failure_does_not_leak_host_path(self) -> None:
+        private_path = Path("/Users/operator/private/missing-observations.json")
+        with (
+            patch("accountable_swarm.server.DEFAULT_QWENGUARD_MEMORY_FIXTURE", private_path),
+            _test_server() as base_url,
+        ):
+            with self.assertRaises(HTTPError) as ctx:
+                _get_json(f"{base_url}/qwenguard-memory-fixture")
+            self.assertEqual(ctx.exception.code, 500)
+            body = ctx.exception.read().decode("utf-8")
+            payload = json.loads(body)
+
+        self.assertEqual(payload, {"status": "failed", "error": "memory_fixture_unavailable"})
+        self.assertNotIn(str(private_path), body)
+        self.assertNotIn("/Users/", body)
 
     def test_qwen_ping_rejects_unexpected_content(self) -> None:
         class FakeClient:

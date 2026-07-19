@@ -41,6 +41,8 @@ required = [
     "scripts/capture_so101_camera_frame.py",
     "scripts/prepare_so101_operator_probe_pack.py",
     "scripts/record_qwenguard_trial.py",
+    "scripts/run_qwenguard_memory_replay.py",
+    "scripts/verify_qwenguard_memory_replay.py",
     "scripts/run_hazard_formation_gate.py",
     "scripts/run_swarm_mission_gate.py",
     "scripts/run_swarm_mission_suite.py",
@@ -92,6 +94,7 @@ required = [
     "docs/engineering/so101-trace-only-sensor-frame-adapter-2026-06-17.md",
     "docs/engineering/so101-operator-probe-pack-2026-06-17.md",
     "docs/engineering/qwenguard-trial-recorder-2026-06-29.md",
+    "docs/engineering/qwenguard-go2-memory-replay-2026-07-18.md",
     "docs/engineering/hazard-formation-gate-2026-06-16.md",
     "docs/engineering/hazard-formation-replay-pack-2026-06-16.md",
     "docs/engineering/bounded-qwen-mission-choice-2026-06-17.md",
@@ -106,6 +109,8 @@ required = [
     "docs/engineering/research-lab-setup-2026-06-14.md",
     "docs/engineering/no-claims.md",
     "docs/security/threat-model.md",
+    "fixtures/qwenguard_memory/manifest.json",
+    "fixtures/qwenguard_memory/observations.json",
 ]
 
 missing = [path for path in required if not Path(path).exists()]
@@ -190,6 +195,14 @@ rm -rf runs/physical/local_gate_qwenguard_trials
     --trial-trace-dir runs/physical/local_gate_qwenguard_trials/traces \
     --out runs/physical/local_gate_qwenguard_trials/trial_summary.json
 
+rm -rf runs/submission/local_gate_qwenguard_memory
+"$gate_tmp/venv/bin/run-qwenguard-memory-replay" \
+    --trace-out runs/submission/local_gate_qwenguard_memory/trace.json \
+    --report-out runs/submission/local_gate_qwenguard_memory/report.json
+"$gate_tmp/venv/bin/verify-qwenguard-memory-replay" \
+    --trace runs/submission/local_gate_qwenguard_memory/trace.json \
+    --report runs/submission/local_gate_qwenguard_memory/report.json
+
 "$gate_tmp/venv/bin/run-hazard-formation-gate" \
     --image fixtures/hazard_marker.ppm \
     --mode fixture \
@@ -240,6 +253,7 @@ report = {
         {"name": "healthz", "ok": True},
         {"name": "readyz", "ok": True},
         {"name": "camera-fixture", "ok": True},
+        {"name": "qwenguard-memory-fixture", "ok": True},
         {"name": "qwen-vl-fixture_model_qwen3-vl-flash", "ok": True},
         {"name": "swarm-demo", "ok": True},
         {"name": "swarm-demo_summary.json", "ok": True},
@@ -249,6 +263,7 @@ report = {
         "healthz": True,
         "readyz": True,
         "camera-fixture": True,
+        "qwenguard-memory-fixture": True,
         "qwen-vl-fixture_model_qwen3-vl-flash": True,
         "swarm-demo": True,
         "swarm-demo_summary.json": True,

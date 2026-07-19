@@ -46,6 +46,7 @@ class EcsOperatorPackCliTests(TestCase):
         self.assertIn(f"/blob/{COMMIT}/Dockerfile", manifest["code_file_links"]["dockerfile"])
         self.assertIn("runs/ecs/ecs_smoke_report.json", runbook)
         self.assertIn('"proof_mode":"ecs-public"', runbook)
+        self.assertIn("qwenguard-memory-fixture", runbook)
         self.assertIn("qwen-vl-fixture_model_qwen3-vl-flash", runbook)
         self.assertIn("ecs_metadata_public_ip_matches", runbook)
         self.assertIn("prepare_ecs_proof_review", runbook)

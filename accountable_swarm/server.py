@@ -14,6 +14,12 @@ from urllib.parse import parse_qs, unquote, urlparse
 from accountable_swarm.images import image_size
 from accountable_swarm.qwen.bbox import parse_qwen_bbox_response
 from accountable_swarm.qwen.client import DashScopeQwenClient, DashScopeResponseError, MissingAlibabaApiKey
+from accountable_swarm.qwenguard.memory import (
+    build_memory_replay_response,
+    build_qwenguard_memory_replay,
+    parse_memory_evidence_manifest_json,
+    parse_memory_fixture_json,
+)
 from accountable_swarm.swarm import (
     AgentConfig,
     GridPoint,
@@ -32,6 +38,8 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SWARM_DEMO_BUNDLE_DIR = REPO_ROOT / "runs/demo/swarm"
 DEFAULT_HAZARD_FORMATION_REPLAY_DIR = REPO_ROOT / "runs/hazard_formation/recording_x_replay"
 DEFAULT_WORLD_MODEL_DASHBOARD_DIR = REPO_ROOT / "runs/dashboard/recording_x"
+DEFAULT_QWENGUARD_MEMORY_FIXTURE = REPO_ROOT / "fixtures/qwenguard_memory/observations.json"
+DEFAULT_QWENGUARD_MEMORY_MANIFEST = REPO_ROOT / "fixtures/qwenguard_memory/manifest.json"
 SWARM_DEMO_BUILD_COMMAND = "python3 scripts/build_swarm_demo_bundle.py"
 HAZARD_FORMATION_BUILD_COMMAND = "python3 scripts/prepare_demo_recording_pack.py"
 WORLD_MODEL_DASHBOARD_BUILD_COMMAND = "python3 scripts/prepare_demo_recording_pack.py"
@@ -62,6 +70,9 @@ class AccountableSwarmHandler(BaseHTTPRequestHandler):
             return
         if parsed.path == "/camera-fixture":
             self._handle_camera_fixture()
+            return
+        if parsed.path == "/qwenguard-memory-fixture":
+            self._handle_qwenguard_memory_fixture()
             return
         if parsed.path == "/qwen-vl-fixture":
             query = parse_qs(parsed.query)
@@ -192,6 +203,15 @@ class AccountableSwarmHandler(BaseHTTPRequestHandler):
                 "decision": trace.events[0].decision,
             }
         )
+
+    def _handle_qwenguard_memory_fixture(self) -> None:
+        try:
+            self._send_json(_qwenguard_memory_fixture_response())
+        except (OSError, TypeError, ValueError):
+            self._send_json(
+                {"status": "failed", "error": "memory_fixture_unavailable"},
+                status=500,
+            )
 
     def _handle_qwen_ping(self, *, model: str) -> None:
         try:
@@ -373,6 +393,25 @@ class AccountableSwarmHandler(BaseHTTPRequestHandler):
                 shutil.copyfileobj(source, self.wfile)
         except OSError:
             return
+
+
+def _qwenguard_memory_fixture_response() -> dict[str, Any]:
+    fixture = parse_memory_fixture_json(DEFAULT_QWENGUARD_MEMORY_FIXTURE.read_text(encoding="utf-8"))
+    evidence_manifest = parse_memory_evidence_manifest_json(
+        DEFAULT_QWENGUARD_MEMORY_MANIFEST.read_text(encoding="utf-8"),
+        fixture=fixture,
+    )
+    trace = build_qwenguard_memory_replay(
+        run_id="qwenguard-memory-replay-0001",
+        memory_id="target-001",
+        baseline=fixture.baseline,
+        conflict=fixture.conflict,
+    )
+    return build_memory_replay_response(
+        fixture=fixture,
+        evidence_manifest=evidence_manifest,
+        trace=trace,
+    )
 
 
 def _interactive_replan_response(payload: dict[str, Any]) -> dict[str, Any]:
