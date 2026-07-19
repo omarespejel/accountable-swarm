@@ -73,6 +73,8 @@ _SECRET_PATTERN = re.compile(
 _WINDOWS_ABSOLUTE_PATH_PATTERN = re.compile(r"(?<![A-Za-z0-9])[A-Za-z]:[\\/]")
 _WINDOWS_UNC_PATH_PATTERN = re.compile(r"(?<![\\])\\\\[^\\/\s]+[\\/][^\\/\s]+")
 _POSIX_ABSOLUTE_PATH_PATTERN = re.compile(r"(?<![A-Za-z0-9:/])/(?!/)[^\s\"'<>]+")
+_POSIX_NETWORK_PATH_PATTERN = re.compile(r"(?<![:/])//[^/\s]+/[^\s\"'<>]+")
+_FILE_URI_PATTERN = re.compile(r"(?<![A-Za-z0-9])file:/+", re.IGNORECASE)
 _TILDE_HOME_PATH_PATTERN = re.compile(r"(?:^|[\s'\"(])~[\\/][^\s\"'<>]+")
 
 
@@ -760,6 +762,8 @@ def _reject_private_content(value: object, *, label: str) -> None:
             or _WINDOWS_ABSOLUTE_PATH_PATTERN.search(text)
             or _WINDOWS_UNC_PATH_PATTERN.search(text)
             or _POSIX_ABSOLUTE_PATH_PATTERN.search(text)
+            or _POSIX_NETWORK_PATH_PATTERN.search(text)
+            or _FILE_URI_PATTERN.search(text)
             or _TILDE_HOME_PATH_PATTERN.search(text)
             or re.search(r"[\\/]Users[\\/]", text, re.IGNORECASE)
         ):
