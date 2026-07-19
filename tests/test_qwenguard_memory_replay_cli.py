@@ -225,6 +225,21 @@ class QwenGuardMemoryReplayCliTests(TestCase):
         self.assertEqual(self.report_path.read_text(encoding="utf-8"), "old report\n")
         self.assertEqual(list(self.out_dir.glob(".*.tmp")), [])
 
+    def test_pair_publish_cleans_tempfile_when_fsync_fails(self) -> None:
+        with patch("scripts.run_qwenguard_memory_replay.os.fsync", side_effect=OSError("simulated fsync failure")):
+            with self.assertRaisesRegex(OSError, "simulated fsync failure"):
+                _write_pair_transactionally(
+                    first_path=self.trace_path,
+                    first_text="new trace\n",
+                    second_path=self.report_path,
+                    second_text="new report\n",
+                )
+
+        self.assertFalse(self.trace_path.exists())
+        self.assertFalse(self.report_path.exists())
+        self.assertEqual(list(self.out_dir.glob(".*.tmp")), [])
+        self.assertEqual(list(self.out_dir.glob(".*.backup")), [])
+
 
 def _run_cli(module: str, *args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
