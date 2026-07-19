@@ -193,6 +193,8 @@ class QwenGuardMemoryTests(TestCase):
             ("measurement_caveat", "/Users/operator/private/frame.png", "absolute or host-specific path"),
             ("measurement_caveat", "/tmp/capture/frame.png", "absolute or host-specific path"),
             ("measurement_caveat", "/var/lib/receipt.json", "absolute or host-specific path"),
+            ("measurement_caveat", "//host/share/frame.png", "absolute or host-specific path"),
+            ("measurement_caveat", "file:/var/lib/receipt.json", "absolute or host-specific path"),
             ("measurement_caveat", "~/capture/frame.png", "absolute or host-specific path"),
             ("measurement_caveat", r"C:\Users\operator\private\frame.png", "absolute or host-specific path"),
             ("measurement_caveat", r"\\workstation\capture\frame.png", "absolute or host-specific path"),
